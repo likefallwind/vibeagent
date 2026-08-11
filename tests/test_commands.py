@@ -939,6 +939,8 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(parse_local_command("/chat 你好"), LocalCommand(type="chat", argument="你好"))
         self.assertEqual(parse_local_command("/btw"), LocalCommand(type="btw"))
         self.assertEqual(parse_local_command("/btw what changed?"), LocalCommand(type="btw", argument="what changed?"))
+        self.assertEqual(parse_local_command("/recap"), LocalCommand(type="recap"))
+        self.assertEqual(parse_local_command("/recap extra"), LocalCommand(type="recap", argument="extra"))
         self.assertEqual(parse_local_command("/code"), LocalCommand(type="code"))
         self.assertEqual(parse_local_command("/code write a script"), LocalCommand(type="code", argument="write a script"))
         self.assertIsNone(parse_local_command("write a script"))

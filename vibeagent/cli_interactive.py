@@ -16,6 +16,12 @@ from .async_hook_runtime import (
 )
 from .btw import run_btw as default_run_btw
 from .chat import run_chat as default_run_chat
+from .session_recap import (
+    SessionRecapState,
+    attempt_automatic_session_recap,
+    automatic_session_recaps_enabled,
+    run_session_recap as default_run_session_recap,
+)
 from .directory_added_hooks import (
     collect_directory_added_turn_context,
     schedule_directory_added_hooks,
@@ -118,6 +124,7 @@ def run_interactive_loop(
     create_chat_client_func: Callable[..., object] = default_create_chat_client,
     run_chat_func: Callable[..., str] = default_run_chat,
     run_btw_func: Callable[..., str] = default_run_btw,
+    run_recap_func: Callable[..., str] = default_run_session_recap,
     run_agent_func: Callable[..., object] = default_run_agent,
     get_resume_context_func: Callable[..., tuple[str | None, str | None, str]] = default_get_resume_context,
     initial_resume_run_id: str | None = None,
@@ -163,6 +170,11 @@ def run_interactive_loop(
     workflow_manager: DynamicWorkflowManager | None = None
     workflow_client_lock = Lock()
     idle_notification = IdleNotificationTimer()
+    recap_enabled = automatic_session_recaps_enabled()
+    recap_states = {
+        "code": SessionRecapState(automatic_enabled=recap_enabled),
+        "chat": SessionRecapState(automatic_enabled=recap_enabled),
+    }
     file_changed_runtime = None
     config_change_runtime = None
     if initial_resume_run_id is not None:
@@ -251,6 +263,8 @@ def run_interactive_loop(
             if peer_runtime is not None:
                 peer_runtime.update_approval_policy(approval_policy)
         conversation_messages = list(getattr(result, "conversation", []))
+        if getattr(result, "success", False):
+            recap_states["code"].record_turn()
         if active_workspace is None:
             try:
                 transfer_session_name(Path.cwd(), source_run_id, result.run_id)
@@ -296,6 +310,27 @@ def run_interactive_loop(
                 print("Goal achieved.")
                 return
 
+    def reset_recap_state(selected_mode: Literal["code", "chat"]) -> None:
+        recap_states[selected_mode] = SessionRecapState(automatic_enabled=recap_enabled)
+
+    def maybe_generate_automatic_recap() -> None:
+        selected_mode: Literal["code", "chat"] = "code" if mode == "code" else "chat"
+        history = conversation_messages if selected_mode == "code" else chat_history
+        if not history or not recap_states[selected_mode].automatic_due():
+            return
+        recap = attempt_automatic_session_recap(
+            recap_states[selected_mode],
+            history=history,
+            provider_env=interactive_provider_env(Path.cwd(), model_override),
+            create_chat_client=create_chat_client_func,
+            run_recap=run_recap_func,
+            execution_config=resolve_execution_config(Path.cwd()),
+            system_prompt=system_prompt,
+            append_system_prompt=append_system_prompt,
+        )
+        if recap is not None:
+            print(f"\nSession recap: {recap}")
+
     def run_due_tasks_while_idle() -> None:
         try:
             if file_changed_runtime is not None:
@@ -332,6 +367,7 @@ def run_interactive_loop(
                     print("\nPeer session message received.")
                     run_code_task(task, metadata)
             if resume_run_id is None:
+                maybe_generate_automatic_recap()
                 return
             workspace = create_local_workspace(
                 Path.cwd(),
@@ -366,6 +402,7 @@ def run_interactive_loop(
                     },
                 )
             if not scheduled_tasks_enabled():
+                maybe_generate_automatic_recap()
                 return
             workspace = create_local_workspace(
                 Path.cwd(),
@@ -394,6 +431,7 @@ def run_interactive_loop(
                         "scheduledFor": scheduled.scheduled_for,
                     },
                 )
+            maybe_generate_automatic_recap()
         except KeyboardInterrupt:
             raise
         except Exception as error:
@@ -569,7 +607,7 @@ def run_interactive_loop(
                 peer_runtime.close()
             plugin_auto_updates.close()
             return 0
-        if command and command.type in {"model", "btw"}:
+        if command and command.type in {"model", "btw", "recap"}:
             update = run_interactive_provider_command(
                 command.type,
                 command.argument,
@@ -578,6 +616,7 @@ def run_interactive_loop(
                 current_client=client,
                 create_chat_client=create_chat_client_func,
                 run_btw=run_btw_func,
+                run_recap=run_recap_func,
                 history=conversation_messages if mode == "code" else chat_history,
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
@@ -588,6 +627,9 @@ def run_interactive_loop(
                 model_override = update.model_override
             else:
                 client = update.client
+            if command.type == "recap" and update.provider_succeeded:
+                recap_states[mode].record_attempt()
+                recap_states[mode].record_success()
             print(update.text)
             continue
         if command and (
@@ -650,6 +692,8 @@ def run_interactive_loop(
             resume_run_id = None
             resume_context = None
             conversation_messages.clear()
+            reset_recap_state("code")
+            reset_recap_state("chat")
             pending_workspace = None
             pending_branch_source_run_id = None
             print("Cleared chat history and resume context.")
@@ -823,6 +867,7 @@ def run_interactive_loop(
                 additional_directories = rewind.workspace.additional_roots
                 goal_state = None
                 conversation_messages.clear()
+                reset_recap_state("code")
             print(rewind.text)
             continue
         if command and (
@@ -870,6 +915,7 @@ def run_interactive_loop(
                 if restored_conversation is not None
                 else []
             )
+            reset_recap_state("code")
             pending_workspace = (
                 create_local_workspace(
                     Path.cwd(),
@@ -910,6 +956,7 @@ def run_interactive_loop(
             resume_context = branch.context
             restored_conversation = load_session_conversation(Path.cwd(), branch.source_run_id)
             conversation_messages = list(restored_conversation.messages)
+            reset_recap_state("code")
             restored_goal = read_session_goal(Path.cwd(), resume_run_id)
             goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
             print(branch.text)
@@ -954,6 +1001,7 @@ def run_interactive_loop(
                         ChatMessage(role="assistant", content=response),
                     ]
                 )
+                recap_states["chat"].record_turn()
                 print(f"\n{response}")
                 continue
 

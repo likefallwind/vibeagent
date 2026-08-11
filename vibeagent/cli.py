@@ -8,6 +8,7 @@ from pathlib import Path
 from .agent import run_agent
 from .btw import run_btw
 from .chat import run_chat
+from .session_recap import run_session_recap
 from .cli_args import has_local_flag, parse_args
 from .cli_config import resolve_project_root
 from .cli_exit_codes import (
@@ -249,6 +250,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         create_chat_client_func=create_chat_client,
         run_chat_func=run_chat,
         run_btw_func=run_btw,
+        run_recap_func=run_session_recap,
         run_agent_func=run_agent,
         get_resume_context_func=get_resume_context,
         initial_resume_run_id=context.run_id,

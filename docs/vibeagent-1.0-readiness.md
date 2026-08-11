@@ -111,6 +111,12 @@ The automated suite currently covers these 1.0 surfaces:
   rendered into a bounded read-only transcript with binary payloads omitted;
   the provider receives no tools, and neither the question nor answer mutates
   in-memory conversation history or persisted session state.
+- Manual and idle session recaps: `/recap` generates one bounded, tool-free
+  status line without changing conversation history; code and chat modes keep
+  separate eligibility state, and three completed turns followed by three idle
+  minutes trigger an unpersisted recap through a dedicated provider client.
+  Failed automatic attempts wait at least 60 seconds before retry, and
+  `VIBEAGENT_DISABLE_SESSION_RECAP=1` disables automatic delivery.
 - Interactive `/branch [name]` and resumed `--fork-session`, including immutable
   source events, independent first-turn workspaces, state inheritance, named
   resume, branch discovery, bounded lineage fallback, and malformed/cyclic

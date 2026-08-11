@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .cli_interactive_model import interactive_provider_env, resolve_interactive_model_selection
 from .config import resolve_execution_config
+from .session_recap import has_recap_history
 from .types import ChatMessage
 
 
@@ -15,6 +16,7 @@ class InteractiveProviderCommandResult:
     text: str
     model_override: str | None = None
     model_changed: bool = False
+    provider_succeeded: bool = False
 
 
 def run_interactive_provider_command(
@@ -26,6 +28,7 @@ def run_interactive_provider_command(
     current_client: object | None,
     create_chat_client: Callable[[dict[str, str | None]], object],
     run_btw: Callable[..., str],
+    run_recap: Callable[..., str],
     history: list[ChatMessage],
     system_prompt: str | None,
     append_system_prompt: str | None,
@@ -38,6 +41,18 @@ def run_interactive_provider_command(
             current_client=current_client,
             create_chat_client=create_chat_client,
         )
+    if command_type == "recap":
+        return run_interactive_recap_command(
+            argument,
+            current_client=current_client,
+            provider_env=interactive_provider_env(project_root, current_override),
+            create_chat_client=create_chat_client,
+            run_recap=run_recap,
+            history=history,
+            execution_config=resolve_execution_config(project_root),
+            system_prompt=system_prompt,
+            append_system_prompt=append_system_prompt,
+        )
     return run_interactive_btw_command(
         argument,
         current_client=current_client,
@@ -49,6 +64,51 @@ def run_interactive_provider_command(
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
     )
+
+
+def run_interactive_recap_command(
+    argument: str | None,
+    *,
+    current_client: object | None,
+    provider_env: dict[str, str | None],
+    create_chat_client: Callable[[dict[str, str | None]], object],
+    run_recap: Callable[..., str],
+    history: list[ChatMessage],
+    execution_config: object,
+    system_prompt: str | None,
+    append_system_prompt: str | None,
+) -> InteractiveProviderCommandResult:
+    if argument:
+        return InteractiveProviderCommandResult(
+            client=current_client,
+            text="Usage: /recap",
+        )
+    if not has_recap_history(history):
+        return InteractiveProviderCommandResult(
+            client=current_client,
+            text="No conversation is available to recap.",
+        )
+    client = current_client
+    try:
+        client = client or create_chat_client(provider_env)
+        response = run_recap(
+            client,
+            history=history,
+            max_output_tokens=execution_config.max_output_tokens,
+            model_retries=execution_config.model_retries,
+            model_retry_delay_ms=execution_config.model_retry_delay_ms,
+            model_timeout_ms=execution_config.model_timeout_ms,
+            system_prompt=system_prompt,
+            append_system_prompt=append_system_prompt,
+        )
+        return InteractiveProviderCommandResult(client=client, text=response, provider_succeeded=True)
+    except KeyboardInterrupt:
+        return InteractiveProviderCommandResult(client=client, text="Interrupted.")
+    except Exception as error:
+        return InteractiveProviderCommandResult(
+            client=client,
+            text=f"Recap error: {_error_text(error)}",
+        )
 
 
 def run_interactive_model_command(
@@ -141,4 +201,5 @@ __all__ = [
     "run_interactive_btw_command",
     "run_interactive_model_command",
     "run_interactive_provider_command",
+    "run_interactive_recap_command",
 ]
