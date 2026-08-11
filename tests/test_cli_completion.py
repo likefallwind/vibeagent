@@ -147,8 +147,8 @@ class CliCompletionTests(unittest.TestCase):
                 os.chdir(root)
                 with (
                     patch("vibeagent.cli_interactive.prompt_project_permission_trust", return_value=False),
-                    patch("vibeagent.cli_interactive.create_peer_runtime", return_value=None),
-                    patch("vibeagent.cli_interactive.PluginAutoUpdateRuntime", return_value=plugin_updates),
+                    patch("vibeagent.cli_interactive_project_runtime.create_peer_runtime", return_value=None),
+                    patch("vibeagent.cli_interactive_project_runtime.PluginAutoUpdateRuntime", return_value=plugin_updates),
                     patch("vibeagent.cli_interactive.input_with_idle_callback", return_value="/exit"),
                     patch(
                         "vibeagent.cli_interactive.interactive_prompt_completion",

@@ -416,8 +416,8 @@ class FileChangedHookRuntimeTests(unittest.TestCase):
                 os.chdir(root)
                 with (
                     patch("vibeagent.cli_interactive.prompt_project_permission_trust", return_value=False),
-                    patch("vibeagent.cli_interactive.create_peer_runtime", return_value=None),
-                    patch("vibeagent.cli_interactive.PluginAutoUpdateRuntime", return_value=updater),
+                    patch("vibeagent.cli_interactive_project_runtime.create_peer_runtime", return_value=None),
+                    patch("vibeagent.cli_interactive_project_runtime.PluginAutoUpdateRuntime", return_value=updater),
                     patch(
                         "vibeagent.cli_interactive.create_interactive_file_changed_runtime",
                         return_value=watcher,

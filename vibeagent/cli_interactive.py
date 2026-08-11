@@ -12,7 +12,6 @@ from .agent import run_agent as default_run_agent
 from .agent_runtime_utils import append_session_event
 from .async_hook_runtime import (
     async_hook_notifications_prompt,
-    close_session_async_hooks,
     collect_async_hook_notifications,
 )
 from .btw import run_btw as default_run_btw
@@ -59,6 +58,7 @@ from .cli_session_local_flags import run_interactive_resume_command, run_interac
 from .cli_system_prompt_state import update_system_prompt_state
 from .cli_additional_directory_state import update_additional_directory_state
 from .cli_interactive_cd import resolve_interactive_directory_change
+from .cli_interactive_project_runtime import InteractiveProjectRuntime
 from .cli_interactive_branch import prepare_interactive_branch_switch
 from .cli_interactive_model import interactive_provider_env
 from .cli_interactive_effort import configure_interactive_effort
@@ -89,13 +89,11 @@ from .scheduled_task_store import collect_due_scheduled_tasks, scheduled_tasks_e
 from .session_usage import summarize_run_usage
 from .session_names import transfer_session_name
 from .agent_peer_notifications import peer_messages_as_task
-from .peer_runtime import create_peer_runtime
 from .peer_commands import get_peer_sessions_text
 from .peer_inbox_commands import handle_peer_inbox_command
 from .plugin_commands import handle_plugin_command, reload_plugins_text
 from .mcp_commands import handle_mcp_command
 from .plugin_auto_update import (
-    PluginAutoUpdateRuntime,
     format_plugin_auto_update_notification,
 )
 from .dynamic_workflow_agent import background_workflow_approval_handler, execute_workflow_agent_request
@@ -105,7 +103,6 @@ from .workspace_core import create_local_workspace, create_run_workspace, normal
 from .monitor_runtime import (
     collect_monitor_notifications,
     monitor_notifications_prompt,
-    stop_session_monitors,
 )
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import read_project_permissions
@@ -162,15 +159,14 @@ def run_interactive_loop(
     mode = "code"
     approval_policy: ApprovalPolicy = "ask"
     approval_handler = build_approval_handler(approval_policy)
-    peer_runtime = create_peer_runtime(Path.cwd(), approval_policy)
-    plugin_auto_updates = PluginAutoUpdateRuntime(Path.cwd())
-    plugin_auto_updates.start()
+    project_runtime = InteractiveProjectRuntime(
+        Path.cwd(),
+        approval_policy,
+        initial_session_id=initial_resume_run_id,
+    )
     chat_history: list[ChatMessage] = []
     conversation_messages: list[ChatMessage] = list(initial_conversation_messages)
     resume_run_id: str | None = initial_resume_run_id
-    owned_monitor_session_ids = {
-        initial_resume_run_id
-    } if initial_resume_run_id is not None else set()
     resume_context: str | None = initial_resume_context
     system_prompt = initial_system_prompt
     append_system_prompt = initial_append_system_prompt
@@ -178,7 +174,6 @@ def run_interactive_loop(
     pending_workspace = initial_pending_workspace
     pending_branch_source_run_id = initial_branch_source_run_id
     goal_state: GoalState | None = None
-    workflow_manager: DynamicWorkflowManager | None = None
     workflow_client_lock = Lock()
     idle_notification = IdleNotificationTimer()
     recap_enabled = automatic_session_recaps_enabled()
@@ -265,7 +260,7 @@ def run_interactive_loop(
                         )
                     ),
                     workspace=active_workspace,
-                    peer_runtime=peer_runtime,
+                    peer_runtime=project_runtime.peer,
                     agent=initial_agent,
                     dynamic_agent_profiles=initial_dynamic_agent_profiles,
                     additional_directories=additional_directories,
@@ -296,8 +291,7 @@ def run_interactive_loop(
         ):
             approval_policy = result_approval_policy
             approval_handler = build_approval_handler(approval_policy)
-            if peer_runtime is not None:
-                peer_runtime.update_approval_policy(approval_policy)
+            project_runtime.update_approval_policy(approval_policy)
         conversation_messages = list(getattr(result, "conversation", []))
         if getattr(result, "success", False):
             recap_states["code"].record_turn()
@@ -311,7 +305,7 @@ def run_interactive_loop(
             result.run_id,
             additional_roots=additional_directories,
         )
-        owned_monitor_session_ids.add(result.run_id)
+        project_runtime.register_session(result.run_id)
         pending_branch_source_run_id = None
         selected, next_context, _ = get_resume_context_func(result.run_id)
         if next_context:
@@ -394,10 +388,10 @@ def run_interactive_loop(
                 )
                 for message in notification.system_messages:
                     print(f"\n{message}")
-            for notification in plugin_auto_updates.collect_notifications():
+            for notification in project_runtime.collect_plugin_notifications():
                 print(f"\n{format_plugin_auto_update_notification(notification)}")
-            if peer_runtime is not None:
-                peer_task = peer_messages_as_task(peer_runtime)
+            if project_runtime.peer is not None:
+                peer_task = peer_messages_as_task(project_runtime.peer)
                 if peer_task is not None:
                     task, metadata = peer_task
                     print("\nPeer session message received.")
@@ -474,9 +468,9 @@ def run_interactive_loop(
             print(f"\nIdle task error: {format_error(error)}")
 
     def get_workflow_manager() -> DynamicWorkflowManager:
-        nonlocal client, resume_run_id, workflow_manager
-        if workflow_manager is not None:
-            return workflow_manager
+        nonlocal client, resume_run_id
+        if project_runtime.workflow is not None:
+            return project_runtime.workflow
         workspace = pending_workspace or (
             create_local_workspace(
                 Path.cwd(),
@@ -513,19 +507,9 @@ def run_interactive_loop(
                 cancel_requested=cancel_requested,
             )
 
-        workflow_manager = DynamicWorkflowManager(workspace, execute_agent)
-        return workflow_manager
-
-    def stop_owned_background_runtime() -> None:
-        for session_id in owned_monitor_session_ids:
-            stop_session_monitors(Path.cwd(), session_id)
-            close_session_async_hooks(
-                create_local_workspace(
-                    Path.cwd(),
-                    session_id,
-                    additional_roots=additional_directories,
-                )
-            )
+        return project_runtime.set_workflow(
+            DynamicWorkflowManager(workspace, execute_agent)
+        )
 
     def run_active_session_hook(
         event: Literal["session_end", "pre_compact", "post_compact"],
@@ -587,12 +571,7 @@ def run_interactive_loop(
         except (EOFError, KeyboardInterrupt):
             print()
             run_active_session_hook("session_end", "prompt_input_exit")
-            stop_owned_background_runtime()
-            if workflow_manager is not None:
-                workflow_manager.close()
-            if peer_runtime is not None:
-                peer_runtime.close()
-            plugin_auto_updates.close()
+            project_runtime.close(additional_directories)
             return 0
 
         if not task:
@@ -636,12 +615,7 @@ def run_interactive_loop(
                 task = str(custom_command["prompt"])
         if command and command.type == "exit":
             run_active_session_hook("session_end", "prompt_input_exit")
-            stop_owned_background_runtime()
-            if workflow_manager is not None:
-                workflow_manager.close()
-            if peer_runtime is not None:
-                peer_runtime.close()
-            plugin_auto_updates.close()
+            project_runtime.close(additional_directories)
             return 0
         if command and command.type in {"model", "effort", "btw", "recap"}:
             update = run_interactive_provider_command(
@@ -766,23 +740,20 @@ def run_interactive_loop(
             continue
         if command and command.type == "plugin":
             plugin_result = handle_plugin_command(Path.cwd(), command.argument)
-            if plugin_result.changed and workflow_manager is not None:
-                workflow_manager.close()
-                workflow_manager = None
+            if plugin_result.changed:
+                project_runtime.close_workflow()
             if plugin_result.changed:
                 from .lsp_runtime import close_project_lsp
 
                 close_project_lsp(Path.cwd())
-                plugin_auto_updates.start()
+                project_runtime.start_plugin_updates()
             print(plugin_result.text)
             continue
         if command and command.type == "mcp":
             print(handle_mcp_command(Path.cwd(), command.argument).text)
             continue
         if command and command.type == "reload_plugins":
-            if workflow_manager is not None:
-                workflow_manager.close()
-                workflow_manager = None
+            project_runtime.close_workflow()
             from .lsp_runtime import close_project_lsp
 
             close_project_lsp(Path.cwd())
@@ -792,7 +763,7 @@ def run_interactive_loop(
             print(get_peer_sessions_text())
             continue
         if command and command.type == "peer_inbox":
-            print(handle_peer_inbox_command(peer_runtime, command.argument))
+            print(handle_peer_inbox_command(project_runtime.peer, command.argument))
             continue
         if command and command.type == "system_prompt":
             system_prompt, text = update_system_prompt_state(system_prompt, command.argument, label="System prompt")
@@ -826,9 +797,7 @@ def run_interactive_loop(
                         resume_run_id,
                         additional_roots=additional_directories,
                     )
-                if workflow_manager is not None:
-                    workflow_manager.close()
-                    workflow_manager = None
+                project_runtime.close_workflow()
                 try:
                     record_session_additional_directories(
                         Path.cwd(),
@@ -890,24 +859,16 @@ def run_interactive_loop(
 
             source_run_id = resume_run_id
             run_active_session_hook("session_end", "other")
-            stop_owned_background_runtime()
-            owned_monitor_session_ids.clear()
-            if workflow_manager is not None:
-                workflow_manager.close()
-                workflow_manager = None
-            if peer_runtime is not None:
-                peer_runtime.close()
-            plugin_auto_updates.close()
-            from .lsp_runtime import close_project_lsp
-
-            close_project_lsp(Path.cwd())
+            project_runtime.close(additional_directories, close_lsp=True)
             try:
                 os.chdir(target)
             except OSError as error:
                 print(f"Cannot change project directory: {format_error(error)}")
-                peer_runtime = create_peer_runtime(Path.cwd(), approval_policy)
-                plugin_auto_updates = PluginAutoUpdateRuntime(Path.cwd())
-                plugin_auto_updates.start()
+                project_runtime = InteractiveProjectRuntime(
+                    Path.cwd(),
+                    approval_policy,
+                    initial_session_id=source_run_id,
+                )
                 continue
 
             project_permissions_trusted = target_permissions_trusted
@@ -915,11 +876,12 @@ def run_interactive_loop(
             pending_workspace = target_workspace
             pending_branch_source_run_id = source_run_id
             resume_run_id = target_workspace.run_id
-            owned_monitor_session_ids.add(target_workspace.run_id)
             client = None
-            peer_runtime = create_peer_runtime(target, approval_policy)
-            plugin_auto_updates = PluginAutoUpdateRuntime(target)
-            plugin_auto_updates.start()
+            project_runtime = InteractiveProjectRuntime(
+                target,
+                approval_policy,
+                initial_session_id=target_workspace.run_id,
+            )
             file_changed_runtime = None
             config_change_runtime = None
             try:
@@ -940,8 +902,7 @@ def run_interactive_loop(
             approval_policy, text = handle_approval_command(command.argument, approval_policy)
             if approval_policy != previous_policy:
                 approval_handler = build_approval_handler(approval_policy)
-                if peer_runtime is not None:
-                    peer_runtime.update_approval_policy(approval_policy)
+                project_runtime.update_approval_policy(approval_policy)
             print(text)
             continue
         if command and (
@@ -968,9 +929,7 @@ def run_interactive_loop(
             )
         ) is not None:
             if rewind.workspace is not None and rewind.context is not None:
-                if workflow_manager is not None:
-                    workflow_manager.close()
-                    workflow_manager = None
+                project_runtime.close_workflow()
                 pending_workspace = rewind.workspace
                 pending_branch_source_run_id = None
                 resume_run_id = rewind.workspace.run_id
@@ -1009,9 +968,7 @@ def run_interactive_loop(
             except ValueError as error:
                 print(f"Resume error: {format_error(error)}")
                 continue
-            if workflow_manager is not None:
-                workflow_manager.close()
-                workflow_manager = None
+            project_runtime.close_workflow()
             if command.type == "resume" and selected != resume_run_id:
                 run_active_session_hook("session_end", "resume")
             resume_run_id = selected
@@ -1057,9 +1014,7 @@ def run_interactive_loop(
             if branch.error is not None or branch.workspace is None or branch.source_run_id is None:
                 print(f"Branch error: {branch.error or 'branch state is incomplete.'}")
                 continue
-            if workflow_manager is not None:
-                workflow_manager.close()
-                workflow_manager = None
+            project_runtime.close_workflow()
             run_active_session_hook("session_end", "resume")
             pending_workspace = branch.workspace
             pending_branch_source_run_id = branch.source_run_id
