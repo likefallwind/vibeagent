@@ -1615,7 +1615,8 @@ hook map directly or under `hooks`:
 Supported lifecycle events are `SessionStart`, `SessionEnd`, `PreCompact`,
 `PostCompact`, `CwdChanged`, `InstructionsLoaded`, `UserPromptSubmit`,
 `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
-`SubagentStart`, `SubagentStop`, `TaskCreated`, and `TaskCompleted`. Tool-event
+`SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`,
+`WorktreeCreate`, and `WorktreeRemove`. Tool-event
 matchers apply to the model tool name, parsed VibeAgent action type, and
 Claude-compatible aliases.
 `SessionStart` matches `startup` or `resume`; `InstructionsLoaded` matches
@@ -1640,6 +1641,15 @@ subagent, and teammate task transitions. Their input includes `task_id`,
 atomic task store. JSON `{"continue": false, "stopReason": "..."}` also blocks
 the transition and halts the active turn. Failed or malformed handlers remain
 non-blocking.
+
+`WorktreeCreate` and `WorktreeRemove` ignore matchers and support command or
+HTTP handlers. A configured create handler replaces the default Git worktree
+backend for `--worktree` and isolated subagents and must return an existing,
+symlink-free directory path. Command handlers print the path as their last
+non-empty stdout line; HTTP handlers return `hookSpecificOutput.worktreePath`.
+Create failures stop isolation before a model call. Remove handlers receive the
+absolute `worktree_path`; failures preserve the directory and remain visible in
+the isolation outcome.
 
 `PreCompact` and `PostCompact` match `manual` or `auto`. Automatic main-agent
 context reduction emits both events around a successful compact operation;

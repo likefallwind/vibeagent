@@ -28,6 +28,12 @@ def parse_hook_handler(
     if not isinstance(payload, dict):
         raise ValueError(f"{source} hook handlers must be objects.")
     handler_type = payload.get("type")
+    if event in {"WorktreeCreate", "WorktreeRemove"} and handler_type not in {"command", "http"}:
+        raise ValueError(f"{source} {event} hooks support only command or http handlers.")
+    if event in {"WorktreeCreate", "WorktreeRemove"} and (
+        "async" in payload or "asyncRewake" in payload
+    ):
+        raise ValueError(f"{source} {event} hooks do not support async or asyncRewake.")
     if handler_type == "command":
         return _parse_command_hook(event, matcher, payload, source)
     if handler_type == "http":

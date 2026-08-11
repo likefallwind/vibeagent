@@ -47,6 +47,7 @@ from .subagent_worktrees import (
     finalize_subagent_worktree,
     prepare_subagent_worktree,
 )
+from .worktree_hooks import WorktreeHookContext
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -180,6 +181,10 @@ def execute_delegate_task_action(
                 delegate_workspace,
                 subagent_id,
                 resume_transcript.worktree if resume_transcript is not None else None,
+                WorktreeHookContext(
+                    hooks, permissions, approval_policy, approval_handler,
+                    command_timeout_ms, logger,
+                ),
             )
             delegate_workspace = worktree_runtime.workspace
         except SubagentWorktreeError as error:
@@ -246,7 +251,10 @@ def execute_delegate_task_action(
         )
         lifecycle.start(messages)
     except Exception as error:
-        worktree_outcome = _finalize_delegate_worktree(workspace, subagent_id, worktree_runtime)
+        worktree_outcome = _finalize_delegate_worktree(
+            workspace, subagent_id, worktree_runtime,
+            WorktreeHookContext(hooks, permissions, approval_policy, approval_handler, command_timeout_ms, logger),
+        )
         result = finish_delegate_task(
             delegate_workspace,
             action,
@@ -366,7 +374,10 @@ def execute_delegate_task_action(
             logger=logger,
         )
     finally:
-        worktree_outcome = _finalize_delegate_worktree(workspace, subagent_id, worktree_runtime)
+        worktree_outcome = _finalize_delegate_worktree(
+            workspace, subagent_id, worktree_runtime,
+            WorktreeHookContext(hooks, permissions, approval_policy, approval_handler, command_timeout_ms, logger),
+        )
     if worktree_outcome is not None:
         result = _attach_worktree_outcome(result, worktree_outcome)
     result = replace(
@@ -383,10 +394,11 @@ def _finalize_delegate_worktree(
     workspace: RunWorkspace,
     subagent_id: str,
     runtime: SubagentWorktreeRuntime | None,
+    hook_context: WorktreeHookContext | None = None,
 ) -> SubagentWorktreeOutcome | None:
     if runtime is None:
         return None
-    outcome = finalize_subagent_worktree(workspace, runtime)
+    outcome = finalize_subagent_worktree(workspace, runtime, hook_context)
     append_session_event(
         workspace.session_dir,
         "subagent_worktree_finalized",

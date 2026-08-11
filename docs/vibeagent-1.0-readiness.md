@@ -173,6 +173,11 @@ The automated suite currently covers these 1.0 surfaces:
   can block main-agent, subagent, and teammate task transitions before the
   atomic task store changes. Exit-code-2 feedback continues the model while
   `continue: false` halts the active turn.
+- Claude-compatible worktree lifecycle hooks: command and HTTP
+  `WorktreeCreate` handlers replace the default Git backend for CLI and
+  subagent isolation and return a validated directory; `WorktreeRemove`
+  handlers receive the same absolute path during cleanup. Missing, failed, or
+  unsafe create paths fail before model execution.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

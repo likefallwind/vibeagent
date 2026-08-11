@@ -133,6 +133,10 @@ from .cli_parse_run import (
 from .cli_command_namespace import *  # re-export command helpers for local flag dispatch and tests
 from .cli_input_format import TaskInputFormatError
 from .providers import create_chat_client
+from .worktree_hooks import WorktreeHookContext
+from .workspace_hooks import read_project_hooks
+from .workspace_permissions import ProjectPermissions
+from .workspace_core import RunWorkspace
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -145,7 +149,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.worktree is not None:
             try:
                 source_root = resolve_project_root(args.cwd) or Path.cwd()
-                worktree = create_cli_worktree(source_root, args.worktree or None)
+                startup_workspace = RunWorkspace(
+                    root=source_root,
+                    run_id="cli-worktree",
+                    session_dir=source_root / ".vibeagent" / "sessions" / "cli-worktree",
+                )
+                startup_policy = args.approval or "ask"
+                worktree = create_cli_worktree(
+                    source_root,
+                    args.worktree or None,
+                    hook_context=WorktreeHookContext(
+                        read_project_hooks(startup_workspace),
+                        ProjectPermissions(),
+                        startup_policy,
+                        build_approval_handler(startup_policy),
+                        30_000,
+                    ),
+                )
             except ValueError as error:
                 return print_error_result(str(error), args.json, exit_code=2, output_format=args.output_format)
             args.cwd = str(worktree.root)

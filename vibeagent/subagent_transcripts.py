@@ -32,6 +32,7 @@ class SubagentWorktreeRecord:
     branch: str
     base_commit: str
     preserved: bool = True
+    provider: Literal["git", "hook"] = "git"
 
 
 @dataclass(frozen=True)
@@ -128,6 +129,7 @@ def complete_subagent_transcript(
             current.worktree.branch,
             current.worktree.base_commit,
             result.worktree_preserved,
+            current.worktree.provider,
         )
         if current.worktree is not None
         else None
@@ -325,7 +327,10 @@ def _parse_worktree(value: object) -> SubagentWorktreeRecord | None:
     preserved = value.get("preserved", True)
     if not isinstance(preserved, bool):
         raise SubagentTranscriptError("Malformed subagent worktree metadata.")
-    return SubagentWorktreeRecord(*fields, preserved)  # type: ignore[arg-type]
+    provider = value.get("provider", "git")
+    if provider not in {"git", "hook"}:
+        raise SubagentTranscriptError("Malformed subagent worktree metadata.")
+    return SubagentWorktreeRecord(*fields, preserved, provider)  # type: ignore[arg-type]
 
 
 def _parse_message(value: object) -> ChatMessage:

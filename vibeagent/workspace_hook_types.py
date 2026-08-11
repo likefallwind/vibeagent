@@ -21,6 +21,8 @@ HookEvent = Literal[
     "TaskCompleted",
     "TaskCreated",
     "UserPromptSubmit",
+    "WorktreeCreate",
+    "WorktreeRemove",
 ]
 HOOK_EVENTS = frozenset(
     {
@@ -40,6 +42,8 @@ HOOK_EVENTS = frozenset(
         "TaskCompleted",
         "TaskCreated",
         "UserPromptSubmit",
+        "WorktreeCreate",
+        "WorktreeRemove",
     }
 )
 SEQUENTIAL_TOOL_HOOK_EVENTS = frozenset(
@@ -54,6 +58,8 @@ SEQUENTIAL_TOOL_HOOK_EVENTS = frozenset(
         "PreToolUse",
         "TaskCompleted",
         "TaskCreated",
+        "WorktreeCreate",
+        "WorktreeRemove",
     }
 )
 PROMPT_HOOK_EVENTS = frozenset(

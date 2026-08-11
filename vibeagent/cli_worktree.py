@@ -3,10 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+from uuid import uuid4
 
 from .config import SECRET_PROJECT_CONFIG_KEYS, project_config_path, read_project_config
 from .workspace_core import RunWorkspace
 from .workspace_git_worktree_ops import enter_git_worktree
+from .worktree_hooks import WorktreeHookContext, run_worktree_create_hook
 
 
 @dataclass(frozen=True)
@@ -17,7 +19,12 @@ class CliWorktree:
     name: str
 
 
-def create_cli_worktree(project_root: str | Path, name: str | None = None) -> CliWorktree:
+def create_cli_worktree(
+    project_root: str | Path,
+    name: str | None = None,
+    *,
+    hook_context: WorktreeHookContext | None = None,
+) -> CliWorktree:
     source_root = Path(project_root).expanduser().resolve()
     if not source_root.is_dir():
         raise ValueError(f"Project directory not found: {project_root}")
@@ -27,7 +34,18 @@ def create_cli_worktree(project_root: str | Path, name: str | None = None) -> Cl
         run_id="cli-worktree",
         session_dir=source_root / ".vibeagent" / "sessions" / "cli-worktree",
     )
-    result = enter_git_worktree(workspace, name=name or None)
+    selected_name = name or f"agent-{uuid4().hex[:10]}"
+    hooked = run_worktree_create_hook(workspace, selected_name, hook_context)
+    if hooked.configured:
+        if hooked.error is not None or hooked.path is None:
+            raise ValueError(hooked.error or "WorktreeCreate hook failed.")
+        result = {
+            "ok": True,
+            "path": str(hooked.path),
+            "branch": f"hook/{selected_name}",
+        }
+    else:
+        result = enter_git_worktree(workspace, name=selected_name)
     if not result["ok"]:
         raise ValueError(str(result["message"]))
     root = Path(str(result["path"])).resolve()
@@ -37,7 +55,7 @@ def create_cli_worktree(project_root: str | Path, name: str | None = None) -> Cl
         raise ValueError(
             f"Created worktree {root}, but could not write its safe project config: {error}"
         ) from error
-    resolved_name = str(result["branch"]).removeprefix("vibeagent/")
+    resolved_name = str(result["branch"]).split("/", 1)[-1]
     return CliWorktree(
         source_root=source_root,
         root=root,

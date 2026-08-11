@@ -203,7 +203,10 @@ def _parse_hook_events(payload: dict[str, object], source: str) -> list[ProjectH
                 )
             matcher = (
                 ".*"
-                if event_name in {"CwdChanged", "TaskCreated", "TaskCompleted"}
+                if event_name in {
+                    "CwdChanged", "TaskCreated", "TaskCompleted",
+                    "WorktreeCreate", "WorktreeRemove",
+                }
                 else group.get("matcher", ".*")
             )
             if not isinstance(matcher, str) or len(matcher) > MAX_HOOK_MATCHER_CHARS:

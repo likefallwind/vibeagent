@@ -8,6 +8,7 @@ from .subagent_transcripts import SubagentWorktreeRecord
 from .workspace_core import RunWorkspace
 from .workspace_git_utils import combine_git_output, run_git_mutation, run_readonly_git
 from .workspace_git_worktree_ops import enter_git_worktree
+from .worktree_hooks import WorktreeHookContext, run_worktree_create_hook, run_worktree_remove_hooks
 
 
 class SubagentWorktreeError(ValueError):
@@ -32,7 +33,24 @@ def prepare_subagent_worktree(
     workspace: RunWorkspace,
     subagent_id: str,
     prior: SubagentWorktreeRecord | None = None,
+    hook_context: WorktreeHookContext | None = None,
 ) -> SubagentWorktreeRuntime:
+    if prior is not None and prior.provider == "hook":
+        project_path = Path(prior.project_path)
+        if project_path.is_symlink() or not project_path.is_dir():
+            raise SubagentWorktreeError("Stored hook-created worktree is missing or unsafe.")
+        return SubagentWorktreeRuntime(replace(workspace, root=project_path.resolve()), prior)
+    worktree_name = _worktree_name()
+    if prior is None:
+        hooked = run_worktree_create_hook(workspace, worktree_name, hook_context)
+        if hooked.configured:
+            if hooked.error is not None or hooked.path is None:
+                raise SubagentWorktreeError(hooked.error or "WorktreeCreate hook failed.")
+            record = SubagentWorktreeRecord(
+                project_path=str(hooked.path), worktree_path=str(hooked.path),
+                branch=f"hook/{worktree_name}", base_commit="hook", provider="hook",
+            )
+            return SubagentWorktreeRuntime(replace(workspace, root=hooked.path), record)
     main_top, storage_root = _storage_context(workspace)
     entered: dict[str, object]
     if prior is not None and Path(prior.worktree_path).is_dir():
@@ -50,7 +68,6 @@ def prepare_subagent_worktree(
         base = run_readonly_git(workspace.root, ["rev-parse", "HEAD"])
         if not base.ok or not base.stdout.strip():
             raise SubagentWorktreeError(combine_git_output(base) or "Could not resolve the worktree base commit.")
-        worktree_name = _worktree_name()
         entered = enter_git_worktree(workspace, name=worktree_name)
         if not entered["ok"]:
             raise SubagentWorktreeError(str(entered["message"]))
@@ -89,8 +106,20 @@ def prepare_subagent_worktree(
 def finalize_subagent_worktree(
     parent_workspace: RunWorkspace,
     runtime: SubagentWorktreeRuntime,
+    hook_context: WorktreeHookContext | None = None,
 ) -> SubagentWorktreeOutcome:
     record = runtime.record
+    if record.provider == "hook":
+        results = run_worktree_remove_hooks(
+            parent_workspace, record.worktree_path, hook_context
+        )
+        failed = [result.message for result in results if not result.ok]
+        if failed:
+            return _preserved(record, f"WorktreeRemove hook failed: {'; '.join(failed)}")
+        return SubagentWorktreeOutcome(
+            record.project_path, record.branch, Path(record.worktree_path).exists(),
+            "WorktreeRemove hooks completed.",
+        )
     try:
         main_top, storage_root = _storage_context(parent_workspace)
     except SubagentWorktreeError as error:
