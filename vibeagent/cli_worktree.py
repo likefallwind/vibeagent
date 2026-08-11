@@ -7,7 +7,10 @@ from uuid import uuid4
 
 from .config import SECRET_PROJECT_CONFIG_KEYS, project_config_path, read_project_config
 from .workspace_core import RunWorkspace
+from .workspace_git_utils import run_readonly_git
 from .workspace_git_worktree_ops import enter_git_worktree
+from .worktree_cleanup import remove_created_worktree
+from .worktree_include import copy_worktree_includes
 from .worktree_hooks import WorktreeHookContext, run_worktree_create_hook
 
 
@@ -50,10 +53,14 @@ def create_cli_worktree(
         raise ValueError(str(result["message"]))
     root = Path(str(result["path"])).resolve()
     try:
+        if not hooked.configured:
+            copy_worktree_includes(source_root, root)
         _write_safe_project_config(root, safe_config)
-    except OSError as error:
+    except (OSError, ValueError) as error:
+        if not hooked.configured and bool(result.get("created")):
+            _remove_failed_cli_worktree(source_root, root, str(result["branch"]))
         raise ValueError(
-            f"Created worktree {root}, but could not write its safe project config: {error}"
+            f"Created worktree {root}, but could not finish its setup: {error}"
         ) from error
     resolved_name = str(result["branch"]).split("/", 1)[-1]
     return CliWorktree(
@@ -84,3 +91,14 @@ def _write_safe_project_config(target_root: Path, config: dict[str, object]) -> 
     target = project_config_path(target_root)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(config, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _remove_failed_cli_worktree(
+    source_root: Path,
+    target_root: Path,
+    branch: str,
+) -> None:
+    top = run_readonly_git(target_root, ["rev-parse", "--show-toplevel"])
+    if not top.ok or not top.stdout.strip():
+        return
+    remove_created_worktree(source_root, Path(top.stdout.strip()), branch)

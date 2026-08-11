@@ -292,10 +292,17 @@ session in `.vibeagent/worktrees/NAME` on branch `vibeagent/NAME`, leaving the
 source checkout unchanged and preserving the isolated checkout after exit.
 Omit `NAME` before `--` to generate one automatically. Non-secret project
 defaults are copied into the linked checkout, while API keys remain environment
-or command-line configuration. Worktree launch cannot be combined with chat,
+or command-line configuration. A repository-root `.worktreeinclude` uses Git
+ignore syntax to copy matching files only when they are also untracked and
+Git-ignored. It applies to CLI and subagent Git worktrees, evaluates patterns
+with Git itself, excludes `.git`, `.vibeagent`, and worktree-storage runtime
+paths, refuses symlinks and overwrites, and validates 1,000-file, 16 MiB
+per-file, and 64 MiB total limits before copying anything. Custom
+`WorktreeCreate` hooks own their setup and do not process `.worktreeinclude`.
+Worktree launch cannot be combined with chat,
 local inspection commands, resume, continue, or compact modes.
 `--permission-mode` maps to `--approval`, accepting both VibeAgent values
-(`ask`, `allow`, `deny`, `dontAsk`, `plan`) and Claude-style values (`default` -> `ask`,
+(`ask`, `allow`, `auto`, `deny`, `dontAsk`, `plan`) and Claude-style values (`default` -> `ask`,
 `acceptEdits` -> `ask` plus automatic `Write`, `Edit`, `MultiEdit`, and `NotebookEdit` allow rules,
 `bypassPermissions` -> `allow`). `dontAsk` never opens an approval prompt: read-only
 actions and trusted explicit allow rules can run, while every other action that
@@ -1740,7 +1747,9 @@ symlink-free directory path. Command handlers print the path as their last
 non-empty stdout line; HTTP handlers return `hookSpecificOutput.worktreePath`.
 Create failures stop isolation before a model call. Remove handlers receive the
 absolute `worktree_path`; failures preserve the directory and remain visible in
-the isolation outcome.
+the isolation outcome. Because create handlers replace Git setup, they also own
+copying any local ignored files; `.worktreeinclude` runs only for the built-in
+Git backend.
 
 `PreCompact` and `PostCompact` match `manual` or `auto`. Automatic main-agent
 context reduction emits both events around a successful compact operation;

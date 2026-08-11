@@ -14,7 +14,11 @@ from vibeagent.agent_approval import build_approval_request
 from vibeagent.agent_delegate import execute_delegate_task_action
 from vibeagent.background_delegate_runtime import start_background_delegate_task
 from vibeagent.subagent_transcripts import SubagentWorktreeRecord, read_subagent_transcript
-from vibeagent.subagent_worktrees import SubagentWorktreeError, prepare_subagent_worktree
+from vibeagent.subagent_worktrees import (
+    SubagentWorktreeError,
+    finalize_subagent_worktree,
+    prepare_subagent_worktree,
+)
 from vibeagent.types import ApprovalDecision, AssistantResponse, ContentBlock
 from vibeagent.workspace import create_run_workspace
 from vibeagent.dynamic_agent_profiles import parse_dynamic_agent_profiles
@@ -72,6 +76,24 @@ def _execute(workspace, action, client, *, subagent_id="delegate-1-1", resume=No
 
 
 class SubagentWorktreeIsolationTests(unittest.TestCase):
+    def test_subagent_worktree_copies_gitignored_worktree_include_files(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-isolated-agent-") as base:
+            root = Path(base)
+            _repository(root)
+            root.joinpath(".gitignore").write_text(".env\n.vibeagent/\n", encoding="utf-8")
+            root.joinpath(".worktreeinclude").write_text(".env\n", encoding="utf-8")
+            _git(root, "add", ".gitignore", ".worktreeinclude")
+            _git(root, "commit", "-qm", "configure worktree include")
+            root.joinpath(".env").write_text("SUBAGENT_LOCAL=1\n", encoding="utf-8")
+            workspace = create_run_workspace(root, run_id="include-isolation")
+
+            runtime = prepare_subagent_worktree(workspace, "delegate-1-1")
+            copied = runtime.workspace.root.joinpath(".env").read_text(encoding="utf-8")
+            outcome = finalize_subagent_worktree(workspace, runtime)
+
+        self.assertEqual(copied, "SUBAGENT_LOCAL=1\n")
+        self.assertFalse(outcome.preserved)
+
     def test_parser_schema_and_approval_contract(self) -> None:
         action = parse_tool_action(
             "Agent",

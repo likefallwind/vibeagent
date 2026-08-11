@@ -79,6 +79,51 @@ class CliWorktreeTests(unittest.TestCase):
         self.assertEqual(copied["max_iterations"], 12)
         self.assertNotIn("ANTHROPIC_API_KEY", copied)
 
+    def test_helper_copies_gitignored_worktree_include_files(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-worktree-") as base:
+            root = Path(base)
+            init_git_repo(root)
+            root.joinpath(".gitignore").write_text(".env\n.vibeagent/\n", encoding="utf-8")
+            root.joinpath(".worktreeinclude").write_text(".env\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "add", ".gitignore", ".worktreeinclude"],
+                cwd=root,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-qm", "configure worktree include"],
+                cwd=root,
+                check=True,
+            )
+            root.joinpath(".env").write_text("LOCAL_ONLY=1\n", encoding="utf-8")
+
+            created = create_cli_worktree(root, "with-env")
+
+            self.assertEqual(
+                created.root.joinpath(".env").read_text(encoding="utf-8"),
+                "LOCAL_ONLY=1\n",
+            )
+
+    def test_invalid_worktree_include_removes_created_worktree_and_branch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-worktree-") as base:
+            root = Path(base)
+            init_git_repo(root)
+            root.joinpath("include.txt").write_text(".env\n", encoding="utf-8")
+            root.joinpath(".worktreeinclude").symlink_to("include.txt")
+
+            with self.assertRaisesRegex(ValueError, "regular non-symlink"):
+                create_cli_worktree(root, "bad-include")
+
+            self.assertFalse(root.joinpath(".vibeagent", "worktrees", "bad-include").exists())
+            branches = subprocess.run(
+                ["git", "branch", "--format=%(refname:short)"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.splitlines()
+            self.assertNotIn("vibeagent/bad-include", branches)
+
     def test_invalid_config_fails_before_creating_worktree(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-worktree-") as base:
             root = Path(base)
