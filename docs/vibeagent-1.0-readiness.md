@@ -72,6 +72,10 @@ The automated suite currently covers these 1.0 surfaces:
   cleanup reviewers, independent candidate verification, strict separation from
   correctness review, bounded local targets, a behavior-preserving edit contract,
   focused checks, and final review.
+- Interactive `/batch` expansion: bounded required instructions, clean
+  Git/origin preflight contract, 5-30 disjoint work units, explicit plan approval,
+  background worktree isolation, per-unit checks/commit/push/PR requirements, and
+  one-shot refusal before provider creation.
 - Main-session shell cwd persistence: Bash, native PowerShell, and interactive
   shell commands carry a validated working directory across turns and resume;
   background Bash starts there, subagents stay isolated, outside paths reset,

@@ -18,6 +18,8 @@ def parse_review_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("code_review", trimmed[12:].strip() or None)
     if trimmed == "/simplify" or trimmed.startswith("/simplify "):
         return make_local_command("simplify", trimmed[10:].strip() or None)
+    if trimmed == "/batch" or trimmed.startswith("/batch "):
+        return make_local_command("batch", trimmed[7:].strip() or None)
     if trimmed == "/handoff" or trimmed.startswith("/handoff "):
         return make_local_command("handoff", trimmed[9:].strip() or None)
     if trimmed == "/changes" or trimmed.startswith("/changes "):

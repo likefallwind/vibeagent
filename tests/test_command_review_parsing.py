@@ -20,6 +20,9 @@ class CommandReviewParsingTests(unittest.TestCase):
             ),
             "/simplify": LocalCommand(type="simplify"),
             "/simplify vibeagent/cli.py": LocalCommand(type="simplify", argument="vibeagent/cli.py"),
+            "/batch migrate src to async IO": LocalCommand(
+                type="batch", argument="migrate src to async IO"
+            ),
             "/handoff": LocalCommand(type="handoff"),
             "/handoff --max-files 1 --max-checks 2": LocalCommand(type="handoff", argument="--max-files 1 --max-checks 2"),
             "/changes": LocalCommand(type="changes"),

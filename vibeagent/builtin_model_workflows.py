@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import shlex
 
+from .builtin_batch_workflow import build_batch_workflow, parse_batch_instruction
+from .builtin_workflow_types import BuiltinModelWorkflow
 from .command_types import LocalCommand
 from .review_profiles import CLEANUP_REVIEW_PERSPECTIVES, DEFECT_REVIEW_PERSPECTIVES
 
@@ -17,19 +18,21 @@ CODE_REVIEW_EFFORT_TURNS = {
 }
 
 
-@dataclass(frozen=True)
-class BuiltinModelWorkflow:
-    task: str
-    metadata: dict[str, object]
-
-
-def resolve_builtin_model_workflow(command: LocalCommand | None) -> BuiltinModelWorkflow | None:
+def resolve_builtin_model_workflow(
+    command: LocalCommand | None,
+    *,
+    interactive: bool = True,
+) -> BuiltinModelWorkflow | None:
     if command is None:
         return None
     if command.type == "code_review":
         return build_code_review_workflow(command.argument)
     if command.type == "simplify":
         return build_simplify_workflow(command.argument)
+    if command.type == "batch":
+        if not interactive:
+            raise ValueError("/batch requires an interactive session so the execution plan can be approved.")
+        return build_batch_workflow(command.argument)
     return None
 
 
@@ -161,9 +164,11 @@ def parse_simplify_arguments(argument: str | None) -> str | None:
 __all__ = [
     "BuiltinModelWorkflow",
     "CODE_REVIEW_EFFORT_TURNS",
+    "build_batch_workflow",
     "build_code_review_workflow",
     "build_simplify_workflow",
     "parse_code_review_arguments",
+    "parse_batch_instruction",
     "parse_simplify_arguments",
     "resolve_builtin_model_workflow",
 ]

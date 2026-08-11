@@ -8,7 +8,7 @@ from .workspace_prompt_commands import expand_project_prompt_command
 
 
 def expand_one_shot_project_command(project_root: Path, task: str) -> tuple[str, dict[str, object] | None]:
-    builtin = resolve_builtin_model_workflow(parse_local_command(task))
+    builtin = resolve_builtin_model_workflow(parse_local_command(task), interactive=False)
     if builtin is not None:
         return builtin.task, builtin.metadata
     expanded = expand_code_task_project_command(project_root, task)

@@ -1334,6 +1334,17 @@ delete themselves after delivery. Unexpired schedules are atomically stored in
 Scheduled prompts are task direction only and cannot grant tool approval.
 Set `VIBEAGENT_DISABLE_CRON=1` or `CLAUDE_CODE_DISABLE_CRON=1` to hide the cron
 tools and stop delivery.
+Interactive `/batch <instruction>` researches a large repository change, splits
+it into 5 to 30 genuinely independent units with non-overlapping path ownership
+and acceptance checks, and shows the complete plan before any side effect. On
+explicit approval it starts one background code subagent per unit in an isolated
+Git worktree, collects every result, and requires each successful unit to check,
+commit, push, and open a pull request. The parent checkout is never used to hide
+or replace a failed unit. Batch mode requires a clean Git repository with an
+`origin` remote and is rejected in one-shot/print mode because that surface
+cannot approve or revise the plan. Approving the unit plan authorizes only the
+orchestration decision; normal file, command, Git, network, push, and PR
+approvals remain in force for every subagent.
 Dynamic workflows let a project-local JavaScript file orchestrate existing
 subagents with `await agent(task, options)` and bounded fan-out with
 `await pipeline(items, worker, {concurrency})`. Agent options accept `context`,

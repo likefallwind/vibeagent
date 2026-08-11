@@ -9,8 +9,10 @@ from unittest.mock import Mock, patch
 
 from vibeagent.agent import AgentResult
 from vibeagent.builtin_model_workflows import (
+    build_batch_workflow,
     build_code_review_workflow,
     build_simplify_workflow,
+    parse_batch_instruction,
     parse_code_review_arguments,
     parse_simplify_arguments,
 )
@@ -98,6 +100,39 @@ class BuiltinModelWorkflowTests(unittest.TestCase):
         self.assertEqual(metadata["source"], "builtin_command")
         self.assertEqual(metadata["name"], "simplify")
 
+    def test_builds_interactive_batch_orchestration_contract(self) -> None:
+        workflow = build_batch_workflow('migrate "src"\nto async IO')
+
+        self.assertIn('User batch instruction: "migrate \\"src\\"\\nto async IO"', workflow.task)
+        self.assertIn("5 to 30 genuinely independent", workflow.task)
+        self.assertIn("exact non-overlapping owned paths", workflow.task)
+        self.assertIn("Approve and launch, Revise plan, and Cancel", workflow.task)
+        self.assertIn("Do not edit files", workflow.task)
+        self.assertIn("does not change the active approval policy", workflow.task)
+        self.assertIn("mode=code and isolation=worktree", workflow.task)
+        self.assertIn("Start all units before waiting", workflow.task)
+        self.assertIn("check_github_pr_create then github_pr_create", workflow.task)
+        self.assertIn("Use tool_search first", workflow.task)
+        self.assertIn("Collect every agent with TaskOutput", workflow.task)
+        self.assertEqual(workflow.metadata["name"], "batch")
+        self.assertTrue(workflow.metadata["interactive_only"])
+
+    def test_batch_instruction_is_required_and_bounded(self) -> None:
+        self.assertEqual(parse_batch_instruction("  migrate src  "), "migrate src")
+        for argument, message in (
+            (None, "requires"),
+            ("   ", "requires"),
+            ("x" * 4001, "4000"),
+            ("bad\x00task", "NUL"),
+        ):
+            with self.subTest(argument=argument), self.assertRaisesRegex(ValueError, message):
+                parse_batch_instruction(argument)
+
+    def test_one_shot_batch_is_rejected_before_execution(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-batch-") as base:
+            with self.assertRaisesRegex(ValueError, "interactive session"):
+                expand_one_shot_project_command(Path(base), "/batch migrate src")
+
     def test_non_workflow_builtin_remains_unexpanded(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-code-review-") as base:
             task, metadata = expand_one_shot_project_command(Path(base), "/help")
@@ -156,6 +191,53 @@ class BuiltinModelWorkflowTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn('"review_kind": "cleanup"', run_agent.call_args.args[0])
         self.assertEqual(run_agent.call_args.kwargs["task_metadata"]["name"], "simplify")
+
+    def test_interactive_batch_runs_as_code_workflow_with_metadata(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-batch-") as base:
+            root = Path(base)
+            result = AgentResult(True, "batch launched", root, "batch-run", 1, [], [])
+            run_agent = Mock(return_value=result)
+            with (
+                patch("builtins.input", side_effect=["/batch migrate src to async IO", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", str(root)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("5 to 30 genuinely independent", run_agent.call_args.args[0])
+        self.assertEqual(run_agent.call_args.kwargs["task_metadata"]["name"], "batch")
+
+    def test_interactive_batch_requires_instruction_before_agent_run(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-batch-") as base:
+            run_agent = Mock()
+            stdout = io.StringIO()
+            with (
+                patch("builtins.input", side_effect=["/batch", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base])
+
+        self.assertEqual(exit_code, 0)
+        run_agent.assert_not_called()
+        self.assertIn("requires an implementation instruction", stdout.getvalue())
+
+    def test_print_mode_batch_fails_before_provider_creation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-batch-") as base:
+            create_client = Mock()
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", create_client),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, "--print", "/batch migrate src"])
+
+        self.assertNotEqual(exit_code, 0)
+        create_client.assert_not_called()
+        self.assertIn("interactive session", stdout.getvalue())
 
     def test_invalid_print_mode_simplify_fails_before_provider_creation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-simplify-") as base:
