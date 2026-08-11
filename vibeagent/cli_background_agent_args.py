@@ -13,6 +13,11 @@ def add_background_agent_local_arguments(
         help="List project-local background coding agents and exit.",
     )
     local.add_argument(
+        "--agent-view",
+        action="store_true",
+        help="Open the interactive full-screen background agent dashboard.",
+    )
+    local.add_argument(
         "--background-agent-log",
         metavar="ID",
         help="Show bounded stdout and stderr for one background coding agent and exit.",
@@ -65,6 +70,8 @@ def add_background_agent_option_arguments(parser: argparse.ArgumentParser, *, po
 
 def normalize_background_agent_command_arguments(argv: Sequence[str]) -> list[str]:
     values = list(argv)
+    if values and values[0] == "agents":
+        return ["--agent-view", *values[1:]]
     if len(values) >= 2 and values[0] == "attach":
         return ["--attach-background-agent", values[1], *values[2:]]
     return values

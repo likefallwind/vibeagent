@@ -38,6 +38,7 @@ from .cli_output import (
 )
 from .cli_checkpoint_local_flags import run_checkpoint_local_flag
 from .cli_background_agent_local_flags import run_background_agent_local_flag
+from .cli_agent_view import run_agent_view_from_cli
 from .cli_background_agent_attach import attach_background_agent_from_cli
 from .cli_background_agent_launch import launch_background_agent_from_cli
 from .cli_background_agent_followup import (
@@ -169,6 +170,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.background:
             try:
                 return launch_background_agent_from_cli(list(argv), args)
+            except (OSError, ValueError) as error:
+                return print_error_result(
+                    format_error(error),
+                    args.json,
+                    exit_code=2,
+                    output_format=args.output_format,
+                )
+        if args.agent_view:
+            try:
+                return run_agent_view_from_cli(
+                    args,
+                    run_interactive_func=run_interactive_with_args,
+                )
+            except KeyboardInterrupt:
+                return print_interrupted_result(args.json, args.output_format)
             except (OSError, ValueError) as error:
                 return print_error_result(
                     format_error(error),

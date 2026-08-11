@@ -175,6 +175,8 @@ EXPECTED_GATES = {
             "test_send_queues_running_agent_and_respawns_completed_agent",
             "test_attach_waits_for_worker_then_exposes_attached_status",
             "test_cli_attach_routes_to_interactive_resume_in_recorded_worktree",
+            "test_controller_drives_peek_reply_respawn_stop_and_remove",
+            "test_controller_dispatches_and_returns_selected_attach",
         },
     },
     "VA1-GOAL": {

@@ -23,6 +23,11 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--background requires session persistence."
     if args.background and args.api_key is not None:
         return "--background does not persist --api-key; configure the provider key in the environment."
+    if args.agent_view:
+        if args.task:
+            return "agents/--agent-view cannot be combined with a task."
+        if args.json or args.output_format != "text":
+            return "agents/--agent-view requires interactive text output."
     if args.attach_background_agent is not None:
         if args.task:
             return "--attach-background-agent cannot be combined with a task."

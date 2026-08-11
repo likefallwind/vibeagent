@@ -218,6 +218,7 @@ python -m vibeagent -p --output-format json --json-schema '{"type":"object","pro
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format stream-json --include-partial-messages --cwd ../my-project "run the release checks"
 python -m vibeagent --bg --approval auto --cwd ../my-project "run the tests and fix failures"
+python -m vibeagent agents --cwd ../my-project
 python -m vibeagent --background-agents --cwd ../my-project
 python -m vibeagent --background-agent-log <agent-id> --cwd ../my-project
 python -m vibeagent --stop-background-agent <agent-id> --cwd ../my-project
@@ -262,7 +263,14 @@ commands to the attached terminal. Exiting releases the lease but preserves the
 supervisor entry and transcript. Removal preserves the normal session transcript, so a
 generated name such as `background-<agent-id>` remains resumable. This is
 autonomous background execution with reply, respawn, and safe terminal attach;
-it is not a full-screen multi-agent dashboard.
+`agents` opens a full-screen project dashboard without adding a terminal UI
+dependency. It auto-refreshes grouped `Needs attention`, `Working`, `Stopped`,
+and `Completed` sessions; arrow keys select a row, Space peeks at bounded recent
+output, Enter attaches, and single-key actions dispatch, reply, stop, respawn,
+or confirm removal. The dashboard uses an alternate screen and restores the
+original terminal on normal exit, interruption, prompts, and attach. It is
+project-scoped; machine-global aggregation across unrelated repositories is not
+part of the 1.0 dashboard.
 
 Background sessions cannot answer approval prompts because their stdin is
 closed; use an explicit non-interactive approval policy or trusted project
@@ -2332,6 +2340,10 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   `vibeagent/cli_background_agent_attach.py`: persist process-bound foreground
   leases, coordinate safe worker handoff at a turn boundary, and resume the
   recorded session/worktree through the normal interactive CLI.
+- `vibeagent/agent_view_render.py`, `vibeagent/agent_view_terminal.py`,
+  `vibeagent/agent_view.py`, and `vibeagent/cli_agent_view.py`: implement the
+  dependency-free full-screen project dashboard, responsive bounded layout,
+  Unix/Windows key input, dispatch/reply/lifecycle actions, and attach handoff.
 - `vibeagent/background_agent_runtime.py` and
   `vibeagent/background_agent_worker.py`: launch or respawn a detached copy of
   the normal one-shot CLI, consume private payloads, continue the same session
