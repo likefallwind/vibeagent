@@ -93,6 +93,14 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
             "--replay-user-messages requires --print with --input-format stream-json, "
             "--output-format stream-json, task '-', and coding mode."
         )
+    if args.forward_subagent_text and (
+        not args.print_mode
+        or args.output_format != "stream-json"
+        or not args.task
+        or args.chat
+        or has_local_flag(args)
+    ):
+        return "--forward-subagent-text requires a one-shot coding task with --print and --output-format stream-json."
     if args.append_subagent_system_prompt is not None and not args.append_subagent_system_prompt.strip():
         return "--append-subagent-system-prompt cannot be empty."
     if args.append_subagent_system_prompt is not None and (

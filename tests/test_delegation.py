@@ -883,6 +883,7 @@ class DelegationTests(unittest.TestCase):
                 model_timeout_ms=10_000,
                 command_timeout_ms=10_000,
                 logger=None,
+                parent_tool_use_id="parent-delegate-tool",
             )
             events = [
                 json.loads(line)
@@ -898,7 +899,9 @@ class DelegationTests(unittest.TestCase):
         starts = [event for event in events if event["type"] == "subagent_started"]
         self.assertEqual(len(starts), 2)
         self.assertEqual(starts[1]["depth"], 2)
+        self.assertEqual(starts[0]["parent_tool_use_id"], "parent-delegate-tool")
         self.assertEqual(starts[1]["parent_subagent_id"], "delegate-1-1")
+        self.assertEqual(starts[1]["parent_tool_use_id"], "nested-1")
 
     def test_subagent_at_depth_limit_hides_and_rejects_delegation(self) -> None:
         client = DelegationClient(

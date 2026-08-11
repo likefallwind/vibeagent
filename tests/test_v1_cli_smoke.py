@@ -732,17 +732,18 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("ready", events_text)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add after background probe")
 
-    def test_v1_cli_json_can_delegate_read_only_investigation_before_repair_and_commit(self) -> None:
+    def test_v1_cli_stream_json_can_forward_subagent_text_before_repair_and_commit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-delegate-smoke-") as base:
             root = Path(base)
             init_broken_calculator_repo(root)
             client = DogfoodClient(delegated_dogfood_responses())
-            exit_code, payload = _run_json_cli(
+            exit_code, records = _run_stream_json_cli(
                 client,
                 [
                     "--print",
                     "--output-format",
-                    "json",
+                    "stream-json",
+                    "--forward-subagent-text",
                     "--append-subagent-system-prompt",
                     "CITE_EXACT_PATHS_WITH_EVIDENCE",
                     "--approval",
@@ -754,8 +755,15 @@ class V1CliSmokeTests(unittest.TestCase):
                     "Delegate the initial investigation, then fix the calculator test failure and commit.",
                 ],
             )
+            payload = records[-1]
             events = _session_events(root, payload["runId"])
             events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            forwarded = [
+                record
+                for record in records
+                if record.get("type") in {"assistant", "user"}
+                and record.get("subagent_id") is not None
+            ]
             first_subagent_prompt = str(client.messages[1][0].content)
             commit_state = _calculator_commit_state(root)
 
@@ -764,6 +772,13 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("CITE_EXACT_PATHS_WITH_EVIDENCE", first_subagent_prompt)
         self.assertNotIn("CITE_EXACT_PATHS_WITH_EVIDENCE", events_text)
         self.assertIn('"subagent_system_prompt_appended": true', events_text)
+        self.assertEqual([record["type"] for record in forwarded], ["user", "user", "assistant"])
+        self.assertTrue(all(record["parent_tool_use_id"] == "delegate-1" for record in forwarded))
+        self.assertEqual(
+            [record["message"]["content"][0]["tool_use_id"] for record in forwarded[:2]],
+            ["read-1", "read-2"],
+        )
+        self.assertIn("calc.py subtracts", forwarded[2]["message"]["content"][0]["text"])
         self.assertIn('"name": "Task"', events_text)
         self.assertIn('"kind": "delegate_task"', events_text)
         self.assertIn('"type": "subagent_tool_call"', events_text)

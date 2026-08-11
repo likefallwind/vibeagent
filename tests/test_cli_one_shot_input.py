@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import tempfile
 from pathlib import Path
 import unittest
@@ -371,6 +372,23 @@ class CliOneShotInputTests(unittest.TestCase):
 
         self.assertEqual(kwargs["system_prompt"], "You are a release engineer.")
         self.assertEqual(kwargs["append_system_prompt"], "Prefer focused tests.")
+
+    def test_build_one_shot_kwargs_includes_subagent_forwarding(self) -> None:
+        args = cli_module.parse_args(
+            ["-p", "--output-format", "stream-json", "--forward-subagent-text", "inspect"]
+        )
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertTrue(kwargs["forward_subagent_text"])
+
+    def test_build_one_shot_kwargs_honors_claude_subagent_forwarding_environment(self) -> None:
+        args = cli_module.parse_args(["-p", "--output-format", "stream-json", "inspect"])
+
+        with patch.dict(os.environ, {"CLAUDE_CODE_FORWARD_SUBAGENT_TEXT": "true"}):
+            kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertTrue(kwargs["forward_subagent_text"])
 
     def test_build_one_shot_kwargs_includes_subagent_system_prompt(self) -> None:
         args = cli_module.parse_args(

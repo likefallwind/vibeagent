@@ -51,6 +51,28 @@ class JsonEventStream:
             }
         )
 
+    def subagent_message(
+        self,
+        session_dir: Path,
+        *,
+        role: str,
+        content: list[dict[str, object]],
+        subagent_id: str,
+        parent_tool_use_id: str,
+    ) -> None:
+        self.emit(
+            {
+                "type": role,
+                "runId": session_dir.name,
+                "sessionId": session_dir.name,
+                "session_id": session_dir.name,
+                "subagentId": subagent_id,
+                "subagent_id": subagent_id,
+                "parent_tool_use_id": parent_tool_use_id,
+                "message": {"role": role, "content": content},
+            }
+        )
+
     def model_stream_event(
         self,
         session_dir: Path,

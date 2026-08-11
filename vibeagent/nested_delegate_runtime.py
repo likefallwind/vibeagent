@@ -23,7 +23,16 @@ from .workspace_core import RunWorkspace
 MAX_SUBAGENT_DEPTH = 3
 
 NestedDelegateExecutor = Callable[
-    [DelegateTaskAction, str, int, str, int, Callable[[], bool] | None, Callable[[bool], list[str]] | None],
+    [
+        DelegateTaskAction,
+        str,
+        int,
+        str,
+        int,
+        str | None,
+        Callable[[], bool] | None,
+        Callable[[bool], list[str]] | None,
+    ],
     Observation,
 ]
 
@@ -46,7 +55,12 @@ class NestedDelegateRuntime:
     def coordination_tool_names(self) -> frozenset[str]:
         return TEAM_COORDINATION_TOOL_NAMES if self.team_member_name is not None else frozenset()
 
-    def execute(self, action: object, child_iteration: int) -> Observation | None:
+    def execute(
+        self,
+        action: object,
+        child_iteration: int,
+        parent_tool_use_id: str | None = None,
+    ) -> Observation | None:
         if self.team_member_name is not None:
             coordinated = execute_teammate_coordination_action(
                 self.workspace,
@@ -100,6 +114,7 @@ class NestedDelegateRuntime:
                     child_depth,
                     self.subagent_id,
                     child_iteration,
+                    parent_tool_use_id,
                     _combined_cancel(self.cancel_requested, child_cancelled),
                     inbound,
                 ),
@@ -113,6 +128,7 @@ class NestedDelegateRuntime:
             child_depth,
             self.subagent_id,
             child_iteration,
+            parent_tool_use_id,
             self.cancel_requested,
             None,
         )

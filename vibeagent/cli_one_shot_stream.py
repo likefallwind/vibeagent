@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .cli_stream_output import JsonEventStream
+from .cli_subagent_forwarding import SubagentStreamForwarder
 from .session_event_observers import observe_session_events
 from .workspace_core import RunWorkspace, create_run_workspace
 
@@ -25,6 +26,7 @@ def build_one_shot_stream_scope(
     additional_roots: tuple[Path, ...] = (),
     force_workspace: bool = False,
     workspace: RunWorkspace | None = None,
+    forward_subagent_text: bool = False,
     create_workspace_func: Callable[..., RunWorkspace] = create_run_workspace,
     observe_events_func: Callable[..., AbstractContextManager[None]] = observe_session_events,
 ) -> OneShotStreamScope:
@@ -39,7 +41,14 @@ def build_one_shot_stream_scope(
         workspace_kwargs["additional_roots"] = additional_roots
     workspace = workspace or create_workspace_func(project_root, **workspace_kwargs)
     event_scope = (
-        observe_events_func(workspace.session_dir, stream.session_event)
+        observe_events_func(
+            workspace.session_dir,
+            (
+                SubagentStreamForwarder(stream, enabled=True)
+                if forward_subagent_text
+                else stream.session_event
+            ),
+        )
         if stream is not None
         else nullcontext()
     )

@@ -380,6 +380,7 @@ python -m vibeagent -p --output-format json --fallback-model backup-model --cwd 
 python -m vibeagent -p --output-format json --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format stream-json --include-partial-messages --cwd ../my-project "run the release checks"
+python -m vibeagent -p --output-format stream-json --forward-subagent-text --cwd ../my-project "delegate the investigation"
 python -m vibeagent --bg --approval auto --cwd ../my-project "run the tests and fix failures"
 python -m vibeagent agents --cwd ../my-project
 python -m vibeagent --background-agents --cwd ../my-project
@@ -777,6 +778,13 @@ environment. `stream-json` requires a one-shot task and is not accepted for the
 interactive prompt or standalone local command flags. Partial messages require
 print mode and stream-JSON output. User-message replay additionally requires
 stream-JSON stdin, task `-`, and coding mode.
+`--forward-subagent-text` requires print mode, stream-JSON output, and a
+one-shot coding task. It emits sanitized subagent text and thinking as linked
+assistant records, and subagent tool results as linked user records, immediately
+after their source events. Every forwarded record includes the subagent ID and
+the exact parent `Task`, `Agent`, or `SendMessage` tool-use ID; tool-call blocks
+and tool inputs are not forwarded. Set `CLAUDE_CODE_FORWARD_SUBAGENT_TEXT=1`
+to enable the same behavior for compatible invocations.
 `--allowed-tools`/`--allowedTools` and `--disallowed-tools`/`--disallowedTools`
 add Claude-style permission rules for one coding task without editing project
 settings. Allowed CLI rules are trusted for that run and can skip side-effect

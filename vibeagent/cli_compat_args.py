@@ -91,6 +91,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Replay normalized stream-json user input records on stdout before agent events.",
     )
     parser.add_argument(
+        "--forward-subagent-text",
+        action="store_true",
+        help="Forward subagent text and tool results as linked stream-json messages.",
+    )
+    parser.add_argument(
         "--append-subagent-system-prompt",
         metavar="PROMPT",
         help="Append invocation-scoped instructions to every direct and nested subagent (print mode only).",

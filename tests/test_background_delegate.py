@@ -292,6 +292,7 @@ class BackgroundDelegateTests(unittest.TestCase):
                 resumed_client,
                 iteration=2,
                 tool_name="SendMessage",
+                tool_use_id="resume-tool-2",
             ).observation
             self.assertTrue(resumed_client.started.wait(1))
             resumed_client.release.set()
@@ -299,7 +300,16 @@ class BackgroundDelegateTests(unittest.TestCase):
                 workspace,
                 TaskOutputAction(type="task_output", task_id=first.task_id or "", block=True, timeout_ms=2_000),
             )
+            starts = [
+                event
+                for event in (
+                    json.loads(line)
+                    for line in (workspace.session_dir / "events.jsonl").read_text().splitlines()
+                )
+                if event.get("type") == "subagent_started"
+            ]
 
+        self.assertEqual(starts[-1]["parent_tool_use_id"], "resume-tool-2")
         self.assertEqual(resumed.task_id, "delegate-1-1")
         self.assertTrue(resumed.background)
         self.assertTrue(resumed.running)
@@ -550,6 +560,7 @@ class BackgroundDelegateTests(unittest.TestCase):
         iteration=1,
         tool_name="Task",
         approval_handler=None,
+        tool_use_id=None,
     ):
         return execute_special_tool_action(
             workspace,
@@ -571,6 +582,7 @@ class BackgroundDelegateTests(unittest.TestCase):
             hooks=ProjectHooks(),
             permissions=ProjectPermissions(),
             execute_action_safely_func=_unexpected_execute_action_safely,
+            tool_use_id=tool_use_id,
         )
 
 

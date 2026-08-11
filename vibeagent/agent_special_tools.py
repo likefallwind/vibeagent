@@ -102,6 +102,7 @@ def execute_special_tool_action(
             hooks=hooks,
             permissions=permissions,
             tool_ceiling_names=tool_ceiling_names,
+            parent_tool_use_id=tool_use_id,
         ),
         permissions,
         build_default_approval_request=build_approval_request,
@@ -139,6 +140,7 @@ def _execute_special_tool(
     hooks: ProjectHooks,
     permissions: ProjectPermissions,
     tool_ceiling_names: frozenset[str] | None,
+    parent_tool_use_id: str | None,
 ) -> Observation:
     if isinstance(action, AskUserAction):
         return execute_user_input_action(
@@ -213,6 +215,7 @@ def _execute_special_tool(
                     depth=transcript.depth,
                     parent_subagent_id=transcript.parent_id,
                     tool_ceiling_names=tool_ceiling_names,
+                    parent_tool_use_id=parent_tool_use_id,
                 ),
                 task_id=action.to,
                 resumed=True,
@@ -294,6 +297,7 @@ def _execute_special_tool(
                 cancel_requested=cancel_requested,
                 inbound_messages=inbound_messages,
                 tool_ceiling_names=tool_ceiling_names,
+                parent_tool_use_id=parent_tool_use_id,
             ),
             task_id=action.teammate_name,
         )
@@ -317,6 +321,7 @@ def _execute_special_tool(
             hooks=hooks,
             permissions=permissions,
             tool_ceiling_names=tool_ceiling_names,
+            parent_tool_use_id=parent_tool_use_id,
         )
     complete_task_step(workspace, step, delegate_observation, iteration, logger)
     return delegate_observation

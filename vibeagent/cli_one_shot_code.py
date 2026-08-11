@@ -70,6 +70,7 @@ def run_one_shot_code(
     max_budget_usd: Decimal | None = None,
     fallback_model: str | None = None,
     include_partial_messages: bool = False,
+    forward_subagent_text: bool = False,
     replay_user_messages: bool = False,
     input_user_messages: tuple[str, ...] = (),
     effort: str | None = None,
@@ -186,6 +187,7 @@ def run_one_shot_code(
         additional_roots=additional_directories,
         force_workspace=fork_session or session_name is not None or ephemeral_workspace is not None,
         workspace=resumed_workspace,
+        forward_subagent_text=forward_subagent_text,
     )
     if replay_user_messages:
         if stream is None or stream_scope.workspace is None:

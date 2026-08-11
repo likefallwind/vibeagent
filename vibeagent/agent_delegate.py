@@ -94,6 +94,7 @@ def execute_delegate_task_action(
     parent_subagent_id: str | None = None,
     tool_ceiling_names: frozenset[str] | None = None,
     additional_system_prompt: str | None = None,
+    parent_tool_use_id: str | None = None,
 ) -> DelegateTaskObservation:
     profile = load_delegate_profile_runtime(workspace, action)
     profile_error = profile.error
@@ -158,6 +159,7 @@ def execute_delegate_task_action(
         logger,
         depth,
         parent_subagent_id,
+        parent_tool_use_id,
     )
     policy_error = _delegate_policy_error(
         delegate_workspace,
@@ -319,7 +321,7 @@ def execute_delegate_task_action(
         mode=action.mode,
         team_member_name=action.teammate_name,
         cancel_requested=cancel_requested,
-        execute_child=lambda child_action, child_id, child_depth, parent_id, child_parent_iteration, child_cancel, child_inbound: execute_delegate_task_action(
+        execute_child=lambda child_action, child_id, child_depth, parent_id, child_parent_iteration, child_parent_tool_use_id, child_cancel, child_inbound: execute_delegate_task_action(
             delegate_workspace,
             child_action,
             client,
@@ -339,6 +341,7 @@ def execute_delegate_task_action(
             inbound_messages=child_inbound,
             depth=child_depth,
             parent_subagent_id=parent_id,
+            parent_tool_use_id=child_parent_tool_use_id,
             tool_ceiling_names=tool_ceiling_names,
         ),
     )
@@ -488,6 +491,7 @@ def _record_delegate_start(
     logger: AgentLogger | None,
     depth: int,
     parent_subagent_id: str | None,
+    parent_tool_use_id: str | None,
 ) -> None:
     append_session_event(
         workspace.session_dir,
@@ -509,6 +513,7 @@ def _record_delegate_start(
             "approval_policy": approval_policy,
             "depth": depth,
             "parent_subagent_id": parent_subagent_id,
+            "parent_tool_use_id": parent_tool_use_id or subagent_id,
         },
     )
     if action.teammate_name is not None:

@@ -15,7 +15,10 @@ class NestedDelegateRuntimeTests(unittest.TestCase):
         parent_cancelled = threading.Event()
         child_started = threading.Event()
 
-        def execute_child(action, task_id, depth, parent_id, _iteration, cancelled, _inbound):
+        def execute_child(
+            action, task_id, depth, parent_id, _iteration, parent_tool_use_id, cancelled, _inbound
+        ):
+            self.assertEqual(parent_tool_use_id, "nested-tool-1")
             child_started.set()
             self.assertIsNotNone(cancelled)
             self.assertTrue(parent_cancelled.wait(1))
@@ -49,7 +52,11 @@ class NestedDelegateRuntimeTests(unittest.TestCase):
                 "delegate_task",
                 {"task": "Background child", "run_in_background": True},
             )
-            started = runtime.execute(action, child_iteration=1)
+            started = runtime.execute(
+                action,
+                child_iteration=1,
+                parent_tool_use_id="nested-tool-1",
+            )
             self.assertTrue(child_started.wait(1))
             parent_cancelled.set()
             completed = execute_background_task_action(

@@ -118,6 +118,12 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "max_budget_usd": args.max_budget_usd,
         "fallback_model": args.fallback_model,
         "include_partial_messages": args.include_partial_messages,
+        "forward_subagent_text": args.forward_subagent_text or (
+            args.print_mode
+            and args.output_format == "stream-json"
+            and not args.chat
+            and _environment_flag_enabled("CLAUDE_CODE_FORWARD_SUBAGENT_TEXT")
+        ),
         "replay_user_messages": args.replay_user_messages,
         "input_user_messages": task_input.user_messages,
         "effort": effort.level,
@@ -129,6 +135,10 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "provider_args": args,
         "background_agent_config": background_agent_worker_config(args),
     }
+
+
+def _environment_flag_enabled(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def resolve_one_shot_code_task(

@@ -147,6 +147,25 @@ class CliArgsValidationTests(unittest.TestCase):
                 "--json-schema requires a one-shot coding task with --print.",
             )
 
+    def test_forward_subagent_text_requires_print_stream_json_coding_task(self) -> None:
+        valid = cli_module.parse_args(
+            ["-p", "--output-format", "stream-json", "--forward-subagent-text", "inspect"]
+        )
+        invalid = (
+            cli_module.parse_args(["--output-format", "stream-json", "--forward-subagent-text", "inspect"]),
+            cli_module.parse_args(["-p", "--forward-subagent-text", "inspect"]),
+            cli_module.parse_args(["-p", "--chat", "--output-format", "stream-json", "--forward-subagent-text", "hello"]),
+            cli_module.parse_args(["-p", "--output-format", "stream-json", "--forward-subagent-text", "--status"]),
+        )
+
+        self.assertIsNone(cli_module.validate_cli_args(valid))
+        for args in invalid:
+            with self.subTest(args=args):
+                self.assertEqual(
+                    cli_module.validate_cli_args(args),
+                    "--forward-subagent-text requires a one-shot coding task with --print and --output-format stream-json.",
+                )
+
     def test_subagent_system_prompt_requires_print_mode_coding_task(self) -> None:
         valid = cli_module.parse_args(
             ["-p", "--append-subagent-system-prompt", "Cite exact paths.", "inspect"]

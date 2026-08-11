@@ -55,7 +55,7 @@ CLI_SMOKE_TESTS = {
     "test_v1_cli_json_plan_mode_inspects_without_mutating",
     "test_v1_cli_json_can_compact_interrupted_run_and_commit",
     "test_v1_cli_json_can_delegate_code_subagent_repair_and_commit",
-    "test_v1_cli_json_can_delegate_read_only_investigation_before_repair_and_commit",
+    "test_v1_cli_stream_json_can_forward_subagent_text_before_repair_and_commit",
     "test_v1_cli_json_can_delegate_with_project_agent_profile_before_repair_and_commit",
     "test_v1_cli_json_can_load_project_skill_before_repair_and_commit",
     "test_v1_cli_json_can_manage_background_process_before_repair_and_commit",
