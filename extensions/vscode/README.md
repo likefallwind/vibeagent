@@ -20,6 +20,13 @@ Set `vibeagent.executable` and `vibeagent.arguments` when VibeAgent is installed
 under a different Python interpreter or wrapper. The defaults run
 `python -m vibeagent`.
 
+Every terminal receives a private live-context file and random token through
+its process environment. The extension refreshes only the active workspace file
+path, selected line range, dirty flag, and up to 20 sanitized diagnostics. It
+does not transmit selected source text or unsaved editor buffers. VibeAgent
+revalidates this metadata on each turn and removes the two bridge variables from
+project child-process environments.
+
 Build `dist/vibeagent-vscode-1.0.0.vsix` from the repository root, then install
 it through **Extensions: Install from VSIX...**:
 

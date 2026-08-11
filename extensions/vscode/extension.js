@@ -11,6 +11,7 @@ const {
   normalizeLaunchConfig,
   workspaceRelativePath,
 } = require('./src/core');
+const { IdeContextBridge } = require('./src/context');
 
 class GitHeadContentProvider {
   constructor() {
@@ -43,6 +44,7 @@ class GitHeadContentProvider {
 
 function activate(context) {
   const interactiveTerminals = new Map();
+  const contextBridges = new Map();
   const diffProvider = new GitHeadContentProvider();
   context.subscriptions.push(
     diffProvider,
@@ -52,6 +54,9 @@ function activate(context) {
         if (candidate === terminal) interactiveTerminals.delete(root);
       }
     }),
+    vscode.window.onDidChangeActiveTextEditor((editor) => refreshEditorContext(editor)),
+    vscode.window.onDidChangeTextEditorSelection((event) => refreshEditorContext(event.textEditor)),
+    vscode.languages.onDidChangeDiagnostics(() => refreshEditorContext(vscode.window.activeTextEditor)),
   );
 
   const register = (name, handler) => context.subscriptions.push(
@@ -133,7 +138,36 @@ function activate(context) {
       configuration.get('executable', 'python'),
       configuration.get('arguments', ['-m', 'vibeagent']),
     );
-    return vscode.window.createTerminal({ name, ...buildLaunchSpec(launch, root, task) });
+    const bridge = contextBridge(root);
+    refreshEditorContext(vscode.window.activeTextEditor);
+    return vscode.window.createTerminal({
+      name,
+      ...buildLaunchSpec(launch, root, task),
+      env: bridge.environment(),
+    });
+  }
+
+  function contextBridge(root) {
+    let bridge = contextBridges.get(root);
+    if (!bridge) {
+      bridge = new IdeContextBridge(root);
+      contextBridges.set(root, bridge);
+      context.subscriptions.push(bridge);
+    }
+    return bridge;
+  }
+
+  function refreshEditorContext(editor) {
+    if (!editor || editor.document.uri.scheme !== 'file') return;
+    const folder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+    if (!folder) return;
+    const bridge = contextBridges.get(folder.uri.fsPath);
+    if (!bridge) return;
+    try {
+      bridge.update(editor, vscode.languages.getDiagnostics(editor.document.uri));
+    } catch (_error) {
+      bridge.update(null, []);
+    }
   }
 }
 

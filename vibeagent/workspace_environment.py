@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 from typing import Mapping
 
+from .ide_context import strip_ide_context_environment
 from .workspace_core import RunWorkspace, create_local_workspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 from .workspace_settings_sources import claude_settings_files
@@ -58,7 +59,7 @@ def workspace_process_environment(
         raise ValueError(configured.error)
     environment = dict(configured.variables)
     environment.update(os.environ if host_environment is None else host_environment)
-    return environment
+    return strip_ide_context_environment(environment)
 
 
 def workspace_process_environment_from_root(

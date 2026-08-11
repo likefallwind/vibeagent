@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const Module = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
@@ -60,10 +61,11 @@ test('registers IDE commands and routes editor context through native VS Code su
       getDiagnostics() {
         return [{ severity: 0, message: 'undefined name', source: 'lint', range: { start: { line: 1 } } }];
       },
+      onDidChangeDiagnostics() { return { dispose() {} }; },
     },
     window: {
       activeTextEditor: {
-        document: { uri: documentUri },
+        document: { uri: documentUri, isDirty: true },
         selection: {
           isEmpty: false,
           start: { line: 1, character: 1 },
@@ -82,6 +84,8 @@ test('registers IDE commands and routes editor context through native VS Code su
         return terminal;
       },
       onDidCloseTerminal() { return { dispose() {} }; },
+      onDidChangeActiveTextEditor() { return { dispose() {} }; },
+      onDidChangeTextEditorSelection() { return { dispose() {} }; },
       async showInputBox(options) {
         return options.title.includes('Diagnostics') ? 'Fix diagnostics' : 'Explain selection';
       },
@@ -126,6 +130,12 @@ test('registers IDE commands and routes editor context through native VS Code su
   await callbacks.get('vibeagent.open')();
   assert.equal(terminals[0].options.shellPath, 'python');
   assert.deepEqual(terminals[0].options.shellArgs, ['-m', 'vibeagent', '--cwd', root]);
+  const contextPayload = JSON.parse(fs.readFileSync(terminals[0].options.env.VIBEAGENT_IDE_CONTEXT_FILE, 'utf8'));
+  assert.equal(contextPayload.token, terminals[0].options.env.VIBEAGENT_IDE_CONTEXT_TOKEN);
+  assert.equal(contextPayload.file, 'src/app.py');
+  assert.equal(contextPayload.dirty, true);
+  assert.deepEqual(contextPayload.selection, { startLine: 2, endLine: 3 });
+  assert.equal(contextPayload.diagnostics[0].message, 'undefined name');
 
   await callbacks.get('vibeagent.insertReference')();
   assert.deepEqual(terminals[0].sent, [['@src/app.py#L2-L3', false]]);
@@ -141,4 +151,7 @@ test('registers IDE commands and routes editor context through native VS Code su
   assert.equal(executed.at(-1)[0], 'vscode.diff');
   assert.equal(await contentProvider.provideTextDocumentContent(executed.at(-1)[1]), 'old content\n');
   assert.deepEqual(errors, []);
+  for (const disposable of context.subscriptions.reverse()) {
+    if (disposable && typeof disposable.dispose === 'function') disposable.dispose();
+  }
 });

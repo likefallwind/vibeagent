@@ -209,6 +209,10 @@ EXPECTED_GATES = {
             "test_manifest_exposes_the_bounded_ide_commands",
             "test_javascript_sources_parse_and_core_contract_passes",
             "test_vsix_build_is_deterministic_and_contains_only_declared_sources",
+            "test_valid_private_context_is_injected_as_untrusted_metadata",
+            "test_context_rejects_token_workspace_permissions_and_sensitive_paths",
+            "test_private_ide_credentials_are_not_inherited_by_project_commands",
+            "test_node_bridge_payload_is_accepted_by_python_runtime",
         },
     },
     "VA1-GOAL": {

@@ -13,6 +13,7 @@ SOURCE_FILES = (
     "extension.js",
     "README.md",
     "src/core.js",
+    "src/context.js",
 )
 ZIP_TIMESTAMP = (2024, 1, 1, 0, 0, 0)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .agent_team_runtime import agent_teams_enabled
+from .ide_context import read_ide_context
 from .prompt_file_mentions import PromptFileContext, prompt_file_reference_blocks
 from .prompt_next_action import get_next_action_instruction
 from .prompt_observations import format_observations
@@ -111,6 +112,7 @@ def build_messages(
         permission_summary = format_project_permissions_for_prompt(workspace)
     sandbox_summary = format_workspace_sandbox_for_prompt(workspace)
     memory = auto_memory if auto_memory is not None else read_auto_memory(workspace)
+    ide_context = read_ide_context(workspace)
     chunks = [f"User task:\n{task}"]
     if agent_teams_enabled():
         chunks.append(
@@ -152,6 +154,8 @@ def build_messages(
                 ]
             )
         )
+    if ide_context.connected and ide_context.content:
+        chunks.append(ide_context.content)
     if project_instructions:
         chunks.append(
             "\n".join(

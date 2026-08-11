@@ -34,7 +34,7 @@ class VsCodeExtensionTests(unittest.TestCase):
         self.assertEqual(properties["vibeagent.arguments"]["scope"], "machine")
 
     def test_javascript_sources_parse_and_core_contract_passes(self) -> None:
-        for relative in ("extension.js", "src/core.js"):
+        for relative in ("extension.js", "src/core.js", "src/context.js"):
             result = subprocess.run(
                 ["node", "--check", relative],
                 cwd=EXTENSION_ROOT,
@@ -76,6 +76,7 @@ class VsCodeExtensionTests(unittest.TestCase):
                         "extension/extension.js",
                         "extension/README.md",
                         "extension/src/core.js",
+                        "extension/src/context.js",
                     },
                 )
                 manifest = archive.read("extension.vsixmanifest").decode("utf-8")

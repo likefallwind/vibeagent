@@ -109,6 +109,14 @@ path validation prevents outside-file references. The deterministic VSIX build
 contains only declared runtime files. An isolated VS Code Server install under
 `/tmp` accepts the package and lists `vibeagent.vibeagent-vscode@1.0.0`; no real
 user extension directory or GUI is touched by that verification.
+Interactive terminals additionally receive a private live-context bridge. The
+extension atomically writes active-file metadata, the exact selected line range,
+dirty state, and bounded sanitized diagnostics to an owner-only temporary file
+with a random 256-bit token. Python rechecks that token, ownership, mode, exact
+workspace, sensitive/protected/symlink boundaries, and all payload limits on
+every turn before adding explicitly untrusted context. Source text and unsaved
+buffers never cross the bridge, its credentials are removed from project child
+process environments, and extension shutdown removes the temporary directory.
 
 That release gate expands to:
 
@@ -142,6 +150,9 @@ The automated suite currently covers these 1.0 surfaces:
   approvals, active-file and half-open selection references, quoted paths,
   bounded sanitized diagnostics, native Git diff routing, deterministic VSIX
   packaging, and isolated VS Code Server installation.
+- IDE live context: atomic authenticated JavaScript payloads, Python protocol
+  validation, sensitive and symlink rejection, untrusted diagnostic redaction,
+  no source-buffer transfer, and bridge-secret stripping for child processes.
 - Built-in `/code-review` expansion in interactive and print modes: bounded
   effort/target parsing, verified multi-agent review, read-only default behavior,
   explicit `--fix`, and fail-closed unsupported cloud/comment options before

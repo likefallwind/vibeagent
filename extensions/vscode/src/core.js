@@ -20,18 +20,8 @@ function workspaceRelativePath(workspaceRoot, filePath) {
 function buildFileReference(workspaceRoot, filePath, selection) {
   const relative = workspaceRelativePath(workspaceRoot, filePath);
   const mention = formatFileMention(relative);
-  if (!selection || selection.isEmpty) {
-    return mention;
-  }
-  const start = Number(selection.start.line) + 1;
-  const endLine = Number(selection.end.line);
-  const endCharacter = Number(selection.end.character);
-  const endsAtNextLineStart = endLine > Number(selection.start.line) && endCharacter === 0;
-  const end = endLine + (endsAtNextLineStart ? 0 : 1);
-  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
-    throw new Error('The editor selection has invalid line bounds.');
-  }
-  return `${mention}#L${start}-L${end}`;
+  const range = selectionLineRange(selection);
+  return range ? `${mention}#L${range.startLine}-L${range.endLine}` : mention;
 }
 
 function formatFileMention(relative) {
@@ -52,20 +42,15 @@ function buildSelectionPrompt(instruction, reference) {
 
 function buildDiagnosticsPrompt(instruction, reference, diagnostics) {
   const task = boundedText(instruction, 4_000, 'Instruction');
-  const items = Array.from(diagnostics || []).slice(0, MAX_DIAGNOSTICS).map((diagnostic) => {
-    const severity = normalizeSeverity(diagnostic.severity);
-    const line = Number(diagnostic.range && diagnostic.range.start && diagnostic.range.start.line) + 1;
-    const location = Number.isInteger(line) && line > 0 ? `line ${line}` : 'unknown line';
-    const source = diagnostic.source ? `, source ${boundedInlineText(diagnostic.source, 80)}` : '';
-    const message = boundedInlineText(diagnostic.message, MAX_DIAGNOSTIC_MESSAGE_CHARS);
-    return `- ${severity} at ${location}${source}: ${message}`;
-  });
+  const normalized = normalizeDiagnostics(diagnostics);
+  const items = normalized.items.map((diagnostic) => (
+    `- ${diagnostic.severity} at line ${diagnostic.line}, source ${diagnostic.source}: ${diagnostic.message}`
+  ));
   if (!items.length) {
     throw new Error('The active file has no diagnostics to send.');
   }
-  const omitted = Math.max(0, Array.from(diagnostics || []).length - items.length);
-  if (omitted) {
-    items.push(`- ${omitted} additional diagnostic(s) omitted.`);
+  if (normalized.omitted) {
+    items.push(`- ${normalized.omitted} additional diagnostic(s) omitted.`);
   }
   const prompt = [
     task,
@@ -75,6 +60,36 @@ function buildDiagnosticsPrompt(instruction, reference, diagnostics) {
     ...items,
   ].join('\n');
   return boundedText(prompt, MAX_PROMPT_CHARS, 'Diagnostics prompt');
+}
+
+function selectionLineRange(selection) {
+  if (!selection || selection.isEmpty) return null;
+  const startLine = Number(selection.start.line) + 1;
+  const endLineIndex = Number(selection.end.line);
+  const endCharacter = Number(selection.end.character);
+  const endsAtNextLineStart = endLineIndex > Number(selection.start.line) && endCharacter === 0;
+  const endLine = endLineIndex + (endsAtNextLineStart ? 0 : 1);
+  if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || startLine < 1 || endLine < startLine) {
+    throw new Error('The editor selection has invalid line bounds.');
+  }
+  if (endLine - startLine + 1 > 1_000) {
+    throw new Error('The editor selection must contain at most 1,000 lines.');
+  }
+  return { startLine, endLine };
+}
+
+function normalizeDiagnostics(diagnostics) {
+  const sourceItems = Array.from(diagnostics || []);
+  const items = sourceItems.slice(0, MAX_DIAGNOSTICS).map((diagnostic) => {
+    const line = Number(diagnostic.range && diagnostic.range.start && diagnostic.range.start.line) + 1;
+    return {
+      severity: normalizeSeverity(diagnostic.severity),
+      line: Number.isInteger(line) && line > 0 ? line : 1,
+      source: boundedInlineText(diagnostic.source, 80) || 'unknown',
+      message: boundedInlineText(diagnostic.message, MAX_DIAGNOSTIC_MESSAGE_CHARS),
+    };
+  });
+  return { items, omitted: Math.max(0, sourceItems.length - items.length) };
 }
 
 function normalizeLaunchConfig(executable, argumentsValue) {
@@ -136,6 +151,8 @@ module.exports = {
   buildFileReference,
   buildLaunchSpec,
   buildSelectionPrompt,
+  normalizeDiagnostics,
   normalizeLaunchConfig,
+  selectionLineRange,
   workspaceRelativePath,
 };

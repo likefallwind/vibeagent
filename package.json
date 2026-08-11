@@ -8,7 +8,7 @@
   "scripts": {
     "build": "npm run build:python && npm run build:ide",
     "build:python": "python3 -m compileall -q vibeagent",
-    "build:ide": "node --check extensions/vscode/extension.js && node --check extensions/vscode/src/core.js && python3 scripts/build_vscode_extension.py",
+    "build:ide": "node --check extensions/vscode/extension.js && node --check extensions/vscode/src/core.js && node --check extensions/vscode/src/context.js && python3 scripts/build_vscode_extension.py",
     "dev": "python3 -m vibeagent",
     "test": "python3 -m unittest discover -s tests -t .",
     "test:install": "python3 scripts/install_smoke.py",

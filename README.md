@@ -219,6 +219,17 @@ task. Building the VSIX is deterministic and includes only an explicit source
 allowlist. The extension never opens VS Code or a file manager by itself; its
 commands run only after an explicit editor action.
 
+Terminals launched by the extension also receive a private live-context bridge.
+As the active editor, selection, dirty state, or diagnostics change, the
+extension atomically refreshes an owner-only temporary JSON file authenticated
+with a per-bridge 256-bit token. Each VibeAgent turn revalidates the token,
+file mode and ownership, exact workspace root, non-sensitive non-symlink file
+path, 1,000-line selection limit, and 20-diagnostic limit before adding the
+metadata as explicitly untrusted prompt context. The bridge never sends source
+text or unsaved buffers, and its credentials are removed from environments
+passed to project commands, hooks, MCP servers, LSP servers, and plugin tools.
+The temporary bridge directory is removed when the extension deactivates.
+
 Before cutting a release, verify an editable install from outside the source
 tree:
 
@@ -2577,6 +2588,9 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   dependency-free VS Code extension for terminal launch, selected-file
   references, bounded diagnostic handoff, and native Git diff review, plus a
   deterministic allowlisted VSIX build.
+- `vibeagent/ide_context.py`: authenticates, bounds, sanitizes, and formats the
+  private VS Code live-context protocol without exposing bridge credentials to
+  child project processes.
 - `vibeagent/session_tasks.py`, `vibeagent/session_task_store.py`, and
   `vibeagent/session_task_graph.py`: manage the session-scoped structured task
   graph, atomic persistence, resume inheritance, and dependency invariants.
