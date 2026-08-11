@@ -106,6 +106,7 @@ EXPECTED_GATES = {
         "tools": set(),
         "tests": {
             "test_fallback_failure_retries_only_the_sticky_fallback",
+            "test_overloaded_fallback_advances_chain_and_stays_on_successful_model",
             "test_v1_cli_fallback_model_completes_repair_after_primary_overload",
         },
     },

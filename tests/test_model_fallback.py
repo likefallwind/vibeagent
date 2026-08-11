@@ -10,8 +10,10 @@ from vibeagent.anthropic import AnthropicClient
 from vibeagent.minimax import MiniMaxClient
 from vibeagent.model_fallback import (
     create_fallback_chat_client,
+    extract_model_fallback_error_event,
     is_model_overload_error,
     normalize_fallback_model,
+    normalize_fallback_models,
 )
 from vibeagent.openai_compat import OpenAICompatibleClient
 from vibeagent.types import AssistantResponse, ChatMessage
@@ -81,6 +83,20 @@ class ModelFallbackTests(unittest.TestCase):
         self.assertEqual(profiled.fallback.model, "backup")
         self.assertEqual(profiled.fallback.effort, "high")
 
+    def test_profile_configures_every_fallback_model_with_effort(self) -> None:
+        wrapped, state = create_fallback_chat_client(
+            AnthropicClient("key", model="primary"),
+            "backup-a,backup-b",
+        )
+
+        profiled = wrapped.with_agent_profile(model="reviewer", effort="high")
+
+        self.assertIs(profiled.state, state)
+        self.assertEqual(
+            [(client.model, client.effort) for client in profiled.fallbacks],
+            [("backup-a", "high"), ("backup-b", "high")],
+        )
+
     def test_status_529_activates_fallback_and_stays_sticky(self) -> None:
         fallback = SequenceClient("backup", [_response("first"), _response("second")])
         registry = {"backup": fallback}
@@ -117,6 +133,102 @@ class ModelFallbackTests(unittest.TestCase):
 
         self.assertEqual(fallback.calls, 0)
         self.assertFalse(state.report()["activated"])
+
+    def test_overloaded_fallback_advances_chain_and_stays_on_successful_model(self) -> None:
+        first = SequenceClient("backup-a", [ProviderError("busy", status=503)])
+        second = SequenceClient("backup-b", [_response("first"), _response("second")])
+        registry = {"backup-a": first, "backup-b": second}
+        primary = SequenceClient("primary", [ProviderError("overloaded", status=529)], registry)
+        client, state = create_fallback_chat_client(primary, "backup-a, backup-b")
+
+        first_response = client.complete([])
+        second_response = client.complete([])
+
+        event = first_response.raw["_vibeagent_model_fallback"]
+        self.assertEqual(first_response.content[0]["text"], "first")
+        self.assertEqual(second_response.content[0]["text"], "second")
+        self.assertEqual((primary.calls, first.calls, second.calls), (1, 1, 2))
+        self.assertEqual(event["fallback_model"], "backup-b")
+        self.assertEqual(event["fallback_index"], 1)
+        self.assertEqual(event["reason"], "fallback_overloaded")
+        self.assertEqual(
+            event["fallback_transitions"],
+            [
+                {
+                    "fallback_model": "backup-a",
+                    "fallback_index": 0,
+                    "error": "ProviderError: busy",
+                }
+            ],
+        )
+        self.assertEqual(
+            state.report(),
+            {
+                "fallbackModel": "backup-b",
+                "fallbackModels": ["backup-a", "backup-b"],
+                "activated": True,
+                "uses": 3,
+                "primaryOverloadCount": 1,
+                "fallbackOverloadCount": 1,
+                "modelUses": {"backup-a": 1, "backup-b": 2},
+                "activeFallbackModel": "backup-b",
+                "activeFallbackIndex": 1,
+                "lastPrimaryError": "ProviderError: overloaded",
+                "lastFallbackError": "ProviderError: busy",
+            },
+        )
+
+    def test_non_overload_fallback_failure_does_not_skip_to_next_model(self) -> None:
+        first = SequenceClient("backup-a", [RuntimeError("bad response")])
+        second = SequenceClient("backup-b", [_response("unused")])
+        primary = SequenceClient(
+            "primary",
+            [ProviderError("overloaded", status=529)],
+            {"backup-a": first, "backup-b": second},
+        )
+        client, _state = create_fallback_chat_client(primary, "backup-a,backup-b")
+
+        with self.assertRaisesRegex(RuntimeError, "Fallback model 'backup-a'") as caught:
+            client.complete([])
+
+        self.assertEqual(second.calls, 0)
+        self.assertEqual(caught.exception.fallback_index, 0)
+
+    def test_exhausted_chain_reports_every_overload_transition(self) -> None:
+        first = SequenceClient("backup-a", [ProviderError("first busy", status=503)])
+        second = SequenceClient("backup-b", [ProviderError("second busy", status=529)])
+        primary = SequenceClient(
+            "primary",
+            [ProviderError("primary busy", status=529)],
+            {"backup-a": first, "backup-b": second},
+        )
+        client, state = create_fallback_chat_client(primary, "backup-a,backup-b")
+
+        with self.assertRaisesRegex(RuntimeError, "backup-b") as caught:
+            client.complete([])
+
+        event = extract_model_fallback_error_event(caught.exception)
+        self.assertEqual(event["fallback_model"], "backup-b")
+        self.assertEqual(event["fallback_index"], 1)
+        self.assertEqual(
+            [transition["fallback_model"] for transition in event["fallback_transitions"]],
+            ["backup-a", "backup-b"],
+        )
+        self.assertEqual(state.report()["fallbackOverloadCount"], 2)
+
+    def test_concurrent_stale_advance_does_not_skip_a_fallback(self) -> None:
+        state = create_fallback_chat_client(
+            AnthropicClient("key", model="primary"),
+            "backup-a,backup-b,backup-c",
+        )[1]
+        state.activate(ProviderError("primary busy", status=529))
+
+        first_advance = state.advance(0, ProviderError("first busy", status=503))
+        stale_advance = state.advance(0, ProviderError("same first busy", status=503))
+
+        self.assertEqual(first_advance, 1)
+        self.assertEqual(stale_advance, 1)
+        self.assertEqual(state.report()["activeFallbackModel"], "backup-b")
 
     def test_overload_detection_follows_typed_status_text_and_causes(self) -> None:
         caused = RuntimeError("outer")
@@ -188,6 +300,12 @@ class ModelFallbackTests(unittest.TestCase):
             normalize_fallback_model("  ")
         with self.assertRaisesRegex(ValueError, "control"):
             normalize_fallback_model("bad\nmodel")
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            normalize_fallback_models("backup, backup")
+        with self.assertRaisesRegex(ValueError, "cannot be empty"):
+            normalize_fallback_models("backup,,last")
+        with self.assertRaisesRegex(ValueError, "at most 10"):
+            normalize_fallback_models(",".join(f"model-{index}" for index in range(11)))
 
         class UnsupportedClient:
             def complete(self, *args, **kwargs):

@@ -323,15 +323,18 @@ structured-output calls share one serialized budget gate. Reaching the limit
 returns subtype `error_max_budget_usd` without retrying or executing that model
 response. Missing rates or provider usage fail closed instead of being treated
 as zero cost.
-`-p --fallback-model MODEL` creates a provider-scoped backup model before the
-coding run. Typed HTTP 503/529 failures or explicit overload errors activate it;
+`-p --fallback-model MODEL[,MODEL...]` creates up to ten ordered,
+provider-scoped backup models before the coding run. Typed HTTP 503/529 failures
+or explicit overload errors activate the first candidate and advance through
+later candidates when an active fallback is also overloaded;
 authentication, rate-limit, invalid-request, timeout, and ordinary runtime
 errors do not. Once activated, the fallback remains sticky across main-agent,
 profile, subagent, retry, goal-evaluator, and structured-output calls, avoiding
 repeated probes of an overloaded primary. `model_fallback` session events and
-the `modelFallback` / `model_fallback` machine result report the selected model,
-activation, use count, and bounded primary error. When combined with
-`--max-budget-usd`, both models consume the same budget and fallback evidence is
+the `modelFallback` / `model_fallback` machine result report the candidate list,
+selected model/index, total and per-model use counts, overload transitions, and
+bounded primary/fallback errors. When combined with
+`--max-budget-usd`, all selected models consume the same budget and fallback evidence is
 retained even if the response reaches the cost limit.
 Bare `--tools` is a provider-free local command that prints the tool catalog.
 On a one-shot coding task, `--tools "Read,Bash,Edit"` instead limits both the

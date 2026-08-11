@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
-from threading import Lock
+from dataclasses import replace
 from typing import Any
 
+from .model_fallback_state import (
+    FallbackModelRequestError,
+    ModelFallbackState,
+    bounded_model_error,
+)
 from .types import AssistantResponse, ChatClient, ChatMessage, ToolSpec
 
 
@@ -19,78 +23,21 @@ OVERLOAD_MARKERS = (
 )
 
 
-@dataclass
-class ModelFallbackState:
-    fallback_model: str
-    activated: bool = False
-    uses: int = 0
-    primary_overload_count: int = 0
-    last_primary_error: str | None = None
-    _lock: Lock = field(default_factory=Lock, repr=False)
-
-    def is_activated(self) -> bool:
-        with self._lock:
-            return self.activated
-
-    def activate(self, error: BaseException) -> bool:
-        with self._lock:
-            activated_now = not self.activated
-            self.activated = True
-            self.primary_overload_count += 1
-            self.last_primary_error = _bounded_error(error)
-            return activated_now
-
-    def record_use(self) -> int:
-        with self._lock:
-            self.uses += 1
-            return self.uses
-
-    def report(self) -> dict[str, object]:
-        with self._lock:
-            return {
-                "fallbackModel": self.fallback_model,
-                "activated": self.activated,
-                "uses": self.uses,
-                "primaryOverloadCount": self.primary_overload_count,
-                **({"lastPrimaryError": self.last_primary_error} if self.last_primary_error else {}),
-            }
-
-
-class FallbackModelRequestError(RuntimeError):
-    def __init__(
-        self,
-        fallback_model: str,
-        error: BaseException,
-        *,
-        use: int,
-        activated_now: bool,
-        reason: str,
-    ) -> None:
-        self.fallback_model = fallback_model
-        self.fallback_error = _bounded_error(error)
-        self.use = use
-        self.activated_now = activated_now
-        self.reason = reason
-        super().__init__(f"Fallback model {fallback_model!r} request failed: {self.fallback_error}")
-
-    def event_details(self) -> dict[str, object]:
-        return {
-            "fallback_model": self.fallback_model,
-            "fallback_use": self.use,
-            "fallback_error": self.fallback_error,
-        }
-
-
 class FallbackChatClient:
     def __init__(
         self,
         primary: ChatClient,
-        fallback: ChatClient,
+        fallbacks: tuple[ChatClient, ...],
         state: ModelFallbackState,
     ) -> None:
         self.primary = primary
-        self.fallback = fallback
+        self.fallbacks = fallbacks
         self.state = state
+
+    @property
+    def fallback(self) -> ChatClient:
+        index = self.state.current_index()
+        return self.fallbacks[index if index is not None else 0]
 
     def complete(
         self,
@@ -100,7 +47,8 @@ class FallbackChatClient:
         temperature: float = 0.2,
         timeout_ms: int = 120_000,
     ) -> AssistantResponse:
-        if self.state.is_activated():
+        active_index = self.state.current_index()
+        if active_index is not None:
             return self._complete_fallback(
                 messages,
                 tools=tools,
@@ -109,6 +57,7 @@ class FallbackChatClient:
                 timeout_ms=timeout_ms,
                 activated_now=False,
                 reason="sticky",
+                start_index=active_index,
             )
         try:
             return self.primary.complete(
@@ -121,7 +70,7 @@ class FallbackChatClient:
         except Exception as error:
             if not is_model_overload_error(error):
                 raise
-            activated_now = self.state.activate(error)
+            start_index, activated_now = self.state.activate(error)
             return self._complete_fallback(
                 messages,
                 tools=tools,
@@ -130,16 +79,16 @@ class FallbackChatClient:
                 timeout_ms=timeout_ms,
                 activated_now=activated_now,
                 reason="primary_overloaded",
+                start_index=start_index,
             )
 
     def with_agent_profile(self, *, model: str | None, effort: str | None) -> FallbackChatClient:
         primary = _configure_client(self.primary, model=model, effort=effort)
-        fallback = _configure_client(
-            self.primary,
-            model=self.state.fallback_model,
-            effort=effort,
+        fallbacks = tuple(
+            _configure_client(self.primary, model=fallback_model, effort=effort)
+            for fallback_model in self.state.fallback_models
         )
-        return FallbackChatClient(primary, fallback, self.state)
+        return FallbackChatClient(primary, fallbacks, self.state)
 
     def _complete_fallback(
         self,
@@ -151,27 +100,53 @@ class FallbackChatClient:
         timeout_ms: int,
         activated_now: bool,
         reason: str,
+        start_index: int,
     ) -> AssistantResponse:
-        use = self.state.record_use()
-        try:
-            response = self.fallback.complete(
-                messages,
-                tools=tools,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                timeout_ms=timeout_ms,
-            )
-        except Exception as error:
-            raise FallbackModelRequestError(
-                self.state.fallback_model,
-                error,
-                use=use,
-                activated_now=activated_now,
-                reason=reason,
-            ) from error
+        index = start_index
+        transitions: list[dict[str, object]] = []
+        while True:
+            use = self.state.record_use(index)
+            try:
+                response = self.fallbacks[index].complete(
+                    messages,
+                    tools=tools,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    timeout_ms=timeout_ms,
+                )
+            except Exception as error:
+                fallback_overloaded = _is_fallback_overload_error(error)
+                if fallback_overloaded:
+                    transitions.append(
+                        {
+                            "fallback_model": self.state.fallback_models[index],
+                            "fallback_index": index,
+                            "error": bounded_model_error(error),
+                        }
+                    )
+                next_index = self.state.advance(index, error) if fallback_overloaded else None
+                if next_index is not None:
+                    index = next_index
+                    activated_now = True
+                    reason = "fallback_overloaded"
+                    continue
+                raise FallbackModelRequestError(
+                    self.state.fallback_models[index],
+                    error,
+                    fallback_index=index,
+                    fallback_models=self.state.fallback_models,
+                    fallback_transitions=tuple(transitions),
+                    use=use,
+                    activated_now=activated_now,
+                    reason=reason,
+                ) from error
+            break
         raw = dict(response.raw)
         raw[FALLBACK_RESPONSE_KEY] = {
-            "fallback_model": self.state.fallback_model,
+            "fallback_model": self.state.fallback_models[index],
+            "fallback_index": index,
+            "fallback_models": list(self.state.fallback_models),
+            **({"fallback_transitions": transitions} if transitions else {}),
             "fallback_use": use,
             "activated_now": activated_now,
             "reason": reason,
@@ -183,13 +158,23 @@ def create_fallback_chat_client(
     client: ChatClient,
     fallback_model: str,
 ) -> tuple[FallbackChatClient, ModelFallbackState]:
-    normalized = normalize_fallback_model(fallback_model)
+    normalized = normalize_fallback_models(fallback_model)
     primary_model = getattr(client, "model", None)
-    if isinstance(primary_model, str) and primary_model == normalized:
+    if isinstance(primary_model, str) and primary_model in normalized:
         raise ValueError("--fallback-model must differ from the primary model.")
-    fallback = _configure_client(client, model=normalized, effort=None)
+    fallbacks = tuple(_configure_client(client, model=model, effort=None) for model in normalized)
     state = ModelFallbackState(normalized)
-    return FallbackChatClient(client, fallback, state), state
+    return FallbackChatClient(client, fallbacks, state), state
+
+
+def normalize_fallback_models(value: str) -> tuple[str, ...]:
+    parts = value.split(",")
+    if len(parts) > 10:
+        raise ValueError("--fallback-model accepts at most 10 models.")
+    normalized = tuple(normalize_fallback_model(part) for part in parts)
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("--fallback-model cannot contain duplicate models.")
+    return normalized
 
 
 def normalize_fallback_model(value: str) -> str:
@@ -204,6 +189,20 @@ def normalize_fallback_model(value: str) -> str:
 
 
 def is_model_overload_error(error: BaseException) -> bool:
+    return _has_model_overload_error(error, include_implicit_context=True)
+
+
+def _is_fallback_overload_error(error: BaseException) -> bool:
+    # The primary overload is the implicit context while a fallback request runs;
+    # only the fallback error and explicit provider causes should advance the chain.
+    return _has_model_overload_error(error, include_implicit_context=False)
+
+
+def _has_model_overload_error(
+    error: BaseException,
+    *,
+    include_implicit_context: bool,
+) -> bool:
     current: BaseException | None = error
     seen: set[int] = set()
     while current is not None and id(current) not in seen:
@@ -221,7 +220,7 @@ def is_model_overload_error(error: BaseException) -> bool:
         ).lower()
         if any(marker in text for marker in OVERLOAD_MARKERS):
             return True
-        current = current.__cause__ or current.__context__
+        current = current.__cause__ or (current.__context__ if include_implicit_context else None)
     return False
 
 
@@ -246,6 +245,9 @@ def extract_model_fallback_error_event(error: BaseException) -> dict[str, object
     if isinstance(error, FallbackModelRequestError):
         return {
             "fallback_model": error.fallback_model,
+            "fallback_index": error.fallback_index,
+            "fallback_models": list(error.fallback_models),
+            "fallback_transitions": list(error.fallback_transitions),
             "fallback_use": error.use,
             "activated_now": error.activated_now,
             "reason": error.reason,
@@ -264,11 +266,6 @@ def _configure_client(client: ChatClient, *, model: str | None, effort: str | No
     return configured
 
 
-def _bounded_error(error: BaseException) -> str:
-    text = f"{type(error).__name__}: {error}"
-    return text if len(text) <= 1_000 else text[:997] + "..."
-
-
 __all__ = [
     "FallbackChatClient",
     "FallbackModelRequestError",
@@ -279,4 +276,5 @@ __all__ = [
     "fallback_model_error_event_details",
     "is_model_overload_error",
     "normalize_fallback_model",
+    "normalize_fallback_models",
 ]

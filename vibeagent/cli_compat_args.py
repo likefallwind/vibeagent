@@ -66,8 +66,8 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
     )
     parser.add_argument(
         "--fallback-model",
-        metavar="MODEL",
-        help="Use this model after a primary-model overload in print-mode coding tasks.",
+        metavar="MODELS",
+        help="Use these comma-separated models in order after overloads in print-mode coding tasks.",
     )
     parser.add_argument(
         "--maintenance",

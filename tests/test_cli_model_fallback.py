@@ -22,6 +22,7 @@ class SequenceClient:
         self.responses = responses
         self.calls = 0
         self.fallback: SequenceClient | None = None
+        self.configured_models: dict[str, SequenceClient] = {}
 
     def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
         result = self.responses[self.calls]
@@ -31,6 +32,8 @@ class SequenceClient:
         return result
 
     def with_agent_profile(self, *, model: str | None, effort: str | None):
+        if model in self.configured_models:
+            return self.configured_models[model]
         if self.fallback is None or model != self.fallback.model:
             raise AssertionError(f"unexpected configured model: {model}")
         return self.fallback
@@ -41,6 +44,45 @@ def _response(text: str, usage: ModelUsage | None = None) -> AssistantResponse:
 
 
 class CliModelFallbackTests(unittest.TestCase):
+    def test_cli_fallback_chain_reports_selected_model_and_usage(self) -> None:
+        primary = SequenceClient("primary", [OverloadError("overloaded")])
+        first = SequenceClient("backup-a", [OverloadError("still overloaded")])
+        second = SequenceClient("backup-b", [_response("Inspected with second backup.")])
+        primary.configured_models = {"backup-a": first, "backup-b": second}
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory(prefix="vibeagent-fallback-chain-") as base:
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=primary),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "-p",
+                        "--output-format",
+                        "stream-json",
+                        "--fallback-model",
+                        "backup-a,backup-b",
+                        "--cwd",
+                        base,
+                        "inspect",
+                    ]
+                )
+
+        records = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        event = next(
+            record["event"]
+            for record in records
+            if record["type"] == "event" and record["event"]["type"] == "model_fallback"
+        )
+        report = records[-1]["modelFallback"]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(event["fallback_model"], "backup-b")
+        self.assertEqual(event["fallback_models"], ["backup-a", "backup-b"])
+        self.assertEqual(event["fallback_index"], 1)
+        self.assertEqual(event["fallback_transitions"][0]["fallback_model"], "backup-a")
+        self.assertEqual(report["activeFallbackModel"], "backup-b")
+        self.assertEqual(report["modelUses"], {"backup-a": 1, "backup-b": 1})
+
     def test_budget_terminal_error_preserves_fallback_event(self) -> None:
         primary = SequenceClient("primary", [OverloadError("overloaded")])
         fallback = SequenceClient(
@@ -146,6 +188,7 @@ class CliModelFallbackTests(unittest.TestCase):
         self.assertEqual(fallback.calls, 0)
         self.assertFalse(payload["modelFallback"]["activated"])
         self.assertEqual(payload["modelFallback"]["uses"], 0)
+        self.assertEqual(payload["modelFallback"]["modelUses"], {"backup": 0})
 
     def test_structured_output_uses_sticky_fallback_without_rechecking_primary(self) -> None:
         primary = SequenceClient("primary", [OverloadError("overloaded"), _response("unused")])

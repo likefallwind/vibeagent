@@ -7,7 +7,7 @@ from .cli_local_option_validation import validate_local_option_dependencies
 from .cli_permission_overrides import has_permission_overrides, permission_override_validation_error
 from .cli_resume_args import validate_resume_arguments
 from .cli_tool_restrictions import parse_cli_tool_names
-from .model_fallback import normalize_fallback_model
+from .model_fallback import normalize_fallback_models
 from .session_names import normalize_session_name
 
 
@@ -29,7 +29,7 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--fallback-model requires a one-shot coding task with --print."
     if args.fallback_model is not None:
         try:
-            normalize_fallback_model(args.fallback_model)
+            normalize_fallback_models(args.fallback_model)
         except ValueError as error:
             return str(error)
     if args.maintenance and (
