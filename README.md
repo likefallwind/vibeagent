@@ -1615,6 +1615,7 @@ hook map directly or under `hooks`:
 Supported lifecycle events are `SessionStart`, `SessionEnd`, `PreCompact`,
 `PostCompact`, `CwdChanged`, `InstructionsLoaded`, `UserPromptSubmit`,
 `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
+`StopFailure`,
 `SubagentStart`, `SubagentStop`, `TeammateIdle`, `PostToolBatch`, `TaskCreated`, `TaskCompleted`,
 `DirectoryAdded`, `WorktreeCreate`, and `WorktreeRemove`. Tool-event
 matchers apply to the model tool name, parsed VibeAgent action type, and
@@ -1657,6 +1658,16 @@ the stable `teammate_name` and persisted `team_name`. Exit code 2 returns stderr
 as another teammate turn, while JSON `continue: false` stops the teammate. The
 runtime caps repeated idle continuations at eight and preserves provider tool
 result pairing when a `finish` call is returned for more work.
+
+`StopFailure` runs instead of `Stop` when the main model request still fails
+after all configured retries and context recovery. Matchers filter the
+standard error categories `rate_limit`, `overloaded`, `authentication_failed`,
+`oauth_org_not_allowed`, `billing_error`, `invalid_request`,
+`model_not_found`, `server_error`, `max_output_tokens`, and `unknown`. Input
+includes the category in `error`, bounded redacted `error_details`, and the
+rendered failure in `last_assistant_message`. Command, HTTP, and MCP tool
+handlers are supported. Their output, exit code, and runtime failures are
+non-blocking and never replace the original model failure.
 
 `DirectoryAdded` matches `slash_command` or `register_repo_root` and runs in a
 background thread after the new absolute directory is available to workspace

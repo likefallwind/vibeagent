@@ -12,6 +12,7 @@ from .model_fallback import (
     extract_model_fallback_event,
     fallback_model_error_event_details,
 )
+from .model_failure import ModelFailureMessage, model_failure_message
 from .types import AgentLogger, ChatClient, ChatMessage
 
 
@@ -43,12 +44,12 @@ def complete_with_retries(
     error_event_type: str = "model_error",
     error_event_extra: dict[str, Any] | None = None,
     recover_context: ContextRecovery | None = None,
-) -> tuple[Any | None, str | None]:
+) -> tuple[Any | None, ModelFailureMessage | None]:
     attempt_budget = max(0, model_retries) + 1
     remaining_retries = max(0, model_retries)
     context_recovery_available = recover_context is not None
     sleep_fn = sleep or time.sleep
-    last_message: str | None = None
+    last_message: ModelFailureMessage | None = None
     attempt = 0
     while attempt < attempt_budget:
         attempt += 1
@@ -86,7 +87,7 @@ def complete_with_retries(
                 remaining_retries -= 1
             will_retry = recovered_context or use_regular_retry
             retry_reason = "context_compaction" if recovered_context else ("transient_error" if use_regular_retry else None)
-            last_message = f"Model request failed: {format_exception(error)}"
+            last_message = model_failure_message(error)
             append_session_event(
                 session_dir,
                 error_event_type,
@@ -112,7 +113,11 @@ def complete_with_retries(
                     sleep_fn(model_retry_delay_ms / 1000)
                 continue
             return None, last_message
-    return None, last_message or "Model request failed."
+    return None, last_message or ModelFailureMessage(
+        "Model request failed.",
+        error="unknown",
+        details="Model request failed.",
+    )
 
 
 def is_context_limit_error(error: Exception) -> bool:

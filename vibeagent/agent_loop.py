@@ -569,7 +569,9 @@ def run_agent_loop(
             ),
         )
         if response is None:
-            return finish_run(False, model_error_message or "Model request failed.", iteration)
+            failure_message = model_error_message or "Model request failed."
+            lifecycle.stop_failure(current_workspace, failure_message, iteration)
+            return finish_run(False, failure_message, iteration)
         strip_consumed_tool_images(messages)
         model_turn = record_model_turn(current_workspace, messages, response, iteration)
         assistant_content = model_turn.assistant_content

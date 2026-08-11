@@ -181,6 +181,11 @@ The automated suite currently covers these 1.0 surfaces:
   text and `finish` completion boundaries with stable teammate/team identity;
   exit code 2 feeds bounded continuation work back to the teammate, while
   `continue: false` stops it without violating provider tool-result ordering.
+- Claude-compatible failed-turn hooks: `StopFailure` classifies exhausted main
+  model API failures into the documented matcher categories and sends bounded,
+  redacted failure details to command, HTTP, or MCP tool handlers. Hook output,
+  exit status, and runtime failures cannot replace the original failed result;
+  successful retries never fire the event.
 - Claude-compatible worktree lifecycle hooks: command and HTTP
   `WorktreeCreate` handlers replace the default Git backend for CLI and
   subagent isolation and return a validated directory; `WorktreeRemove`

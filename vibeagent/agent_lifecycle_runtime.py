@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from .agent_lifecycle_hooks import LifecycleHookResult, run_instruction_loaded_hooks, run_lifecycle_hooks
+from .agent_runtime_utils import append_session_event
 from .agent_hook_prompt import HookModelRuntime
 from .types import (
     AgentLogger,
@@ -12,6 +13,8 @@ from .types import (
     ChatMessage,
     Observation,
 )
+from .model_failure import model_failure_fields
+from .redaction import redact_sensitive_text
 from .workspace_core import RunWorkspace
 from .workspace_hooks import HookEvent, ProjectHooks
 from .workspace_permissions import ProjectPermissions
@@ -77,6 +80,36 @@ class AgentLifecycleRuntime:
             return None
         self.stop_continuations += 1
         return "Stop hook feedback:\n" + result.blocking_message
+
+    def stop_failure(
+        self,
+        workspace: RunWorkspace,
+        message: str,
+        iteration: int,
+    ) -> None:
+        error, details = model_failure_fields(message)
+        try:
+            self._run(
+                workspace,
+                "StopFailure",
+                error,
+                {
+                    "error": error,
+                    "error_details": details,
+                    "last_assistant_message": str(message),
+                },
+                iteration=iteration,
+            )
+        except Exception as hook_error:
+            append_session_event(
+                workspace.session_dir,
+                "stop_failure_hook_error",
+                {
+                    "iteration": iteration,
+                    "error": error,
+                    "message": redact_sensitive_text(str(hook_error))[:2_000],
+                },
+            )
 
     def compact(
         self,
