@@ -41,6 +41,7 @@ class AgentResult:
     is_error: bool = False
     hook_system_messages: list[str] = field(default_factory=list)
     conversation: list[ChatMessage] = field(default_factory=list, repr=False)
+    display_message: str | None = None
 
     def __post_init__(self) -> None:
         if self.status:
@@ -49,3 +50,7 @@ class AgentResult:
         if self.success:
             status = "completed" if self.completion_ready else "blocked"
         object.__setattr__(self, "status", status)
+
+    @property
+    def displayed_message(self) -> str:
+        return self.message if self.display_message is None else self.display_message

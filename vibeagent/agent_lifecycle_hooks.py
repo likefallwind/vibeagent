@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-import json
 import os
 import time
 
@@ -10,6 +9,10 @@ from .agent_hook_execution import run_project_hook
 from .session_environment import lifecycle_hook_environment
 from .agent_hook_results import HookRunResult
 from .agent_hook_prompt import HookModelRuntime
+from .agent_lifecycle_output import (
+    lifecycle_blocking_message,
+    parse_lifecycle_hook_output,
+)
 from .agent_runtime_utils import append_session_event
 from .redaction import redact_sensitive_text
 from .session_file_watch_state import write_dynamic_watch_paths
@@ -47,6 +50,7 @@ class LifecycleHookResult:
     contexts: tuple[str, ...] = ()
     system_messages: tuple[str, ...] = ()
     watch_paths: tuple[str, ...] | None = None
+    display_content: str | None = None
     blocking_message: str | None = None
     halt_turn_message: str | None = None
 
@@ -82,6 +86,7 @@ def run_lifecycle_hooks(
     contexts: list[str] = []
     system_messages: list[str] = []
     watch_paths: tuple[str, ...] | None = None
+    display_content: str | None = None
     session_end_deadline = (
         time.monotonic() + _session_end_budget_ms(hooks) / 1000
         if event == "SessionEnd"
@@ -115,11 +120,13 @@ def run_lifecycle_hooks(
             hook_model_runtime=hook_model_runtime,
         )
         results.append(result)
-        output = _parse_hook_output(result)
+        output = parse_lifecycle_hook_output(result)
         if event in CONTEXT_EVENTS and output.context:
             contexts.append(output.context)
         if output.system_message:
             system_messages.append(output.system_message)
+        if event == "MessageDisplay" and output.display_content is not None:
+            display_content = output.display_content
         if event in {"SessionStart", "CwdChanged", "FileChanged"} and output.watch_paths is not None:
             try:
                 stored_paths = write_dynamic_watch_paths(workspace, output.watch_paths)
@@ -135,13 +142,14 @@ def run_lifecycle_hooks(
             else:
                 watch_paths = tuple(str(path) for path in stored_paths)
         if event in BLOCKING_EVENTS:
-            blocking_message = _blocking_message(result, output)
+            blocking_message = lifecycle_blocking_message(result, output)
             if blocking_message is not None:
                 return LifecycleHookResult(
                     results=tuple(results),
                     contexts=tuple(contexts),
                     system_messages=tuple(system_messages),
                     watch_paths=watch_paths,
+                    display_content=display_content,
                     blocking_message=blocking_message,
                     halt_turn_message=output.stop_reason,
                 )
@@ -150,6 +158,7 @@ def run_lifecycle_hooks(
         contexts=tuple(contexts),
         system_messages=tuple(system_messages),
         watch_paths=watch_paths,
+        display_content=display_content,
     )
 
 
@@ -234,88 +243,6 @@ def _matching_trigger_path(source: dict[str, object], paths: list[str]) -> str |
     if isinstance(scope, str) and scope != ".":
         return next((path for path in paths if path_is_in_scope(path, scope)), None)
     return paths[0] if paths else None
-
-
-@dataclass(frozen=True)
-class _ParsedHookOutput:
-    context: str | None = None
-    system_message: str | None = None
-    watch_paths: tuple[str, ...] | None = None
-    decision: str | None = None
-    reason: str | None = None
-    plain_text: bool = False
-    stop_reason: str | None = None
-    continue_: bool | None = None
-
-
-def _parse_hook_output(result: HookRunResult) -> _ParsedHookOutput:
-    if not result.ok or not result.stdout.strip():
-        return _ParsedHookOutput()
-    stripped = result.stdout.strip()
-    try:
-        payload = json.loads(stripped)
-    except json.JSONDecodeError:
-        return _ParsedHookOutput(context=stripped, plain_text=True)
-    if not isinstance(payload, dict):
-        return _ParsedHookOutput()
-    specific = payload.get("hookSpecificOutput")
-    specific_payload = specific if isinstance(specific, dict) else {}
-    context = specific_payload.get(
-        "additionalContext", payload.get("additionalContext")
-    )
-    reason = payload.get("reason")
-    stop_reason = payload.get("stopReason")
-    continue_value = payload.get("continue")
-    system_message = payload.get("systemMessage")
-    watch_paths = _watch_paths_output(payload, specific_payload)
-    return _ParsedHookOutput(
-        context=context if isinstance(context, str) and context.strip() else None,
-        system_message=(
-            system_message
-            if isinstance(system_message, str) and system_message.strip()
-            else None
-        ),
-        watch_paths=watch_paths,
-        decision=payload.get("decision")
-        if isinstance(payload.get("decision"), str)
-        else None,
-        reason=reason if isinstance(reason, str) and reason.strip() else None,
-        stop_reason=(
-            stop_reason if isinstance(stop_reason, str) and stop_reason.strip() else None
-        ),
-        continue_=continue_value if isinstance(continue_value, bool) else None,
-    )
-
-
-def _watch_paths_output(
-    payload: dict[str, object],
-    specific_payload: dict[str, object],
-) -> tuple[str, ...] | None:
-    missing = object()
-    value = specific_payload.get("watchPaths", payload.get("watchPaths", missing))
-    if value is missing:
-        return None
-    if (
-        not isinstance(value, list)
-        or len(value) > 100
-        or any(not isinstance(path, str) for path in value)
-    ):
-        return None
-    return tuple(value)
-
-
-def _blocking_message(result: HookRunResult, output: _ParsedHookOutput) -> str | None:
-    if result.handler_type in {"prompt", "agent"} and result.status == "blocked":
-        return result.message
-    if result.exit_code == 2:
-        return result.stderr.strip() or result.message
-    if output.decision == "block":
-        return output.reason or "Configured hook blocked this lifecycle event."
-    if output.continue_ is False:
-        return output.stop_reason or "Configured hook stopped this lifecycle event."
-    if output.context and result.event == "Stop" and not output.plain_text:
-        return output.context
-    return None
 
 
 def _claude_permission_mode(policy: ApprovalPolicy) -> str:

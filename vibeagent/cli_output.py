@@ -70,8 +70,8 @@ def print_interrupted_result(output_json: bool, output_format: str | None = None
 
 
 def print_agent_result(result: AgentResult) -> None:
-    if result.message:
-        print(f"\n{result.message}")
+    if result.displayed_message:
+        print(f"\n{result.displayed_message}")
     elif not result.success:
         print("\nStopped")
     print_item_section("Completion blockers:", result.completion_blockers)

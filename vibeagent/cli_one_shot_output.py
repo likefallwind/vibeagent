@@ -139,7 +139,7 @@ def emit_one_shot_code_payload(
         elif "structured_output_error" in payload:
             print_output_func({"message": payload["structured_output_error"]}, False)
         else:
-            print_output_func({"message": result.message}, False)
+            print_output_func({"message": result.displayed_message}, False)
     else:
         print_agent_result_func(result)
 

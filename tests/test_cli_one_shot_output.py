@@ -275,6 +275,7 @@ class CliOneShotOutputTests(unittest.TestCase):
         result = replace(
             _result(root),
             hook_system_messages=["Background lint finished."],
+            display_message="displayed done",
         )
         payload = {"kind": "code", "message": "done", "extra": True}
         calls: list[tuple[dict[str, object], bool]] = []
@@ -291,7 +292,7 @@ class CliOneShotOutputTests(unittest.TestCase):
                 print_agent_result_func=lambda value: self.fail("printed full agent result in print mode"),
             )
 
-        self.assertEqual(calls, [({"message": "done"}, False)])
+        self.assertEqual(calls, [({"message": "displayed done"}, False)])
         self.assertEqual(stderr.getvalue(), "Hook message: Background lint finished.\n")
 
     def test_structured_output_success_adds_aliases_and_prints_json_value(self) -> None:

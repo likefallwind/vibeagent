@@ -288,7 +288,13 @@ def _parse_hook_timeout(
 
 
 def _default_hook_timeout_ms(event: str) -> int:
-    return 1_500 if event == "SessionEnd" else 600_000
+    if event == "SessionEnd":
+        return 1_500
+    if event == "MessageDisplay":
+        return 10_000
+    if event == "UserPromptSubmit":
+        return 30_000
+    return 600_000
 
 
 __all__ = ["parse_hook_handler"]

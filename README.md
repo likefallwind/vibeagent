@@ -1613,7 +1613,7 @@ hook map directly or under `hooks`:
 ```
 
 Supported lifecycle events are `SessionStart`, `SessionEnd`, `PreCompact`,
-`PostCompact`, `CwdChanged`, `FileChanged`, `InstructionsLoaded`, `Notification`, `UserPromptExpansion`,
+`PostCompact`, `CwdChanged`, `FileChanged`, `InstructionsLoaded`, `MessageDisplay`, `Notification`, `UserPromptExpansion`,
 `UserPromptSubmit`,
 `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
 `StopFailure`,
@@ -1665,6 +1665,17 @@ free of symbolic-link components, outside `.git` and `.vibeagent`, and are
 limited to 100 entries. Static matcher paths remain watched. Command, HTTP, and
 MCP tool handlers are supported, `systemMessage` stays user-only, and
 `CLAUDE_ENV_FILE` updates affect subsequent Bash commands.
+
+`MessageDisplay` hooks run once for each complete assistant text message that is
+actually returned to the user. They receive UUID `turn_id` and `message_id`
+fields, `index: 0`, `final: true`, and the original text in `delta`. A successful
+`hookSpecificOutput.displayContent` replaces only terminal or print-mode output;
+the original `message`/`result`, transcript, resumed conversation, goal evidence,
+and model context remain unchanged. Machine-readable output exposes the rendered
+value separately as `displayMessage`/`display_message`. Empty replacement text is
+honored, failures fall back to the original, matchers are ignored, and command,
+HTTP, or MCP tool handlers default to a 10-second timeout. Tool-call-only model
+responses do not fire this event.
 
 `TaskCreated` and `TaskCompleted` ignore matchers and run for main-agent,
 subagent, and teammate task transitions. Their input includes `task_id`,

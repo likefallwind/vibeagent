@@ -502,6 +502,11 @@ local changes when asked, and resume from recorded session context.
   replacement, session-cwd relocation, add/change/unlink detection, active
   agent and interactive-idle polling, user-only output, non-blocking decisions,
   and persistent `CLAUDE_ENV_FILE` updates.
+- `tests.test_message_display_hooks` covers matcher-free configuration, 10-second
+  display and 30-second prompt-submit defaults, model-handler rejection, empty
+  replacement, failed-hook fallback, exact complete-message input, UUID fields,
+  user-only system messages, terminal rendering, explicit machine display fields,
+  and isolation from canonical results and resumed model conversation.
 - `tests.test_project_permissions`, `tests.test_workspace`, and
   `tests.test_command_sandbox` cover the main workspace and safety boundaries.
 - `tests.test_user_runtime_settings.UserRuntimeSettingsTests` covers

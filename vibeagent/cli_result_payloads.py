@@ -30,6 +30,7 @@ CODE_RESULT_SNAKE_CASE_ALIAS_KEYS = {
     "deferredToolUse": "deferred_tool_use",
     "isError": "is_error",
     "hookSystemMessages": "hook_system_messages",
+    "displayMessage": "display_message",
 }
 
 
@@ -45,6 +46,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
         **machine_result_status_fields(status=result.status, stop_reason=stop_reason, exit_code=exit_code),
         "message": result.message,
         "result": result.message,
+        "displayMessage": result.displayed_message,
         "runId": result.run_id,
         "sessionId": result.run_id,
         "session_id": result.run_id,

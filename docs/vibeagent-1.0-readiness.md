@@ -213,6 +213,12 @@ The automated suite currently covers these 1.0 surfaces:
   boundaries, exposes `CLAUDE_ENV_FILE`, and keeps decisions non-blocking.
   SessionStart, CwdChanged, and FileChanged `watchPaths` atomically replace a
   workspace-scoped, symlink-free dynamic list while static matcher paths remain.
+- Claude-compatible assistant display hooks: matcher-free `MessageDisplay` runs
+  once for each completed assistant text response, passes stable UUID identifiers
+  and the full original delta, and honors bounded `displayContent` replacement.
+  The rendered channel is separate from transcripts, resumed conversations,
+  model context, goal evidence, and canonical machine-result text; failed hooks
+  fall back to the original display.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

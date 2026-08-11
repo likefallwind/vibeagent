@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any
+from uuid import uuid4
 
 from .agent_async_hook_notifications import inject_async_hook_notifications
 from .agent_hook_prompt import HookModelRuntime
@@ -13,6 +14,7 @@ from .agent_message_flow import (
     compact_agent_context_if_needed,
     recover_agent_context_limit,
 )
+from .agent_message_display import build_message_display_finish
 from .agent_observation_utils import observation_failed
 from .agent_lifecycle_runtime import AgentLifecycleRuntime
 from .agent_model_turn import handle_no_tool_call_response, record_model_turn
@@ -36,7 +38,7 @@ from .agent_result import AgentResult
 from .agent_run_setup import AgentRunSetup
 from .agent_sequential_execution import execute_sequential_tool_call
 from .agent_sequential_execution import SequentialToolCallResult
-from .agent_runtime_utils import append_session_event
+from .agent_runtime_utils import append_session_event, content_blocks_to_text
 from .agent_deferred_loop import (
     persist_deferred_tool_batch,
     resume_deferred_tool_batch,
@@ -131,6 +133,7 @@ def run_agent_loop(
     )
     current_approval_handler = approval_handler
     hook_system_messages: list[str] = []
+    turn_id = str(uuid4())
     hook_model_runtime = HookModelRuntime(
         client=client,
         complete_with_retries=runtime.complete_with_retries,
@@ -165,6 +168,7 @@ def run_agent_loop(
         stop_reason: str | None = None,
         deferred_tool_use: dict[str, object] | None = None,
         is_error: bool = False,
+        display_message: str | None = None,
     ) -> AgentResult:
         checkpoint_session_conversation(workspace, messages, task)
         return replace(
@@ -185,6 +189,7 @@ def run_agent_loop(
             approval_policy=plan_mode.current_policy,
             hook_system_messages=list(hook_system_messages),
             conversation=conversation_for_next_prompt(messages, task),
+            display_message=display_message,
         )
 
     def finish_run(success: bool, message: str, iterations: int) -> AgentResult:
@@ -632,6 +637,7 @@ def run_agent_loop(
         poll_file_changes(iteration)
         assistant_content = model_turn.assistant_content
         tool_calls = model_turn.tool_calls
+        assistant_text = content_blocks_to_text(assistant_content)
         if not tool_calls:
             late_async_hooks = inject_async_hook_notifications(
                 current_workspace,
@@ -646,6 +652,14 @@ def run_agent_loop(
             if late_async_hooks or late_monitors:
                 checkpoint_conversation()
                 continue
+            finish_model_message = build_message_display_finish(
+                lifecycle,
+                finish_with_conversation,
+                hook_system_messages,
+                assistant_text=assistant_text,
+                turn_id=turn_id,
+                message_id=str(uuid4()),
+            )
             no_tool_result = handle_no_tool_call_response(
                 current_workspace,
                 messages,
@@ -658,7 +672,7 @@ def run_agent_loop(
                 command_timeout_ms=command_timeout_ms,
                 logger=logger,
                 completion_blocked_feedback_if_needed_func=runtime.completion_blocked_feedback_if_needed,
-                finish_agent_run_func=finish_with_conversation,
+                finish_agent_run_func=finish_model_message,
                 stop_feedback_if_needed_func=stop_feedback_if_needed,
             )
             if no_tool_result.should_continue:

@@ -137,6 +137,29 @@ class AgentLifecycleRuntime:
             iteration=iteration,
         )
 
+    def message_display(
+        self,
+        workspace: RunWorkspace,
+        delta: str,
+        *,
+        turn_id: str,
+        message_id: str,
+        iteration: int = 0,
+    ) -> LifecycleHookResult:
+        return self._run(
+            workspace,
+            "MessageDisplay",
+            "",
+            {
+                "turn_id": turn_id,
+                "message_id": message_id,
+                "index": 0,
+                "final": True,
+                "delta": delta,
+            },
+            iteration=iteration,
+        )
+
     def stop_failure(
         self,
         workspace: RunWorkspace,
