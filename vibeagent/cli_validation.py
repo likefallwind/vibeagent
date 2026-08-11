@@ -23,6 +23,17 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--background requires session persistence."
     if args.background and args.api_key is not None:
         return "--background does not persist --api-key; configure the provider key in the environment."
+    if args.attach_background_agent is not None:
+        if args.task:
+            return "--attach-background-agent cannot be combined with a task."
+        if any(
+            value is not None
+            for value in (args.resume, args.session_id, args.compact, args.worktree, args.name)
+        ) or args.continue_latest or args.fork_session:
+            return (
+                "--attach-background-agent cannot be combined with session selection, "
+                "naming, forking, or worktree options."
+            )
     if args.background_agent_log_max_chars > 100_000:
         return "--background-agent-log-max-chars cannot exceed 100000."
     if args.json_schema is not None and (

@@ -4,6 +4,7 @@ import argparse
 from collections.abc import Sequence
 
 from .cli_argument_registration import add_cli_arguments
+from .cli_background_agent_args import normalize_background_agent_command_arguments
 from .cli_compat_args import normalize_compat_arguments
 from .cli_local_flag_detection import (
     LOCAL_FLAG_ARG_NAMES,
@@ -19,7 +20,8 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         allow_abbrev=False,
     )
     add_cli_arguments(parser)
-    return normalize_output_arguments(normalize_compat_arguments(parser.parse_args(list(argv))))
+    values = normalize_background_agent_command_arguments(argv)
+    return normalize_output_arguments(normalize_compat_arguments(parser.parse_args(values)))
 
 
 def has_local_flag(args: argparse.Namespace) -> bool:

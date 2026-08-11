@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 
 
 def add_background_agent_local_arguments(
@@ -20,6 +21,11 @@ def add_background_agent_local_arguments(
         "--stop-background-agent",
         metavar="ID",
         help="Stop one running background coding agent and exit.",
+    )
+    local.add_argument(
+        "--attach-background-agent",
+        metavar="ID",
+        help="Attach to one background coding agent in this terminal.",
     )
     local.add_argument(
         "--send-background-agent",
@@ -57,7 +63,15 @@ def add_background_agent_option_arguments(parser: argparse.ArgumentParser, *, po
     )
 
 
+def normalize_background_agent_command_arguments(argv: Sequence[str]) -> list[str]:
+    values = list(argv)
+    if len(values) >= 2 and values[0] == "attach":
+        return ["--attach-background-agent", values[1], *values[2:]]
+    return values
+
+
 __all__ = [
     "add_background_agent_local_arguments",
     "add_background_agent_option_arguments",
+    "normalize_background_agent_command_arguments",
 ]

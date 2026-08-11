@@ -10,6 +10,7 @@ from .background_agent_config import (
     create_background_agent_config,
     read_background_agent_config,
 )
+from .background_agent_attachment import background_agent_attachment_path
 from .background_agent_inbox import (
     enqueue_background_agent_message,
     pending_background_agent_message_count,
@@ -135,6 +136,7 @@ def send_background_agent_message(
         view = get_background_agent(root, agent_id)
         if view is None:
             return None, "not-found"
+        _reject_attached_background_agent(view)
         config = read_background_agent_config(root, agent_id)
         enqueue_background_agent_message(config, message)
         if view.status == "running":
@@ -151,6 +153,7 @@ def respawn_background_agent(
         view = get_background_agent(root, agent_id)
         if view is None:
             return None, "not-found"
+        _reject_attached_background_agent(view)
         if view.status == "running":
             terminate_persistent_process(as_process_record(view.record))
         config = read_background_agent_config(root, agent_id)
@@ -168,6 +171,7 @@ def stop_background_agent(project_root: Path, agent_id: str) -> BackgroundAgentV
         view = get_background_agent(root, agent_id)
         if view is None:
             return None
+        _reject_attached_background_agent(view)
         if view.status == "running":
             terminate_persistent_process(as_process_record(view.record))
             write_private_text(view.record.stopped_path, "stopped\n", exclusive=False)
@@ -180,6 +184,7 @@ def remove_background_agent(project_root: Path, agent_id: str) -> tuple[bool, st
         view = get_background_agent(root, agent_id)
         if view is None:
             return False, f"Background agent not found: {agent_id}"
+        _reject_attached_background_agent(view)
         if view.status == "running":
             return False, f"Background agent is still running: {agent_id}"
         record_path = background_agent_record_path(root, agent_id)
@@ -307,6 +312,7 @@ def _respawn_background_agent_locked(
 
 
 def _remove_background_agent_metadata(project_root: Path, agent_id: str) -> None:
+    background_agent_attachment_path(project_root, agent_id).unlink(missing_ok=True)
     background_agent_config_path(project_root, agent_id).unlink(missing_ok=True)
     remove_background_agent_inbox(project_root, agent_id)
     launch_root = background_agent_runtime_root(project_root) / "launch"
@@ -328,6 +334,17 @@ def _restore_background_agent_terminal_state(
     write_private_text_atomic(view.record.exit_code_path, text)
     if was_stopped:
         write_private_text(view.record.stopped_path, "stopped\n", exclusive=False)
+
+
+def _reject_attached_background_agent(view: BackgroundAgentView) -> None:
+    if view.status == "attachment-error":
+        raise ValueError(
+            f"Background agent has an invalid attachment state: {view.record.id}"
+        )
+    if view.status in {"attaching", "attached"}:
+        raise ValueError(
+            f"Background agent is {view.status} in another terminal: {view.record.id}"
+        )
 
 
 __all__ = [

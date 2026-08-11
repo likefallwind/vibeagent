@@ -43,15 +43,20 @@ in a detached process group and returns its project-local ID. Provider-free CLI
 flags and interactive slash commands list sessions, read bounded logs, stop a
 running agent, queue follow-up turns, respawn a running or stopped worker under the
 same agent ID, and remove its private supervisor files without deleting the
-resumable transcript. An atomic FIFO inbox and transition lock prevent send/exit
+resumable transcript. `attach ID` (also `--attach-background-agent ID`) acquires a private
+process-bound lease, lets an active worker finish its current turn at a safe
+handoff boundary, and restores the same transcript and effective worktree in the
+full interactive CLI with normal approval prompts. Lease states are visible as
+`attaching` or `attached`; terminal exit releases the lease, stale foreground
+processes are recovered by PID start-time validation, and conflicting lifecycle
+commands are rejected. An atomic FIFO inbox and transition lock prevent send/exit
 races, the effective worktree root and API-key-free launch options survive later
 turns, and a private random worker token rejects nested CLI processes that only
 inherit the supervisor environment. The worker consumes an owner-only launch
 payload before running, records a durable exit status, validates PID start
 times, closes stdin, retains the selected approval policy, and requires
 credentials from the environment instead of persisted `--api-key` arguments.
-This release does not claim interactive attachment or approval takeover for
-detached agents.
+This release does not claim a full-screen global agent-view dashboard.
 
 That release gate expands to:
 

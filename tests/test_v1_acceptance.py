@@ -173,6 +173,8 @@ EXPECTED_GATES = {
             "test_main_routes_background_task_before_one_shot_execution",
             "test_worker_drains_followup_in_same_process_before_recording_exit",
             "test_send_queues_running_agent_and_respawns_completed_agent",
+            "test_attach_waits_for_worker_then_exposes_attached_status",
+            "test_cli_attach_routes_to_interactive_resume_in_recorded_worktree",
         },
     },
     "VA1-GOAL": {

@@ -8,6 +8,7 @@ from .background_agent_config import (
     background_agent_config_path,
     read_background_agent_config,
 )
+from .background_agent_attachment import read_background_agent_attachment
 from .background_agent_inbox import next_background_agent_message
 from .background_agent_lock import background_agent_transition_lock
 from .background_agent_store import write_private_text_atomic
@@ -67,6 +68,9 @@ def run_worker(payload_path: Path, *, cli_main_func=None) -> int:
                     active_message_path = None
         config = read_background_agent_config(root, agent_id)
         with background_agent_transition_lock(root, agent_id):
+            if read_background_agent_attachment(root, agent_id) is not None:
+                write_private_text_atomic(Path(exit_code_path), f"{exit_code}\n")
+                return exit_code
             queued = next_background_agent_message(config)
             if queued is None:
                 write_private_text_atomic(Path(exit_code_path), f"{exit_code}\n")

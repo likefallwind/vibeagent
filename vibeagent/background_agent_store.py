@@ -39,6 +39,22 @@ def get_background_agent(project_root: Path, agent_id: str) -> BackgroundAgentVi
 
 
 def background_agent_view(record: BackgroundAgentRecord) -> BackgroundAgentView:
+    from .background_agent_attachment import read_background_agent_attachment
+
+    try:
+        attachment = read_background_agent_attachment(record.project_root, record.id)
+    except (OSError, ValueError):
+        return BackgroundAgentView(
+            record=record,
+            status="attachment-error",
+            exit_code=read_background_agent_exit_code(record.exit_code_path),
+        )
+    if attachment is not None:
+        return BackgroundAgentView(
+            record=record,
+            status=attachment.state,
+            exit_code=read_background_agent_exit_code(record.exit_code_path),
+        )
     exit_code = read_background_agent_exit_code(record.exit_code_path)
     if record.stopped_path.is_file():
         status = "stopped"

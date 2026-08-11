@@ -221,6 +221,8 @@ python -m vibeagent --bg --approval auto --cwd ../my-project "run the tests and 
 python -m vibeagent --background-agents --cwd ../my-project
 python -m vibeagent --background-agent-log <agent-id> --cwd ../my-project
 python -m vibeagent --stop-background-agent <agent-id> --cwd ../my-project
+python -m vibeagent --attach-background-agent <agent-id> --cwd ../my-project
+python -m vibeagent attach <agent-id> --cwd ../my-project
 python -m vibeagent --send-background-agent <agent-id> "continue with the focused tests" --cwd ../my-project
 python -m vibeagent --respawn-background-agent <agent-id> --cwd ../my-project
 python -m vibeagent --remove-background-agent <agent-id> --cwd ../my-project
@@ -248,13 +250,19 @@ printf "summarize the project risks\n" | python -m vibeagent -
 returns a project-local agent ID immediately. Management commands and the
 matching interactive slash commands list agents, read bounded stdout/stderr,
 queue a follow-up message, respawn a running or stopped worker, stop a running process
-group, or remove its supervisor record and logs. Follow-ups retain the same
+group, attach the same session to a full interactive terminal, or remove its
+supervisor record and logs. Follow-ups retain the same
 agent ID and resume the same transcript; a message sent while the worker is
 active runs as the next turn, while a message sent after exit respawns the
-worker automatically. Removal preserves the normal session transcript, so a
+worker automatically. `attach ID` (or `--attach-background-agent ID`) claims a private foreground
+lease, waits for an active worker to finish its current turn without consuming
+another queued message, and resumes the recorded transcript and worktree in the
+normal interactive CLI. This transfers approval prompts and all interactive
+commands to the attached terminal. Exiting releases the lease but preserves the
+supervisor entry and transcript. Removal preserves the normal session transcript, so a
 generated name such as `background-<agent-id>` remains resumable. This is
-autonomous background execution with reply/respawn support, not an interactive
-terminal attachment or approval UI.
+autonomous background execution with reply, respawn, and safe terminal attach;
+it is not a full-screen multi-agent dashboard.
 
 Background sessions cannot answer approval prompts because their stdin is
 closed; use an explicit non-interactive approval policy or trusted project
@@ -268,7 +276,9 @@ API-key-free CLI options for later turns, an atomic FIFO inbox stores pending
 messages, and a per-agent worker token prevents inherited environment variables
 from authorizing nested CLI processes. Status uses both the PID start time and
 a durable exit marker to avoid mistaking PID reuse or a reaped process for a
-running agent.
+running agent. Attachment leases use the same process-identity checks, expose
+`attaching` and `attached` states, recover after an attached terminal crashes,
+and block conflicting send, respawn, stop, or remove operations.
 
 Coding prompts accept Claude-style `@path` file references. Unquoted paths end
 at whitespace; use `@"path with spaces.md"` or `@'path with spaces.md'` when
@@ -1210,6 +1220,7 @@ source snippets, `/find-files [--path PATH] [--max-matches N] [--regex] [--case-
 `/background-agents` to list project-local background coding sessions,
 `/background-agent-log <id> [max-chars]` to read bounded output from one session,
 `/stop-background-agent <id>` to stop one running background coding session,
+`--attach-background-agent <id>` from the shell to take over one session in the full interactive CLI,
 `/send-background-agent <id> <message>` to queue a same-session follow-up and respawn the worker if needed,
 `/respawn-background-agent <id>` to restart a running or stopped worker from its recorded session,
 `/remove-background-agent <id>` to remove one non-running supervisor entry and its logs while preserving the resumable session,
@@ -2316,6 +2327,11 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
 - `vibeagent/background_agent_inbox.py` and
   `vibeagent/background_agent_lock.py`: provide ordered atomic follow-up
   messages and serialize worker exit against concurrent send/respawn requests.
+- `vibeagent/background_agent_attachment.py`,
+  `vibeagent/background_agent_attach.py`, and
+  `vibeagent/cli_background_agent_attach.py`: persist process-bound foreground
+  leases, coordinate safe worker handoff at a turn boundary, and resume the
+  recorded session/worktree through the normal interactive CLI.
 - `vibeagent/background_agent_runtime.py` and
   `vibeagent/background_agent_worker.py`: launch or respawn a detached copy of
   the normal one-shot CLI, consume private payloads, continue the same session
