@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 
 from .cli_additional_directories import resolve_additional_directories
+from .cli_background_agent_followup import background_agent_worker_config
 from .cli_context import (
     OneShotPriorContext,
     SessionContextGetter,
@@ -119,6 +120,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "tool_names": parse_cli_tool_names(args.tools),
         "permission_overrides": build_permission_overrides(args),
         "provider_args": args,
+        "background_agent_config": background_agent_worker_config(args),
     }
 
 

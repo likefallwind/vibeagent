@@ -30,6 +30,7 @@ from .commands import get_compact_context, get_resume_context
 from .providers import create_chat_client
 from .types import ApprovalPolicy
 from .dynamic_agent_profiles import DynamicAgentProfile
+from .background_agent_config import BackgroundAgentConfig
 
 
 def run_one_shot(
@@ -84,6 +85,7 @@ def run_one_shot(
     tool_names: frozenset[str] | None = None,
     permission_overrides=None,
     provider_args: argparse.Namespace | None = None,
+    background_agent_config: BackgroundAgentConfig | None = None,
     create_chat_client_func=create_chat_client,
     run_chat_func=run_chat,
     run_agent_func=run_agent,
@@ -216,6 +218,7 @@ def run_one_shot(
                 session_record_root=ephemeral.record_root if ephemeral is not None else None,
                 create_chat_client_func=create_chat_client_func,
                 run_agent_func=run_agent_func,
+                background_agent_config=background_agent_config,
                 get_resume_context_func=get_resume_context_func,
                 get_compact_context_func=get_compact_context_func,
             )

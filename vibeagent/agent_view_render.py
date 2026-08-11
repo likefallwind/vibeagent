@@ -4,10 +4,16 @@ from pathlib import Path
 from typing import Iterable
 
 from .background_agent_types import BackgroundAgentView
+from .background_agent_approval import BackgroundApproval
 
 
 STATUS_GROUPS = (
-    ("Needs attention", frozenset({"attaching", "attached", "attachment-error"})),
+    (
+        "Needs attention",
+        frozenset(
+            {"needs-input", "approval-error", "attaching", "attached", "attachment-error"}
+        ),
+    ),
     ("Working", frozenset({"running"})),
     ("Stopped", frozenset({"stopped", "lost", "failed"})),
     ("Completed", frozenset({"completed"})),
@@ -39,6 +45,7 @@ def render_agent_view(
     pending_counts: dict[str, int],
     peek_stdout: str = "",
     peek_stderr: str = "",
+    approval: BackgroundApproval | None = None,
     message: str = "",
     show_help: bool = False,
     width: int = 100,
@@ -93,7 +100,7 @@ def render_agent_view(
         if bounded_width < 60
         else (
             "Up/Down select  Space peek  Enter attach  n dispatch  m reply  "
-            "s stop  R respawn  x remove  ? help  q quit"
+            "y approve  A always  N deny  s stop  R respawn  x remove  ? help  q quit"
         )
     )
     footer = [
@@ -102,8 +109,16 @@ def render_agent_view(
         _fit(message or "Auto-refreshing every 0.5s.", bounded_width),
     ]
     available = bounded_height - len(footer)
-    if not show_help and selected_id is not None and (peek_stdout or peek_stderr):
-        peek_lines = _render_peek(peek_stdout, peek_stderr, bounded_width)
+    if (
+        not show_help
+        and selected_id is not None
+        and (approval is not None or peek_stdout or peek_stderr)
+    ):
+        peek_lines = (
+            _render_approval(approval, bounded_width)
+            if approval is not None
+            else _render_peek(peek_stdout, peek_stderr, bounded_width)
+        )
         peek_slots = min(8, len(peek_lines), max(0, available - 3))
         body_limit = available - peek_slots
         lines = lines[:body_limit]
@@ -146,6 +161,16 @@ def _render_peek(stdout: str, stderr: str, width: int) -> list[str]:
     return lines
 
 
+def _render_approval(approval: BackgroundApproval, width: int) -> list[str]:
+    lines = ["", f"Approval required: {approval.action_type}"]
+    lines.append(f"  Target: {_fit(approval.target, max(1, width - 10))}")
+    lines.append(f"  Risk: {_fit(approval.risk, max(1, width - 8))}")
+    if approval.preview:
+        lines.append(f"  Preview: {_fit(approval.preview, max(1, width - 11))}")
+    lines.append("  Press y to approve once, A for this session, or N to deny.")
+    return lines
+
+
 def _help_lines() -> list[str]:
     return [
         "",
@@ -153,6 +178,7 @@ def _help_lines() -> list[str]:
         "  Up/Down or j/k   Move selection",
         "  Space            Toggle recent stdout/stderr",
         "  Enter or Right   Attach selected session",
+        "  y / A / N        Approve once / session / deny pending action",
         "  n                 Dispatch a new background task",
         "  m                 Send a follow-up message",
         "  s / R             Stop / respawn selected session",

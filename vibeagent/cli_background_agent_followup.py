@@ -51,6 +51,12 @@ def record_background_agent_session_root(
         update_background_agent_session_root(config, session_root)
 
 
+def background_agent_worker_config(args: argparse.Namespace) -> BackgroundAgentConfig | None:
+    if getattr(args, "_background_agent_worker_token", None) is None:
+        return None
+    return _config_from_environment(args)
+
+
 def _config_from_environment(args: argparse.Namespace) -> BackgroundAgentConfig:
     agent_id = os.environ.get(BACKGROUND_AGENT_ID_ENV, "")
     config_value = os.environ.get(BACKGROUND_AGENT_CONFIG_ENV, "")
@@ -73,6 +79,7 @@ def _config_from_environment(args: argparse.Namespace) -> BackgroundAgentConfig:
 __all__ = [
     "BACKGROUND_AGENT_CONFIG_ENV",
     "BACKGROUND_AGENT_ID_ENV",
+    "background_agent_worker_config",
     "prepare_background_agent_followup",
     "record_background_agent_session_root",
 ]

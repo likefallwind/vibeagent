@@ -46,6 +46,7 @@ from .deferred_tool_state import read_deferred_tool_state
 from .session_lifecycle_hooks import run_session_end_hooks
 from .agent_runtime_utils import append_session_event, format_exception
 from .model_effort import ModelEffortSetting, configure_model_effort
+from .background_agent_config import BackgroundAgentConfig
 
 
 def run_one_shot_code(
@@ -101,6 +102,7 @@ def run_one_shot_code(
     session_record_root: Path | None = None,
     create_chat_client_func: Callable[[dict[str, str | None]], object],
     run_agent_func: Callable[..., AgentResult],
+    background_agent_config: BackgroundAgentConfig | None = None,
     get_resume_context_func: SessionContextGetter,
     get_compact_context_func: SessionContextGetter,
     generate_structured_output_func: Callable[..., StructuredOutputResult] = generate_structured_output,
@@ -212,6 +214,7 @@ def run_one_shot_code(
             if include_partial_messages and stream is not None
             else None
         ),
+        background_agent_config=background_agent_config,
     )
     continuing_source_session = (
         ephemeral_workspace is None

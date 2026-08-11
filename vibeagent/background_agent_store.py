@@ -40,6 +40,7 @@ def get_background_agent(project_root: Path, agent_id: str) -> BackgroundAgentVi
 
 def background_agent_view(record: BackgroundAgentRecord) -> BackgroundAgentView:
     from .background_agent_attachment import read_background_agent_attachment
+    from .background_agent_approval import read_background_approval
 
     try:
         attachment = read_background_agent_attachment(record.project_root, record.id)
@@ -56,13 +57,21 @@ def background_agent_view(record: BackgroundAgentRecord) -> BackgroundAgentView:
             exit_code=read_background_agent_exit_code(record.exit_code_path),
         )
     exit_code = read_background_agent_exit_code(record.exit_code_path)
+    process_running = persistent_process_running(as_process_record(record))
+    if process_running:
+        try:
+            approval = read_background_approval(record.project_root, record.id)
+        except (OSError, ValueError):
+            return BackgroundAgentView(record=record, status="approval-error", exit_code=exit_code)
+        if approval is not None:
+            return BackgroundAgentView(record=record, status="needs-input", exit_code=exit_code)
     if record.stopped_path.is_file():
         status = "stopped"
     elif exit_code == 0:
         status = "completed"
     elif exit_code is not None:
         status = "failed"
-    elif persistent_process_running(as_process_record(record)):
+    elif process_running:
         status = "running"
     else:
         status = "lost"

@@ -7,11 +7,46 @@ from unittest.mock import patch
 
 from vibeagent.cli_one_shot_agent_kwargs import build_one_shot_agent_kwargs
 from vibeagent.config import ExecutionConfig
+from vibeagent.background_agent_approval import BackgroundApprovalPrompt
+from vibeagent.background_agent_config import create_background_agent_config
+from vibeagent.session_approval import SessionApprovalHandler
 from vibeagent.types import ApprovalRequest
 from vibeagent.workspace_permissions import ProjectPermissions
 
 
 class CliOneShotAgentKwargsTests(unittest.TestCase):
+    def test_authenticated_background_worker_uses_ipc_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-kwargs-") as base:
+            root = Path(base).resolve()
+            config = create_background_agent_config(
+                root,
+                "aaaaaaaaaaaa",
+                session_root=root,
+                resume_reference="background-aaaaaaaaaaaa",
+                base_argv=["--print", "task"],
+            )
+            kwargs = build_one_shot_agent_kwargs(
+                client=object(),
+                project_root=root,
+                execution_config=ExecutionConfig(),
+                approval_policy="ask",
+                trust_project_permissions=False,
+                permission_overrides=None,
+                mcp_config_paths=(),
+                strict_mcp_config=False,
+                machine_output=True,
+                stream_json=False,
+                prior_context=None,
+                system_prompt=None,
+                append_system_prompt=None,
+                task_metadata=None,
+                background_agent_config=config,
+            )
+
+        handler = kwargs["approval_handler"]
+        self.assertIsInstance(handler, SessionApprovalHandler)
+        self.assertIsInstance(handler.prompt, BackgroundApprovalPrompt)
+
     def test_stream_json_ask_disables_interactive_handlers(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-kwargs-") as base:
             root = Path(base)

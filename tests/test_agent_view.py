@@ -14,6 +14,7 @@ from vibeagent.agent_view import (
 from vibeagent.agent_view_render import render_agent_view
 from vibeagent.agent_view_terminal import StandardAgentViewTerminal
 from vibeagent.background_agent_types import BackgroundAgentRecord, BackgroundAgentView
+from vibeagent.background_agent_approval import BackgroundApproval
 from vibeagent.cli import main
 from vibeagent.cli_agent_view import run_agent_view_from_cli
 from vibeagent.cli_args import has_local_flag, parse_args
@@ -90,6 +91,23 @@ class FakeBackend:
     def logs(self, agent_id: str) -> tuple[str, str]:
         self.calls.append(("logs", agent_id))
         return "running focused tests\nall passed\n", ""
+
+    def approval(self, agent_id: str) -> BackgroundApproval | None:
+        if self.views and self.views[0].record.id == agent_id and self.views[0].status == "needs-input":
+            return BackgroundApproval(
+                agent_id,
+                "1" * 32,
+                "write_file",
+                "result.txt",
+                "writes a file",
+                "hello",
+                "2026-08-11T00:00:00+00:00",
+            )
+        return None
+
+    def decide_approval(self, agent_id: str, approved: bool, scope: str) -> str:
+        self.calls.append(("approval", agent_id, str(approved), scope))
+        return "approved" if approved else "denied"
 
     def dispatch(self, task: str) -> BackgroundAgentView:
         self.calls.append(("dispatch", task))
@@ -191,6 +209,19 @@ class AgentViewTests(unittest.TestCase):
 
         self.assertEqual(outcome.attach_id, "cccccccccccc")
         self.assertIn(("dispatch", "implement the parser"), backend.calls)
+
+    def test_controller_resolves_pending_approval_before_attach(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-view-") as base:
+            root = Path(base).resolve()
+            waiting = _view(root, "aaaaaaaaaaaa", status="needs-input", task="edit result")
+            backend = FakeBackend([waiting])
+            terminal = FakeTerminal(["enter", "y", "q"])
+
+            outcome = run_agent_view(root, backend=backend, terminal=terminal)
+
+        self.assertIsNone(outcome.attach_id)
+        self.assertIn(("approval", waiting.record.id, "True", "once"), backend.calls)
+        self.assertTrue(any("Resolve the pending approval" in "\n".join(frame) for frame in terminal.frames))
 
     def test_project_backend_dispatch_separates_task_from_cli_options(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-view-") as base:

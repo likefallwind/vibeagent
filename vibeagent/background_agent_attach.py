@@ -36,6 +36,10 @@ def attach_background_agent(
         view = get_background_agent(root, agent_id)
         if view is None:
             raise ValueError(f"Background agent not found: {agent_id}")
+        if view.status in {"needs-input", "approval-error"}:
+            raise ValueError(
+                f"Resolve the background agent approval before attaching: {agent_id}"
+            )
         config = read_background_agent_config(root, agent_id)
         invocation_root = view.record.invocation_root
         if invocation_root.is_symlink() or not invocation_root.is_dir():

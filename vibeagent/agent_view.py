@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from .agent_view_render import ordered_agent_views, render_agent_view
 from .agent_view_terminal import AgentViewTerminal, StandardAgentViewTerminal
@@ -17,6 +17,11 @@ from .background_agent_runtime import (
     stop_background_agent,
 )
 from .background_agent_types import BackgroundAgentView
+from .background_agent_approval import (
+    BackgroundApproval,
+    decide_background_approval,
+    read_background_approval,
+)
 
 
 @dataclass(frozen=True)
@@ -30,6 +35,15 @@ class AgentViewBackend(Protocol):
     def pending(self, agent_id: str) -> int: ...
 
     def logs(self, agent_id: str) -> tuple[str, str]: ...
+
+    def approval(self, agent_id: str) -> BackgroundApproval | None: ...
+
+    def decide_approval(
+        self,
+        agent_id: str,
+        approved: bool,
+        scope: Literal["once", "session"],
+    ) -> str: ...
 
     def dispatch(self, task: str) -> BackgroundAgentView: ...
 
@@ -62,6 +76,24 @@ class ProjectAgentViewBackend:
         if view is None:
             raise ValueError(f"Background agent not found: {agent_id}")
         return stdout, stderr
+
+    def approval(self, agent_id: str) -> BackgroundApproval | None:
+        return read_background_approval(self.project_root, agent_id)
+
+    def decide_approval(
+        self,
+        agent_id: str,
+        approved: bool,
+        scope: Literal["once", "session"],
+    ) -> str:
+        approval = decide_background_approval(
+            self.project_root,
+            agent_id,
+            approved=approved,
+            scope=scope,
+        )
+        verb = "Approved" if approved else "Denied"
+        return f"{verb} {approval.action_type} for {agent_id}."
 
     def dispatch(self, task: str) -> BackgroundAgentView:
         return launch_background_agent(
@@ -128,6 +160,12 @@ def run_agent_view(
                 }
                 stdout = ""
                 stderr = ""
+                selected = next((view for view in views if view.record.id == selected_id), None)
+                approval = (
+                    active_backend.approval(selected_id)
+                    if selected is not None and selected.status == "needs-input"
+                    else None
+                )
                 if peek and selected_id is not None:
                     stdout, stderr = active_backend.logs(selected_id)
             except (OSError, ValueError) as error:
@@ -135,6 +173,7 @@ def run_agent_view(
                 pending = {}
                 stdout = ""
                 stderr = ""
+                approval = None
                 message = f"Refresh failed: {error}"
 
             width, height = active_terminal.size()
@@ -145,6 +184,7 @@ def run_agent_view(
                 pending_counts=pending,
                 peek_stdout=stdout,
                 peek_stderr=stderr,
+                approval=approval,
                 message=message,
                 show_help=show_help,
                 width=width,
@@ -170,10 +210,15 @@ def run_agent_view(
             if key in {"space", "p", "l"}:
                 peek = not peek
                 continue
-            if key in {"enter", "right", "a"}:
+            if key in {"enter", "right"}:
                 if selected_id is not None:
-                    return AgentViewOutcome(attach_id=selected_id)
-                message = "No background agent is selected."
+                    selected = next((view for view in views if view.record.id == selected_id), None)
+                    if selected is not None and selected.status in {"needs-input", "approval-error"}:
+                        message = "Resolve the pending approval before attaching."
+                    else:
+                        return AgentViewOutcome(attach_id=selected_id)
+                else:
+                    message = "No background agent is selected."
                 continue
             try:
                 if key in {"n", "d"}:
@@ -189,6 +234,15 @@ def run_agent_view(
                         reply = _prompt_nonempty(active_terminal, "Reply: ")
                         if reply is not None:
                             message = active_backend.reply(selected_id, reply)
+                elif key in {"y", "A", "N"}:
+                    if selected_id is None:
+                        message = "No background agent is selected."
+                    else:
+                        message = active_backend.decide_approval(
+                            selected_id,
+                            key in {"y", "A"},
+                            "session" if key == "A" else "once",
+                        )
                 elif key == "s":
                     message = _selected_action(active_backend.stop, selected_id)
                 elif key == "R":
