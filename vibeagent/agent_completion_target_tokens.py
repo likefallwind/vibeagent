@@ -28,6 +28,7 @@ BASIC_TARGET_FIELDS = (
     "stash_ref",
     "message_text",
     "checkpoint_id",
+    "comment_target",
 )
 
 

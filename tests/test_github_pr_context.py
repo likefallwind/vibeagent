@@ -100,6 +100,7 @@ class GitHubPrContextTests(unittest.TestCase):
             view_payload = self._view_payload()
             inline_payload = [
                 {
+                    "id": 700,
                     "user": {"login": "inline-reviewer"},
                     "body": "Fix this branch",
                     "created_at": "2026-08-11T10:00:00Z",
@@ -120,6 +121,7 @@ class GitHubPrContextTests(unittest.TestCase):
             self.assertTrue(result["comments_truncated"])
             self.assertEqual(result["comments_total"], 106)
             self.assertEqual(result["comments"][0]["kind"], "inline")
+            self.assertEqual(result["comments"][0]["comment_id"], 700)
             self.assertEqual(result["comments"][0]["path"], "src/app.py")
             self.assertEqual(len(result["reviews"]), 50)
             self.assertTrue(result["reviews_truncated"])

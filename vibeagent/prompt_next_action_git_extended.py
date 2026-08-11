@@ -17,6 +17,8 @@ EXTENDED_GIT_NEXT_ACTION_KINDS = {
     "github_pr_create",
     "github_pr_context",
     "github_pr_ci_logs",
+    "check_github_pr_comment",
+    "github_pr_comment",
     "check_git_restore",
     "git_restore",
     "git_stashes",
@@ -312,6 +314,14 @@ def extended_git_next_action_instruction(base: str, latest: Observation) -> str:
         if any(getattr(run, "logs", "") for run in getattr(latest, "runs", [])):
             return f"{base} Failed CI logs are available. Trace each failure to the local code, implement the justified fix, run focused verification, then commit and push if requested."
         return f"{base} Failed checks were found but no GitHub Actions logs were available. Use the check names and links to guide local reproduction, or inspect external CI separately."
+    if latest.kind == "check_github_pr_comment":
+        if getattr(latest, "ok", False):
+            return f"{base} Pull request comment validation passed. Run github_pr_comment only if publishing this exact text was requested and appropriate."
+        return f"{base} Pull request comment validation failed. Resolve the local repository, selector, body, reply ID, or gh prerequisite before retrying."
+    if latest.kind == "github_pr_comment":
+        if getattr(latest, "ok", False):
+            return f"{base} The pull request comment was posted. Report its URL and whether it was a discussion comment or inline reply."
+        return f"{base} Pull request commenting failed. Inspect the GitHub CLI or API error, then revalidate before retrying."
     if latest.kind == "check_git_restore":
         return _check_git_restore_next_action_instruction(base, latest)
     if latest.kind == "git_restore":

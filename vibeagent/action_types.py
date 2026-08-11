@@ -125,7 +125,7 @@ from .action_git_types import (
     GitSwitchAction,
     GitUnstageAction,
 )
-from .action_github_types import CheckGitHubPrCreateAction, GitHubPrCiLogsAction, GitHubPrContextAction, GitHubPrCreateAction
+from .action_github_types import CheckGitHubPrCommentAction, CheckGitHubPrCreateAction, GitHubPrCiLogsAction, GitHubPrCommentAction, GitHubPrContextAction, GitHubPrCreateAction
 from .action_notebook_types import (
     CheckNotebookEditAction,
     NotebookEditAction,

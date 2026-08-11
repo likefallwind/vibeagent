@@ -103,6 +103,8 @@ ACTION_LOG_SPECS: dict[str, tuple[str, ActionTargetBuilder]] = {
     "github_pr_create": ("creating GitHub pull request", _target_action),
     "github_pr_context": ("reading GitHub pull request", _target_action),
     "github_pr_ci_logs": ("reading GitHub CI failures", _target_action),
+    "check_github_pr_comment": ("checking GitHub PR comment", _target_action),
+    "github_pr_comment": ("posting GitHub PR comment", _target_action),
     "check_git_restore": ("checking git restore", _target_action),
     "git_restore": ("restoring git paths", _target_action),
     "git_stashes": ("reading git stashes", _target_action),

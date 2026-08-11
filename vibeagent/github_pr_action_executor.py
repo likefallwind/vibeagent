@@ -2,15 +2,20 @@ from __future__ import annotations
 
 from .github_pr_context_runtime import read_github_pr_context
 from .github_pr_ci_runtime import read_github_pr_ci_logs
+from .github_pr_comment_runtime import create_github_pr_comment, preview_github_pr_comment
 from .github_pr_runtime import create_github_pr, preview_github_pr_create
 from .types import (
     CheckGitHubPrCreateAction,
     CheckGitHubPrCreateObservation,
+    CheckGitHubPrCommentAction,
+    CheckGitHubPrCommentObservation,
     GitHubPrCheck,
     GitHubPrCiLogsAction,
     GitHubPrCiLogsObservation,
     GitHubPrCiRun,
     GitHubPrComment,
+    GitHubPrCommentAction,
+    GitHubPrCommentObservation,
     GitHubPrContextAction,
     GitHubPrContextObservation,
     GitHubPrCreateAction,
@@ -24,6 +29,37 @@ from .workspace import RunWorkspace
 
 
 def execute_github_pr_action(workspace: RunWorkspace, action: object) -> Observation | None:
+    if isinstance(action, (CheckGitHubPrCommentAction, GitHubPrCommentAction)):
+        options = {
+            "body": action.body,
+            "pr": action.pr,
+            "remote": action.remote,
+            "reply_to": action.reply_to,
+        }
+        result = (
+            preview_github_pr_comment(workspace, **options)
+            if isinstance(action, CheckGitHubPrCommentAction)
+            else create_github_pr_comment(workspace, **options)
+        )
+        common = dict(
+            ok=bool(result["ok"]),
+            repository=str(result["repository"]),
+            selector=str(result["selector"]),
+            pr=result["pr"],
+            remote=result["remote"],
+            reply_to=result["reply_to"],
+            body_chars=int(result["body_chars"]),
+            body_sha256=str(result["body_sha256"]),
+            comment_target=str(result["comment_target"]),
+            message=str(result["message"]),
+        )
+        if isinstance(action, CheckGitHubPrCommentAction):
+            return CheckGitHubPrCommentObservation(kind="check_github_pr_comment", **common)
+        return GitHubPrCommentObservation(
+            kind="github_pr_comment",
+            url=str(result.get("url", "")),
+            **common,
+        )
     if isinstance(action, GitHubPrCiLogsAction):
         result = read_github_pr_ci_logs(
             workspace,

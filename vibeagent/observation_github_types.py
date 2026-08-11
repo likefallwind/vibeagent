@@ -11,6 +11,7 @@ class GitHubPrComment:
     body: str
     created_at: str
     url: str
+    comment_id: int | None = None
     path: str = ""
     line: int | None = None
 
@@ -139,4 +140,35 @@ class GitHubPrCiLogsObservation:
     runs: list[GitHubPrCiRun]
     runs_total: int
     runs_truncated: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckGitHubPrCommentObservation:
+    kind: Literal["check_github_pr_comment"]
+    ok: bool
+    repository: str
+    selector: str
+    pr: str | None
+    remote: str | None
+    reply_to: int | None
+    body_chars: int
+    body_sha256: str
+    comment_target: str
+    message: str
+
+
+@dataclass(frozen=True)
+class GitHubPrCommentObservation:
+    kind: Literal["github_pr_comment"]
+    ok: bool
+    repository: str
+    selector: str
+    pr: str | None
+    remote: str | None
+    reply_to: int | None
+    body_chars: int
+    body_sha256: str
+    comment_target: str
+    url: str
     message: str

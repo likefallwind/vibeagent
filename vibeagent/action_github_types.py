@@ -38,3 +38,21 @@ class GitHubPrCiLogsAction:
     remote: str | None = None
     max_runs: int = 3
     max_output_chars: int = 30_000
+
+
+@dataclass(frozen=True)
+class CheckGitHubPrCommentAction:
+    type: Literal["check_github_pr_comment"]
+    body: str
+    pr: str | None = None
+    remote: str | None = None
+    reply_to: int | None = None
+
+
+@dataclass(frozen=True)
+class GitHubPrCommentAction:
+    type: Literal["github_pr_comment"]
+    body: str
+    pr: str | None = None
+    remote: str | None = None
+    reply_to: int | None = None

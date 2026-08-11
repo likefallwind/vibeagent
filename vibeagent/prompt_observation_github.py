@@ -4,6 +4,19 @@ from .prompt_observation_utils import truncate
 
 
 def format_github_observation(index: int, observation: object) -> str | None:
+    if observation.kind in {"check_github_pr_comment", "github_pr_comment"}:
+        url = f"\nurl: {observation.url}" if observation.kind == "github_pr_comment" and observation.url else ""
+        return "\n".join(
+            [
+                f"{index}. {observation.kind}: {observation.message}",
+                f"ok: {str(observation.ok).lower()}",
+                f"repository: {observation.repository or 'none'}",
+                f"selector: {observation.selector or 'none'}",
+                f"replyTo: {observation.reply_to or 'discussion'}",
+                f"bodyChars: {observation.body_chars}",
+                f"bodySha256: {observation.body_sha256}{url}",
+            ]
+        )
     if observation.kind in {"check_github_pr_create", "github_pr_create"}:
         url = f"\nurl: {observation.url}" if observation.kind == "github_pr_create" and observation.url else ""
         return "\n".join(
@@ -71,8 +84,9 @@ def format_github_observation(index: int, observation: object) -> str | None:
     )
     for comment in observation.comments[:30]:
         location = f" {comment.path}:{comment.line or '?'}" if comment.path else ""
+        comment_id = f" id={comment.comment_id}" if comment.comment_id is not None else ""
         parts.append(
-            f"comment[{comment.kind}]{location} by {comment.author or 'unknown'} at {comment.created_at}:\n"
+            f"comment[{comment.kind}]{comment_id}{location} by {comment.author or 'unknown'} at {comment.created_at}:\n"
             f"{truncate(comment.body, 1_000)}"
         )
     parts.append(

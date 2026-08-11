@@ -179,6 +179,18 @@ def workflow_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
 
 
 def git_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
+    if kind in {"github_pr_comment", "check_github_pr_comment"}:
+        body_sha256 = getattr(value, "body_sha256", "")
+        body = getattr(value, "body", None)
+        if not body_sha256 and isinstance(body, str):
+            body_sha256 = hashlib.sha256(body.encode("utf-8")).hexdigest()
+        return (
+            "github_pr_comment",
+            body_sha256,
+            getattr(value, "pr", None),
+            getattr(value, "remote", None),
+            getattr(value, "reply_to", None),
+        )
     if kind in {"github_pr_create", "check_github_pr_create"}:
         return (
             "github_pr_create",

@@ -267,6 +267,7 @@ def _comment(value: object, kind: str) -> dict[str, Any]:
         "body": _text(item.get("body"), MAX_ITEM_BODY_CHARS),
         "created_at": _text(item.get("createdAt", item.get("created_at")), 200),
         "url": _text(item.get("url", item.get("html_url")), 2_000),
+        "comment_id": _integer(item.get("id")) or None,
         "path": _text(item.get("path"), 2_000),
         "line": _integer(line) or None,
     }

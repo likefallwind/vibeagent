@@ -13,6 +13,36 @@ _PR_PROPERTIES: dict[str, Any] = {
 
 GITHUB_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
+        "name": "check_github_pr_comment",
+        "description": "Locally validate a GitHub pull request discussion comment or inline review-comment reply without contacting GitHub.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "body": {"type": "string", "description": "Comment body in Markdown, at most 65536 characters."},
+                "pr": {"type": "string", "description": "Optional positive PR number, GitHub PR URL, or branch. Defaults to the current branch PR."},
+                "remote": {"type": "string", "description": "Optional local GitHub remote used to select the repository."},
+                "reply_to": {"type": "integer", "minimum": 1, "description": "Optional numeric top-level inline review comment ID returned by github_pr_context."},
+            },
+            "required": ["body"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "github_pr_comment",
+        "description": "Post a GitHub pull request discussion comment or reply to a top-level inline review comment. Requires approval and a matching check_github_pr_comment preview; comments may trigger repository automation.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "body": {"type": "string", "description": "Comment body in Markdown, at most 65536 characters."},
+                "pr": {"type": "string", "description": "Optional positive PR number, GitHub PR URL, or branch. Defaults to the current branch PR."},
+                "remote": {"type": "string", "description": "Optional local GitHub remote used to select the repository."},
+                "reply_to": {"type": "integer", "minimum": 1, "description": "Optional numeric top-level inline review comment ID returned by github_pr_context."},
+            },
+            "required": ["body"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "github_pr_ci_logs",
         "description": "Read failed checks for a GitHub pull request and bounded failed-step logs for GitHub Actions runs through gh. Contacts GitHub and requires approval.",
         "input_schema": {

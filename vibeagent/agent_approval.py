@@ -12,6 +12,7 @@ from .agent_approval_targets import (
 from .agent_file_approval import build_file_approval_request
 from .agent_observation_utils import summarize
 from .redaction import redact_jsonable_payload, redact_sensitive_text
+from .github_pr_comment_runtime import github_pr_comment_target
 from . import types as t
 
 
@@ -124,6 +125,15 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             action_type="github_pr_ci_logs",
             target=target,
             risk="This will contact GitHub and read failed CI check metadata and GitHub Actions logs for the selected pull request.",
+        )
+    if isinstance(action, t.GitHubPrCommentAction):
+        return t.ApprovalRequest(
+            action_type="github_pr_comment",
+            target=github_pr_comment_target(action.pr, action.reply_to, action.body),
+            risk=(
+                "This will publish text to GitHub using the configured gh account and trigger notifications. "
+                "Repository workflows may react to issue_comment or pull_request_review_comment events."
+            ),
         )
     if isinstance(action, t.GitRestoreAction):
         return t.ApprovalRequest(

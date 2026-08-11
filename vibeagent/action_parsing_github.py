@@ -3,33 +3,52 @@ from __future__ import annotations
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError, parse_optional_positive_int
-from .types import CheckGitHubPrCreateAction, GitHubPrCiLogsAction, GitHubPrContextAction, GitHubPrCreateAction
+from .types import (
+    CheckGitHubPrCommentAction,
+    CheckGitHubPrCreateAction,
+    GitHubPrCiLogsAction,
+    GitHubPrCommentAction,
+    GitHubPrContextAction,
+    GitHubPrCreateAction,
+)
 
 
-GITHUB_ACTION_TYPES = {"check_github_pr_create", "github_pr_create", "github_pr_context", "github_pr_ci_logs"}
+GITHUB_ACTION_TYPES = {
+    "check_github_pr_create",
+    "github_pr_create",
+    "github_pr_context",
+    "github_pr_ci_logs",
+    "check_github_pr_comment",
+    "github_pr_comment",
+}
 
 
 def parse_github_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
     if action_type not in GITHUB_ACTION_TYPES:
         return None
+    if action_type in {"check_github_pr_comment", "github_pr_comment"}:
+        body = value.get("body")
+        if not isinstance(body, str) or not body.strip() or len(body) > 65_536:
+            raise ActionParseError(f"{action_type} body must be a non-empty string of at most 65536 characters.", raw)
+        if any(ord(char) < 32 and char not in "\n\r\t" for char in body):
+            raise ActionParseError(f"{action_type} body cannot contain control characters.", raw)
+        pr, remote = _parse_pr_remote(value, raw, str(action_type))
+        reply_to = parse_optional_positive_int(
+            value.get("reply_to"),
+            "reply_to",
+            raw,
+            maximum=9_223_372_036_854_775_807,
+        )
+        action_class = CheckGitHubPrCommentAction if action_type == "check_github_pr_comment" else GitHubPrCommentAction
+        return action_class(
+            type=action_type,
+            body=body,
+            pr=pr,
+            remote=remote,
+            reply_to=reply_to,
+        )
     if action_type in {"github_pr_context", "github_pr_ci_logs"}:
-        pr = value.get("pr")
-        remote = value.get("remote")
-        for field_name, field in (("pr", pr), ("remote", remote)):
-            if field is not None and (not isinstance(field, str) or not field.strip()):
-                raise ActionParseError(f"{action_type} {field_name} must be a non-empty string when provided.", raw)
-        if isinstance(pr, str) and (
-            len(pr.strip()) > 500
-            or pr.strip().startswith("-")
-            or any(ord(char) < 32 for char in pr)
-        ):
-            raise ActionParseError(f"{action_type} pr is too long, starts with '-', or contains control characters.", raw)
-        if isinstance(remote, str) and (
-            len(remote.strip()) > 255
-            or remote.strip().startswith("-")
-            or any(ord(char) < 32 for char in remote)
-        ):
-            raise ActionParseError(f"{action_type} remote is invalid.", raw)
+        pr, remote = _parse_pr_remote(value, raw, str(action_type))
         if action_type == "github_pr_ci_logs":
             max_runs = parse_optional_positive_int(value.get("max_runs", 3), "max_runs", raw, maximum=10) or 3
             max_output_chars = parse_optional_positive_int(
@@ -42,15 +61,15 @@ def parse_github_action(action_type: object, value: dict[str, Any], raw: str) ->
                 raise ActionParseError("github_pr_ci_logs max_output_chars must be at least 1000.", raw)
             return GitHubPrCiLogsAction(
                 type="github_pr_ci_logs",
-                pr=pr.strip() if isinstance(pr, str) else None,
-                remote=remote.strip() if isinstance(remote, str) else None,
+                pr=pr,
+                remote=remote,
                 max_runs=max_runs,
                 max_output_chars=max_output_chars,
             )
         return GitHubPrContextAction(
             type="github_pr_context",
-            pr=pr.strip() if isinstance(pr, str) else None,
-            remote=remote.strip() if isinstance(remote, str) else None,
+            pr=pr,
+            remote=remote,
         )
     title = value.get("title")
     body = value.get("body", "")
@@ -80,3 +99,27 @@ def parse_github_action(action_type: object, value: dict[str, Any], raw: str) ->
     if action_type == "check_github_pr_create":
         return CheckGitHubPrCreateAction(type="check_github_pr_create", **options)
     return GitHubPrCreateAction(type="github_pr_create", **options)
+
+
+def _parse_pr_remote(value: dict[str, Any], raw: str, action_type: str) -> tuple[str | None, str | None]:
+    pr = value.get("pr")
+    remote = value.get("remote")
+    for field_name, field in (("pr", pr), ("remote", remote)):
+        if field is not None and (not isinstance(field, str) or not field.strip()):
+            raise ActionParseError(f"{action_type} {field_name} must be a non-empty string when provided.", raw)
+    if isinstance(pr, str) and (
+        len(pr.strip()) > 500
+        or pr.strip().startswith("-")
+        or any(ord(char) < 32 for char in pr)
+    ):
+        raise ActionParseError(f"{action_type} pr is too long, starts with '-', or contains control characters.", raw)
+    if isinstance(remote, str) and (
+        len(remote.strip()) > 255
+        or remote.strip().startswith("-")
+        or any(ord(char) < 32 for char in remote)
+    ):
+        raise ActionParseError(f"{action_type} remote is invalid.", raw)
+    return (
+        pr.strip() if isinstance(pr, str) else None,
+        remote.strip() if isinstance(remote, str) else None,
+    )

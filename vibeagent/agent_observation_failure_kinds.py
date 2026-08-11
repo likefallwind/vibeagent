@@ -147,6 +147,8 @@ OK_FLAG_FAILURE_KINDS = {
     "github_pr_create",
     "github_pr_context",
     "github_pr_ci_logs",
+    "check_github_pr_comment",
+    "github_pr_comment",
     "check_git_restore",
     "git_restore",
     "git_stashes",

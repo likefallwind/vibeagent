@@ -8,6 +8,7 @@ from .agent_approval_targets import (
     suggested_checks_target,
 )
 from .agent_observation_utils import summarize
+from .github_pr_comment_runtime import github_pr_comment_target
 from . import types as t
 
 
@@ -197,6 +198,8 @@ def build_action_target(action: object) -> str:
         return action.pr or "current branch pull request"
     if isinstance(action, t.GitHubPrCiLogsAction):
         return action.pr or "current branch pull request"
+    if isinstance(action, (t.CheckGitHubPrCommentAction, t.GitHubPrCommentAction)):
+        return github_pr_comment_target(action.pr, action.reply_to, action.body)
     if isinstance(action, (t.CheckGitRestoreAction, t.GitRestoreAction)):
         return ", ".join(action.paths)
     if isinstance(action, t.GitStashesAction):
