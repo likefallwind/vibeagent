@@ -19,12 +19,18 @@ from .workspace_permissions import ProjectPermissions
 
 
 CONTEXT_EVENTS = frozenset(
-    {"PostToolBatch", "SessionStart", "SubagentStart", "UserPromptSubmit"}
+    {
+        "PostToolBatch",
+        "SessionStart",
+        "SubagentStart",
+        "UserPromptExpansion",
+        "UserPromptSubmit",
+    }
 )
 BLOCKING_EVENTS = frozenset(
     {
         "PostToolBatch", "Stop", "SubagentStop", "TaskCompleted",
-        "TaskCreated", "TeammateIdle", "UserPromptSubmit",
+        "TaskCreated", "TeammateIdle", "UserPromptExpansion", "UserPromptSubmit",
     }
 )
 ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]

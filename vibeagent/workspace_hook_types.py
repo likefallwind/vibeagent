@@ -24,6 +24,7 @@ HookEvent = Literal[
     "TaskCompleted",
     "TaskCreated",
     "TeammateIdle",
+    "UserPromptExpansion",
     "UserPromptSubmit",
     "WorktreeCreate",
     "WorktreeRemove",
@@ -49,6 +50,7 @@ HOOK_EVENTS = frozenset(
         "TaskCompleted",
         "TaskCreated",
         "TeammateIdle",
+        "UserPromptExpansion",
         "UserPromptSubmit",
         "WorktreeCreate",
         "WorktreeRemove",
@@ -80,6 +82,7 @@ PROMPT_HOOK_EVENTS = frozenset(
         "TaskCompleted",
         "TaskCreated",
         "TeammateIdle",
+        "UserPromptExpansion",
         "UserPromptSubmit",
     }
 )

@@ -196,6 +196,11 @@ The automated suite currently covers these 1.0 surfaces:
   `/add-dir` and Python `register_repo_root(...)` registration. Slash-command
   `systemMessage` output enters the next code turn, while failures never roll
   back the registered workspace root.
+- Claude-compatible prompt-expansion hooks: `UserPromptExpansion` matches direct
+  slash commands and skills by command name, exposes the original invocation
+  and expansion metadata to all five handler types, injects
+  `additionalContext` beside the expanded prompt, and can reject the command
+  before the first main-model request.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

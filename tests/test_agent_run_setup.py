@@ -40,6 +40,7 @@ class AgentRunSetupTests(unittest.TestCase):
         self.assertTrue((CORE_AGENT_TOOL_NAMES - {"ExitPlanMode"}).issubset(setup.active_tool_names))
         self.assertEqual([message.role for message in setup.messages[:2]], ["system", "user"])
         self.assertTrue(setup.project_permissions.enabled)
+        self.assertEqual(setup.task_metadata, {"api_key": "secret-token"})
         self.assertEqual(setup.project_permissions.allow_rules_trusted, False)
         self.assertIn("task", [event["type"] for event in events])
         self.assertIn("permissions_loaded", [event["type"] for event in events])

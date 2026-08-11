@@ -490,7 +490,9 @@ local changes when asked, and resume from recorded session context.
   covers recursive project-contained `@path` instruction imports, entrypoint
   deduplication, lazy owner claims, comment/code handling, and failure boundaries;
   `tests.test_agent_lifecycle_hooks.AgentLifecycleHookTests` covers include
-  lifecycle events with their parent instruction file.
+  lifecycle events with their parent instruction file, plus matcher-aware
+  `UserPromptExpansion` field delivery, context injection, and blocking before
+  the first main-model request.
 - `tests.test_project_permissions`, `tests.test_workspace`, and
   `tests.test_command_sandbox` cover the main workspace and safety boundaries.
 - `tests.test_user_runtime_settings.UserRuntimeSettingsTests` covers

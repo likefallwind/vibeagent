@@ -14,6 +14,7 @@ from .types import (
     Observation,
 )
 from .model_failure import model_failure_fields
+from .prompt_expansion import PromptExpansion
 from .redaction import redact_sensitive_text
 from .workspace_core import RunWorkspace
 from .workspace_hooks import HookEvent, ProjectHooks
@@ -40,6 +41,7 @@ class AgentLifecycleRuntime:
         task: str,
         *,
         resumed: bool,
+        prompt_expansion: PromptExpansion | None = None,
     ) -> str | None:
         source = "resume" if resumed else "startup"
         session_start = self._run(
@@ -49,6 +51,21 @@ class AgentLifecycleRuntime:
             messages, "SessionStart hook context", session_start.contexts
         )
         self._run_startup_instruction_hooks(workspace)
+        if prompt_expansion is not None:
+            expansion = self._run(
+                workspace,
+                "UserPromptExpansion",
+                prompt_expansion.command_name,
+                prompt_expansion.hook_fields(),
+                iteration=0,
+            )
+            if expansion.blocking_message is not None:
+                return expansion.blocking_message
+            _append_lifecycle_context(
+                messages,
+                "UserPromptExpansion hook context",
+                expansion.contexts,
+            )
         prompt_submit = self._run(
             workspace, "UserPromptSubmit", "", {"prompt": task}, iteration=0
         )

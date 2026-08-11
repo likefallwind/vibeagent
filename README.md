@@ -1613,7 +1613,8 @@ hook map directly or under `hooks`:
 ```
 
 Supported lifecycle events are `SessionStart`, `SessionEnd`, `PreCompact`,
-`PostCompact`, `CwdChanged`, `InstructionsLoaded`, `UserPromptSubmit`,
+`PostCompact`, `CwdChanged`, `InstructionsLoaded`, `UserPromptExpansion`,
+`UserPromptSubmit`,
 `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
 `StopFailure`,
 `SubagentStart`, `SubagentStop`, `TeammateIdle`, `PostToolBatch`, `TaskCreated`, `TaskCompleted`,
@@ -1634,6 +1635,14 @@ and, on stop, `stop_hook_active`, `last_assistant_message`, and
 `agent_transcript_path`. Parent lifecycle events remain in the session event log,
 while resumable subagent message history is atomically stored under
 `.vibeagent/sessions/<session-id>/subagents/` with secret redaction.
+
+`UserPromptExpansion` runs after a direct project, user, or plugin slash command
+or skill has expanded and before its first model request. Its matcher receives
+the command name, while hook input includes `expansion_type`, `command_name`,
+`command_args`, `command_source`, and the original slash-command `prompt`.
+`decision: block` or exit code 2 rejects the expansion without calling the main
+model; `additionalContext` is appended alongside the expanded prompt. Command,
+HTTP, MCP tool, prompt, and experimental agent handlers are supported.
 
 `TaskCreated` and `TaskCompleted` ignore matchers and run for main-agent,
 subagent, and teammate task transitions. Their input includes `task_id`,

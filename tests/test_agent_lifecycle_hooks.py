@@ -87,8 +87,142 @@ class LifecycleHookConfigTests(unittest.TestCase):
         self.assertTrue(config.enabled)
         self.assertFalse(config.requires_sequential_tools)
 
+    def test_user_prompt_expansion_accepts_model_handlers(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
+            root = Path(base)
+            write_hooks(
+                root,
+                {
+                    "UserPromptExpansion": [
+                        {
+                            "matcher": "release",
+                            "hooks": [
+                                {"type": "prompt", "prompt": "check expansion"},
+                                {"type": "agent", "prompt": "inspect expansion"},
+                            ],
+                        }
+                    ]
+                },
+            )
+
+            config = read_project_hooks(create_run_workspace(root))
+
+        self.assertIsNone(config.error)
+        self.assertEqual(
+            [hook.handler_type for hook in config.hooks],
+            ["prompt", "agent"],
+        )
+        self.assertFalse(config.requires_sequential_tools)
+
 
 class AgentLifecycleHookTests(unittest.TestCase):
+    def test_user_prompt_expansion_receives_command_fields_and_adds_context(self) -> None:
+        command = (
+            'python3 -c "import json,sys; d=json.load(sys.stdin); '
+            "print(json.dumps({'additionalContext':json.dumps({k:d[k] for k in "
+            "['expansion_type','command_name','command_args','command_source','prompt']},sort_keys=True)}))\""
+        )
+        client = HookClient([[{"type": "text", "text": "Expanded command processed."}]])
+        metadata = {
+            "source": "project_command",
+            "name": "release",
+            "path": ".claude/commands/release.md",
+            "arguments": '"candidate one" --check',
+        }
+        with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
+            root = Path(base)
+            write_hooks(root, {"UserPromptExpansion": [command_hook(command, "^release$")]})
+
+            result = run_agent(
+                "Prepare candidate one",
+                base_dir=root,
+                client=client,
+                max_iterations=1,
+                approval_handler=approve,
+                task_metadata=metadata,
+            )
+
+        initial_user = client.messages[0][1].content
+        self.assertTrue(result.success)
+        self.assertIsInstance(initial_user, str)
+        context = str(initial_user).split("UserPromptExpansion hook context:\n", 1)[1]
+        self.assertEqual(
+            json.loads(context),
+            {
+                "command_args": '"candidate one" --check',
+                "command_name": "release",
+                "command_source": "project",
+                "expansion_type": "slash_command",
+                "prompt": '/release "candidate one" --check',
+            },
+        )
+
+    def test_user_prompt_expansion_block_prevents_model_call(self) -> None:
+        command = (
+            'python3 -c "import json,sys; json.load(sys.stdin); '
+            "print(json.dumps({'decision':'block','reason':'Command disabled by policy.'}))\""
+        )
+        client = HookClient([[{"type": "text", "text": "must not run"}]])
+        metadata = {
+            "source": "custom_skill",
+            "name": "deploy",
+            "path": ".claude/skills/deploy/SKILL.md",
+            "arguments": "production",
+        }
+        with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
+            root = Path(base)
+            write_hooks(root, {"UserPromptExpansion": [command_hook(command, "deploy")]})
+
+            result = run_agent(
+                "Deploy production",
+                base_dir=root,
+                client=client,
+                max_iterations=1,
+                approval_handler=approve,
+                task_metadata=metadata,
+            )
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.iterations, 0)
+        self.assertEqual(result.message, "Command disabled by policy.")
+        self.assertEqual(client.messages, [])
+
+    def test_user_prompt_expansion_ignores_plain_prompts_and_nonmatching_commands(self) -> None:
+        command = (
+            'python3 -c "import json; '
+            "print(json.dumps({'decision':'block','reason':'must not run'}))\""
+        )
+        for metadata in (
+            None,
+            {
+                "source": "project_command",
+                "name": "release",
+                "path": ".claude/commands/release.md",
+                "arguments": "v1",
+            },
+        ):
+            with self.subTest(metadata=metadata), tempfile.TemporaryDirectory(
+                prefix="vibeagent-hooks-"
+            ) as base:
+                root = Path(base)
+                write_hooks(
+                    root,
+                    {"UserPromptExpansion": [command_hook(command, "^deploy$")]},
+                )
+                client = HookClient([[{"type": "text", "text": "normal response"}]])
+
+                result = run_agent(
+                    "normal task",
+                    base_dir=root,
+                    client=client,
+                    max_iterations=1,
+                    approval_handler=approve,
+                    task_metadata=metadata,
+                )
+
+            self.assertTrue(result.success)
+            self.assertEqual(len(client.messages), 1)
+
     def test_session_and_prompt_hooks_receive_json_stdin_and_add_context(self) -> None:
         session_command = (
             'true; python3 -c "import json,sys; d=json.load(sys.stdin); '

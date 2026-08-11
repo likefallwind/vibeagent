@@ -9,6 +9,7 @@ from vibeagent.cli_project_command_expansion import (
     expand_one_shot_project_command,
     project_command_task_metadata,
 )
+from vibeagent.prompt_expansion import prompt_expansion_from_task_metadata
 
 
 def _write_command(root: Path, relative_name: str, body: str) -> Path:
@@ -70,6 +71,32 @@ class CliProjectCommandExpansionTests(unittest.TestCase):
         self.assertEqual(command["name"], "release")
         self.assertEqual(command["prompt"], "Prepare release for v1")
         self.assertEqual(project_command_task_metadata(command)["arguments"], "v1")
+
+    def test_prompt_expansion_derives_user_and_plugin_sources(self) -> None:
+        user = prompt_expansion_from_task_metadata(
+            {
+                "source": "custom_skill",
+                "name": "review",
+                "path": "/home/test/.claude/skills/review/SKILL.md",
+                "arguments": "app.py",
+            }
+        )
+        plugin = prompt_expansion_from_task_metadata(
+            {
+                "source": "project_command",
+                "name": "quality:check",
+                "path": ".vibeagent/plugins/quality/commands/check.md",
+                "arguments": "",
+            }
+        )
+
+        self.assertIsNotNone(user)
+        self.assertIsNotNone(plugin)
+        assert user is not None and plugin is not None
+        self.assertEqual(user.command_source, "user")
+        self.assertEqual(user.prompt, "/review app.py")
+        self.assertEqual(plugin.command_source, "plugin")
+        self.assertEqual(plugin.prompt, "/quality:check")
 
 
 if __name__ == "__main__":

@@ -24,6 +24,7 @@ from .agent_post_tool_batch_hooks import append_batch_context, run_post_tool_bat
 from .agent_plan_mode import PlanModeRuntime, approval_handler_after_plan
 from .agent_plugin_monitors import AgentPluginMonitorController
 from .peer_runtime import PeerSessionRuntime
+from .prompt_expansion import prompt_expansion_from_task_metadata
 from .plugin_monitor_runtime import PluginMonitorRuntime
 from .agent_scheduled_notifications import inject_scheduled_task_notifications
 from .agent_result import AgentResult
@@ -283,7 +284,11 @@ def run_agent_loop(
         )
 
     startup_block = lifecycle.start(
-        current_workspace, messages, task, resumed=bool(prior_context)
+        current_workspace,
+        messages,
+        task,
+        resumed=bool(prior_context),
+        prompt_expansion=prompt_expansion_from_task_metadata(setup.task_metadata),
     )
     if startup_block is not None:
         return finish_run(False, startup_block, 0)

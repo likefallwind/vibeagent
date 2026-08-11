@@ -62,6 +62,7 @@ class AgentRunSetup:
     append_system_prompt: str | None
     tool_ceiling_names: frozenset[str] | None
     task: str
+    task_metadata: dict[str, object] | None
     approval_policy: ApprovalPolicy
     approval_policy_locked: bool = False
 
@@ -301,6 +302,7 @@ def prepare_agent_run(
         append_system_prompt=effective_append_system_prompt,
         tool_ceiling_names=tool_names,
         task=effective_task,
+        task_metadata=task_metadata,
         approval_policy=effective_approval_policy,
         approval_policy_locked=approval_policy_locked,
     )
