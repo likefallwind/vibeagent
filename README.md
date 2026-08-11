@@ -254,6 +254,13 @@ graph. Invalid IDs, inconsistent status totals or dependencies, corrupt JSON,
 and symlinked task stores fail the whole inspector rather than being rendered as
 an empty graph.
 
+`Continue Inspected Task` refreshes that exact session before selection and
+offers only unblocked `pending` or `in_progress` persistent tasks, with active
+work listed first. The chosen task is wrapped as bounded, explicitly untrusted
+context and passed to a visible one-shot terminal after `--resume RUN_ID`.
+Completed and dependency-blocked tasks are excluded, cancellation creates no
+terminal, and normal workspace approvals remain in force.
+
 `Run Inspected Verification` refreshes the same trusted session immediately
 before execution, shows the current failed and pending checks in a modal
 confirmation, and runs at most 10 de-duplicated checks in a visible one-shot

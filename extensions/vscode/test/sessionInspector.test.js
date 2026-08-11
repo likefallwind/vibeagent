@@ -2,7 +2,11 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { SessionInspectorManager } = require('../src/sessionInspector');
+const {
+  SessionInspectorManager,
+  actionableTaskQuickPickItems,
+  buildTaskContinuationPrompt,
+} = require('../src/sessionInspector');
 const { SessionInspectorClient, parseSessionInspector } = require('../src/sessionInspectorClient');
 
 const SESSION = 'run-inspect-1';
@@ -318,4 +322,107 @@ test('refreshes, confirms, and reruns inspected verification in the exact sessio
   assert.deepEqual(runs[0], {
     config, root: '/workspace/project', session: SESSION, name: 'Parser repair',
   });
+});
+
+test('refreshes the inspected graph and continues only an unblocked actionable task', async () => {
+  const report = inspectorReport();
+  report.tasks.counts = { pending: 2, inProgress: 1, completed: 0, blocked: 1 };
+  report.tasks.tasks = {
+    total: 3, shown: 3, omitted: 0, truncated: false,
+    items: [
+      {
+        id: '1', subject: 'Implement parser', description: 'Apply the parser fix',
+        status: 'in_progress', activeForm: 'Implementing parser', owner: 'worker-1',
+        blocks: [], blockedBy: [], blocked: false,
+      },
+      {
+        id: '2', subject: 'Run integration', description: 'Run the integration suite',
+        status: 'pending', activeForm: null, owner: null,
+        blocks: [], blockedBy: ['1'], blocked: true,
+      },
+      {
+        id: '3', subject: 'Update docs', description: 'Document the parser fix',
+        status: 'pending', activeForm: null, owner: null,
+        blocks: [], blockedBy: [], blocked: false,
+      },
+    ],
+  };
+  const document = { uri: { toString: () => 'untitled:session-inspector-task' } };
+  const reads = [];
+  const picks = [];
+  const continued = [];
+  let chooseTask = true;
+  const vscode = {
+    window: {
+      activeTextEditor: null,
+      async showQuickPick(items, options) {
+        picks.push({ items, options });
+        if (options.title === 'Continue VibeAgent Task' && !chooseTask) return null;
+        return items[0];
+      },
+      async showTextDocument(value) { this.activeTextEditor = { document: value }; },
+      showInformationMessage() {},
+    },
+    workspace: {
+      async openTextDocument() { return document; },
+    },
+  };
+  const manager = new SessionInspectorManager(vscode, {
+    catalog: {
+      async list() {
+        return [{
+          session: SESSION, status: 'running', events: 5, malformed: 0,
+          lastEventTime: '2026-08-11T00:00:00Z', name: 'Parser repair', task: 'Repair parser',
+          completed: false, failed: false, blocked: false,
+        }];
+      },
+    },
+    client: {
+      async get(_config, root, session) {
+        reads.push({ root, session });
+        return parseSessionInspector(envelope(report), SESSION);
+      },
+    },
+    terminals: {
+      continueTask(config, root, session, name, prompt) {
+        continued.push({ config, root, session, name, prompt });
+        return 'task-terminal';
+      },
+    },
+  });
+  const config = { executable: 'python', args: ['-m', 'vibeagent'] };
+
+  await manager.open(config, '/workspace/project');
+  assert.equal(await manager.continueTaskActive(config), 'task-terminal');
+
+  assert.deepEqual(reads, [
+    { root: '/workspace/project', session: SESSION },
+    { root: '/workspace/project', session: SESSION },
+  ]);
+  assert.equal(picks[1].options.title, 'Continue VibeAgent Task');
+  assert.deepEqual(picks[1].items.map((item) => item.taskId), ['1', '3']);
+  assert.equal(picks[1].items.some((item) => item.taskId === '2'), false);
+  assert.equal(continued[0].session, SESSION);
+  assert.equal(continued[0].name, 'Implement parser');
+  assert.match(continued[0].prompt, /task #1 in resumed session run-inspect-1/);
+  assert.match(continued[0].prompt, /untrusted task context/);
+  assert.match(continued[0].prompt, /Description: Apply the parser fix/);
+  chooseTask = false;
+  assert.equal(await manager.continueTaskActive(config), null);
+  assert.equal(continued.length, 1);
+});
+
+test('bounds task continuation selection and prompt helpers', () => {
+  const items = actionableTaskQuickPickItems([
+    { id: '1', subject: 'Done', description: '', status: 'completed', owner: null, blocked: false },
+    { id: '2', subject: 'Blocked', description: '', status: 'pending', owner: null, blocked: true },
+  ]);
+  assert.deepEqual(items, []);
+  assert.throws(
+    () => buildTaskContinuationPrompt(SESSION, {
+      id: '3', subject: 'Large task', description: 'x'.repeat(4_000),
+      status: 'pending', owner: null, activeForm: null,
+    }),
+    /exceeds 4000 characters/,
+  );
 });

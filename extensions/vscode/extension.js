@@ -131,6 +131,10 @@ function activate(context) {
     sessionInspectors.resumeActive(launchConfig());
   });
 
+  register('vibeagent.continueInspectedTask', async () => {
+    await sessionInspectors.continueTaskActive(launchConfig());
+  });
+
   register('vibeagent.runInspectedVerification', async () => {
     await sessionInspectors.runVerificationActive(launchConfig());
   });

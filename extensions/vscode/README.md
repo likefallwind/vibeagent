@@ -23,6 +23,9 @@ terminal, preserving terminal permission prompts while adding editor context.
   overview, plan, verification, file, and timeline report as native Markdown.
 - `VibeAgent: Resume Inspected Session` resumes the exact session associated
   with the active inspector document.
+- `VibeAgent: Continue Inspected Task` refreshes the exact inspected task graph,
+  lets you choose an unblocked pending or in-progress task, and continues it in
+  a visible one-shot terminal for the stored session.
 - `VibeAgent: Run Inspected Verification` refreshes the active inspector,
   confirms its current failed and pending checks, and reruns up to 10 checks in
   a visible one-shot terminal for the exact stored session.
@@ -70,6 +73,13 @@ extension validates numeric IDs, unique shown tasks, status totals, owners,
 dependency lists, blocked flags, and the 100-task store ceiling before rendering
 the dedicated `Persistent Tasks` section. A corrupt graph rejects the whole
 inspector instead of appearing empty.
+
+Task continuation refreshes the exact inspected session immediately before
+selection. It lists active work before pending work and excludes completed or
+dependency-blocked entries. The selected bounded task fields are labeled as
+untrusted context in the one-shot prompt; the exact validated session ID stays
+out of band, cancellation is inert, and ordinary CLI approval rules still
+apply.
 
 Verification execution refreshes the inspector before displaying a modal
 confirmation. Only an explicit `Run Checks` response opens a terminal with

@@ -125,6 +125,12 @@ The inspector also includes up to 50 entries from the persistent `TaskCreate`
 graph. Numeric IDs, unique shown tasks, status totals, owners, dependencies,
 blocked flags, and the 100-task store ceiling are validated before rendering;
 corrupt or symlinked task stores fail closed instead of appearing empty.
+The adjacent task-continuation action refreshes that exact graph, exposes only
+unblocked pending or in-progress entries with active work first, and launches
+the selected task in a visible one-shot resumed terminal. Stored task fields
+are bounded and explicitly framed as untrusted context, while the validated
+session ID remains out of band; completed and dependency-blocked tasks are
+excluded and cancellation is inert.
 The adjacent verification action refreshes the same session before showing a
 modal confirmation, then launches at most 10 de-duplicated failed and pending
 checks in a visible one-shot terminal with bounded source-context and diagnostic

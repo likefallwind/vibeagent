@@ -50,17 +50,11 @@ class InteractiveTerminalManager {
   }
 
   resumeTask(config, root, sessionId, sessionName, task) {
-    const safeId = requireSessionId(sessionId);
-    const title = boundedTerminalTitle(sessionName) || safeId.slice(0, 20);
-    const terminal = this._create(
-      `VibeAgent Plan: ${title}`,
-      config,
-      root,
-      ['--resume', safeId],
-      task,
-    );
-    terminal.show(false);
-    return terminal;
+    return this._resumeOneShot('VibeAgent Plan', config, root, sessionId, sessionName, task);
+  }
+
+  continueTask(config, root, sessionId, taskName, task) {
+    return this._resumeOneShot('VibeAgent Task', config, root, sessionId, taskName, task);
   }
 
   runVerification(config, root, sessionId, sessionName = null) {
@@ -129,6 +123,14 @@ class InteractiveTerminalManager {
 
   _track(terminal, root, kind, resumeKey = null) {
     this.entries.set(terminal, { root, kind, resumeKey });
+  }
+
+  _resumeOneShot(prefix, config, root, sessionId, sessionName, task) {
+    const safeId = requireSessionId(sessionId);
+    const title = boundedTerminalTitle(sessionName) || safeId.slice(0, 20);
+    const terminal = this._create(`${prefix}: ${title}`, config, root, ['--resume', safeId], task);
+    terminal.show(false);
+    return terminal;
   }
 }
 
