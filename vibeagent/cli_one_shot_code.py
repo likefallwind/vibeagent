@@ -45,6 +45,7 @@ from .monitor_runtime import stop_session_monitors
 from .deferred_tool_state import read_deferred_tool_state
 from .session_lifecycle_hooks import run_session_end_hooks
 from .agent_runtime_utils import append_session_event, format_exception
+from .model_effort import ModelEffortSetting, configure_model_effort
 
 
 def run_one_shot_code(
@@ -67,6 +68,8 @@ def run_one_shot_code(
     structured_output_schema: dict[str, object] | None = None,
     max_budget_usd: Decimal | None = None,
     fallback_model: str | None = None,
+    effort: str | None = None,
+    effort_locked: bool = False,
     setup_trigger: str | None = None,
     tool_names: frozenset[str] | None = None,
     elapsed_ms: int,
@@ -141,6 +144,10 @@ def run_one_shot_code(
         client, model_fallback = create_fallback_chat_client(client, fallback_model)
     if model_budget is not None:
         client = BudgetedChatClient(client, model_budget)
+    client = configure_model_effort(
+        client,  # type: ignore[arg-type]
+        ModelEffortSetting(effort, locked=effort_locked),
+    )
     goal_state, steering_task = _resolve_one_shot_goal(task, prior_context, project_root)
     if goal_state is not None:
         task = goal_turn_prompt(goal_state, steering_task)

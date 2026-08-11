@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from .session_conversation import load_session_conversation
 from .types import ChatMessage
 from .workspace_core import RunWorkspace, create_local_workspace, create_run_workspace
 from .dynamic_agent_profiles import DynamicAgentProfile, parse_dynamic_agent_profiles
+from .model_effort import resolve_model_effort_setting
 
 
 @dataclass(frozen=True)
@@ -38,6 +40,8 @@ class InteractiveStartupContext:
     branch_source_run_id: str | None = None
     conversation: tuple[ChatMessage, ...] = ()
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = ()
+    effort: str | None = None
+    effort_locked: bool = False
 
 
 def resolve_interactive_startup_context(
@@ -48,6 +52,7 @@ def resolve_interactive_startup_context(
     get_compact_context_func=get_compact_context,
 ) -> InteractiveStartupContext:
     selected_agent = getattr(args, "agent", None)
+    effort = resolve_model_effort_setting(getattr(args, "effort", None), os.environ)
     dynamic_agent_profiles = parse_dynamic_agent_profiles(getattr(args, "agents", None))
     additional_directories = resolve_additional_directories(args.add_dir, invocation_root=Path.cwd())
     system_prompt, append_system_prompt = resolve_system_prompt_inputs(
@@ -63,6 +68,8 @@ def resolve_interactive_startup_context(
         "append_system_prompt": append_system_prompt,
         "additional_directories": additional_directories,
         "dynamic_agent_profiles": dynamic_agent_profiles,
+        "effort": effort.level,
+        "effort_locked": effort.locked,
     }
     session_resume = args.resume if args.resume is not None else args.session_id
     if session_resume is None and args.compact is None:

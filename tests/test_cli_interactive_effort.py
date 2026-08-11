@@ -1,4 +1,5 @@
 import io
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -56,6 +57,78 @@ class InteractiveEffortTests(unittest.TestCase):
     def test_configure_effort_rejects_clients_without_profile_support(self) -> None:
         with self.assertRaisesRegex(ValueError, "does not support"):
             configure_interactive_effort(object(), "high")  # type: ignore[arg-type]
+
+    def test_one_shot_code_and_chat_apply_cli_effort(self) -> None:
+        code_clients: list[EffortClient] = []
+        chat_clients: list[EffortClient] = []
+
+        def run_agent(_task: str, **kwargs: object) -> AgentResult:
+            code_clients.append(kwargs["client"])  # type: ignore[arg-type]
+            return AgentResult(True, "done", Path.cwd(), "run-effort", 1, [], [])
+
+        def run_chat(_task: str, **kwargs: object) -> str:
+            chat_clients.append(kwargs["client"])  # type: ignore[arg-type]
+            return "done"
+
+        with (
+            patch.dict(os.environ, {"CLAUDE_CODE_EFFORT_LEVEL": ""}),
+            patch("vibeagent.cli.create_chat_client", return_value=EffortClient("model")),
+            patch("vibeagent.cli.run_agent", side_effect=run_agent),
+            patch("vibeagent.cli.run_chat", side_effect=run_chat),
+            redirect_stdout(io.StringIO()),
+        ):
+            code_exit = main(["--effort", "high", "--print", "fix"])
+            chat_exit = main(["--effort", "low", "--chat", "hello"])
+
+        self.assertEqual((code_exit, chat_exit), (0, 0))
+        self.assertEqual(code_clients[0].effort, "high")
+        self.assertEqual(chat_clients[0].effort, "low")
+
+    def test_environment_effort_locks_interactive_command(self) -> None:
+        agent_clients: list[object] = []
+
+        def run_agent(_task: str, **kwargs: object) -> AgentResult:
+            agent_clients.append(kwargs["client"])
+            return AgentResult(True, "done", Path.cwd(), "run-effort", 1, [], [])
+
+        stdout = io.StringIO()
+        with (
+            patch.dict(os.environ, {"CLAUDE_CODE_EFFORT_LEVEL": "high"}),
+            patch("builtins.input", side_effect=["/effort low", "/effort", "task", "/exit"]),
+            patch("vibeagent.cli.create_chat_client", return_value=EffortClient("model")),
+            patch("vibeagent.cli.run_agent", side_effect=run_agent),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(agent_clients[0].effort, "high")
+        self.assertIn("CLAUDE_CODE_EFFORT_LEVEL locks", stdout.getvalue())
+        self.assertIn("source: CLAUDE_CODE_EFFORT_LEVEL", stdout.getvalue())
+
+    def test_startup_effort_applies_to_btw_before_first_main_turn(self) -> None:
+        with (
+            patch.dict(os.environ, {"CLAUDE_CODE_EFFORT_LEVEL": ""}),
+            patch("builtins.input", side_effect=["/btw question", "/exit"]),
+            patch("vibeagent.cli.create_chat_client", return_value=EffortClient("model")),
+            patch("vibeagent.cli.run_btw", return_value="answer") as run_btw,
+            redirect_stdout(io.StringIO()),
+        ):
+            exit_code = main(["--effort", "high"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_btw.call_args.kwargs["client"].effort, "high")
+
+    def test_invalid_environment_effort_fails_before_client_creation(self) -> None:
+        with (
+            patch.dict(os.environ, {"CLAUDE_CODE_EFFORT_LEVEL": "ultracode"}),
+            patch("vibeagent.cli.create_chat_client") as create_client,
+            redirect_stdout(io.StringIO()),
+        ):
+            exit_code = main(["--print", "task"])
+
+        self.assertEqual(exit_code, 2)
+        create_client.assert_not_called()
 
     def test_interactive_effort_applies_to_turns_and_auto_rebuilds_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-effort-") as base:

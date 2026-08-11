@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .agent_profile_client import configure_agent_profile_client
+from .model_effort import (
+    MODEL_EFFORT_LEVELS,
+    ModelEffortSetting,
+    configure_model_effort,
+    normalize_model_effort,
+)
 from .types import ChatClient
 
 
-INTERACTIVE_EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
+INTERACTIVE_EFFORT_LEVELS = MODEL_EFFORT_LEVELS
 
 
 @dataclass(frozen=True)
@@ -19,13 +24,21 @@ class InteractiveEffortSelection:
 def resolve_interactive_effort_selection(
     argument: str | None,
     current_override: str | None,
+    *,
+    locked: bool = False,
 ) -> InteractiveEffortSelection:
+    if locked and argument is not None:
+        raise ValueError("CLAUDE_CODE_EFFORT_LEVEL locks the effort for this session.")
     if argument is None:
         override = current_override
     else:
         override = normalize_interactive_effort(argument)
     changed = argument is not None and override != current_override
-    source = "session override" if override is not None else "provider/model default"
+    source = (
+        "CLAUDE_CODE_EFFORT_LEVEL"
+        if locked
+        else "session override" if override is not None else "provider/model default"
+    )
     level = override or "auto"
     action = "Switched interactive effort." if changed else "Interactive effort configuration."
     return InteractiveEffortSelection(
@@ -36,19 +49,16 @@ def resolve_interactive_effort_selection(
 
 
 def normalize_interactive_effort(value: str) -> str | None:
-    normalized = value.strip().lower()
-    if normalized in {"auto", "default"}:
-        return None
-    if normalized not in INTERACTIVE_EFFORT_LEVELS:
-        choices = "|".join(("auto", *INTERACTIVE_EFFORT_LEVELS))
-        raise ValueError(f"Usage: /effort [{choices}]")
-    return normalized
+    return normalize_model_effort(value, usage="Usage: /effort")
 
 
-def configure_interactive_effort(client: ChatClient, effort: str | None) -> ChatClient:
-    if effort is None:
-        return client
-    return configure_agent_profile_client(client, model=None, effort=effort)
+def configure_interactive_effort(
+    client: ChatClient,
+    effort: str | None,
+    *,
+    locked: bool = False,
+) -> ChatClient:
+    return configure_model_effort(client, ModelEffortSetting(effort, locked=locked))
 
 
 __all__ = [

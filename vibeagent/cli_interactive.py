@@ -133,6 +133,8 @@ def run_interactive_loop(
     initial_resume_message: str | None = None,
     initial_agent: str | None = None,
     initial_dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
+    initial_effort: str | None = None,
+    initial_effort_locked: bool = False,
     initial_system_prompt: str | None = None,
     initial_append_system_prompt: str | None = None,
     initial_additional_directories: tuple[Path, ...] = (),
@@ -149,7 +151,8 @@ def run_interactive_loop(
 
     client = None
     model_override: str | None = None
-    effort_override: str | None = None
+    effort_override: str | None = initial_effort
+    effort_locked = initial_effort_locked
     mode = "code"
     approval_policy: ApprovalPolicy = "ask"
     approval_handler = build_approval_handler(approval_policy)
@@ -187,6 +190,7 @@ def run_interactive_loop(
         return configure_interactive_effort(
             cast(ChatClient, create_chat_client_func(provider_env)),
             effort_override,
+            locked=effort_locked,
         )
 
     def run_code_task(task: str, task_metadata: dict[str, object] | None = None) -> tuple[object, str | None]:
@@ -622,6 +626,7 @@ def run_interactive_loop(
                 project_root=Path.cwd(),
                 current_override=model_override,
                 current_effort=effort_override,
+                effort_locked=effort_locked,
                 current_client=client,
                 create_chat_client=create_chat_client_func,
                 run_btw=run_btw_func,

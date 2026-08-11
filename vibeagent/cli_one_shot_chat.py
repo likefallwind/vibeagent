@@ -5,6 +5,7 @@ from collections.abc import Callable
 from .cli_one_shot_output import build_one_shot_chat_payload, emit_one_shot_chat_payload
 from .cli_stream_output import JsonEventStream
 from .config import ExecutionConfig
+from .model_effort import ModelEffortSetting, configure_model_effort
 
 
 def run_one_shot_chat(
@@ -18,10 +19,15 @@ def run_one_shot_chat(
     output_json: bool,
     elapsed_ms: int,
     stream: JsonEventStream | None,
+    effort: str | None = None,
+    effort_locked: bool = False,
     create_chat_client_func: Callable[[dict[str, str | None]], object],
     run_chat_func: Callable[..., str],
 ) -> int:
-    client = create_chat_client_func(provider_env)
+    client = configure_model_effort(
+        create_chat_client_func(provider_env),  # type: ignore[arg-type]
+        ModelEffortSetting(effort, locked=effort_locked),
+    )
     response = run_chat_func(
         task,
         client=client,

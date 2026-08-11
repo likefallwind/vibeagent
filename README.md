@@ -219,6 +219,7 @@ python -m vibeagent --mcp-config docs.mcp.json --strict-mcp-config "use only thi
 python -m vibeagent --cwd ../my-project --worktree feature-auth "implement authentication"
 python -m vibeagent --cwd ../my-project -w feature-auth
 python -m vibeagent --provider deepseek --model deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
+python -m vibeagent --provider anthropic --effort high "inspect this repo thoroughly"
 python -m vibeagent 'review @src/app.py and @"docs/design notes.md"'
 printf "summarize the project risks\n" | python -m vibeagent -
 ```
@@ -265,10 +266,16 @@ restored by interactive or one-shot resume/compact, while unavailable stored
 paths are skipped instead of expanding the workspace boundary.
 
 `--provider`, `--model MODEL` / `--model-name MODEL`, `--base-url`, `--api-key`,
+`--effort auto|low|medium|high|xhigh|max`,
 `--max-iterations`, `--command-timeout-ms`, `--max-output-tokens`,
 `--model-retries`, `--model-retry-delay-ms`, and `--model-timeout-ms` are
 per-command overrides; they do not rewrite environment variables or local config
 files.
+`--effort` applies to interactive startup and one-shot code or chat requests.
+`CLAUDE_CODE_EFFORT_LEVEL` accepts the same values, takes precedence over the
+CLI option and agent profiles, and locks `/effort` for that process. Providers
+without an effort request field reject non-automatic levels before the model
+request.
 `--agents JSON` defines up to 100 invocation-scoped agent profiles for coding
 sessions. The value is an object keyed by agent name; each definition uses
 the normal profile fields plus a required `prompt`, for example

@@ -101,6 +101,11 @@ def add_one_shot_arguments(
         "--model-name",
         help="Temporarily override the model name for this command. --model MODEL is also accepted.",
     )
+    parser.add_argument(
+        "--effort",
+        choices=("auto", "low", "medium", "high", "xhigh", "max"),
+        help="Set model effort for interactive or one-shot sessions; CLAUDE_CODE_EFFORT_LEVEL takes precedence.",
+    )
     parser.add_argument("--base-url", help="Temporarily override the provider base URL for this command.")
     parser.add_argument("--api-key", help="Temporarily override the provider API key for this command.")
     parser.add_argument(

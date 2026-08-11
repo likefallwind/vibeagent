@@ -32,6 +32,7 @@ def run_interactive_provider_command(
     project_root: Path,
     current_override: str | None,
     current_effort: str | None,
+    effort_locked: bool = False,
     current_client: object | None,
     create_chat_client: Callable[[dict[str, str | None]], object],
     run_btw: Callable[..., str],
@@ -40,6 +41,13 @@ def run_interactive_provider_command(
     system_prompt: str | None,
     append_system_prompt: str | None,
 ) -> InteractiveProviderCommandResult:
+    def create_session_client(provider_env: dict[str, str | None]) -> object:
+        return configure_interactive_effort(
+            create_chat_client(provider_env),  # type: ignore[arg-type]
+            current_effort,
+            locked=effort_locked,
+        )
+
     if command_type == "model":
         return run_interactive_model_command(
             argument,
@@ -47,6 +55,7 @@ def run_interactive_provider_command(
             current_override=current_override,
             current_effort=current_effort,
             current_client=current_client,
+            effort_locked=effort_locked,
             create_chat_client=create_chat_client,
         )
     if command_type == "effort":
@@ -54,6 +63,7 @@ def run_interactive_provider_command(
             argument,
             current_override=current_effort,
             current_client=current_client,
+            locked=effort_locked,
             provider_env=interactive_provider_env(project_root, current_override),
             create_chat_client=create_chat_client,
         )
@@ -62,7 +72,7 @@ def run_interactive_provider_command(
             argument,
             current_client=current_client,
             provider_env=interactive_provider_env(project_root, current_override),
-            create_chat_client=create_chat_client,
+            create_chat_client=create_session_client,
             run_recap=run_recap,
             history=history,
             execution_config=resolve_execution_config(project_root),
@@ -73,7 +83,7 @@ def run_interactive_provider_command(
         argument,
         current_client=current_client,
         provider_env=interactive_provider_env(project_root, current_override),
-        create_chat_client=create_chat_client,
+        create_chat_client=create_session_client,
         run_btw=run_btw,
         history=history,
         execution_config=resolve_execution_config(project_root),
@@ -134,6 +144,7 @@ def run_interactive_model_command(
     current_override: str | None,
     current_effort: str | None,
     current_client: object | None,
+    effort_locked: bool = False,
     create_chat_client: Callable[[dict[str, str | None]], object],
 ) -> InteractiveProviderCommandResult:
     try:
@@ -147,6 +158,7 @@ def run_interactive_model_command(
             client = configure_interactive_effort(
                 create_chat_client(selection.provider_env),
                 current_effort,
+                locked=effort_locked,
             )
         return InteractiveProviderCommandResult(
             client=client,
@@ -178,9 +190,10 @@ def run_interactive_effort_command(
     current_client: object | None,
     provider_env: dict[str, str | None],
     create_chat_client: Callable[[dict[str, str | None]], object],
+    locked: bool = False,
 ) -> InteractiveProviderCommandResult:
     try:
-        selection = resolve_interactive_effort_selection(argument, current_override)
+        selection = resolve_interactive_effort_selection(argument, current_override, locked=locked)
         client = current_client
         if selection.changed:
             base_client = (
@@ -188,7 +201,7 @@ def run_interactive_effort_command(
                 if selection.override is None or current_client is None
                 else current_client
             )
-            client = configure_interactive_effort(base_client, selection.override)
+            client = configure_interactive_effort(base_client, selection.override, locked=locked)
         return InteractiveProviderCommandResult(
             client=client,
             text=selection.text,

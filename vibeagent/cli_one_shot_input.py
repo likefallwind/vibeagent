@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Callable, Sequence
+import os
 from pathlib import Path
 import sys
 
@@ -19,6 +20,7 @@ from .cli_additional_directories import resolve_additional_directories
 from .structured_output import parse_structured_output_schema
 from .cli_tool_restrictions import parse_cli_tool_names
 from .dynamic_agent_profiles import parse_dynamic_agent_profiles
+from .model_effort import resolve_model_effort_setting
 
 
 def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
@@ -53,6 +55,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         append_system_prompt,
         task_input.system_prompt,
     )
+    effort = resolve_model_effort_setting(args.effort, os.environ)
     return {
         "task": task_input.task,
         "request_mode": "chat" if args.chat else "code",
@@ -106,6 +109,8 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         ),
         "max_budget_usd": args.max_budget_usd,
         "fallback_model": args.fallback_model,
+        "effort": effort.level,
+        "effort_locked": effort.locked,
         "setup_trigger": args.setup_trigger,
         "tool_names": parse_cli_tool_names(args.tools),
         "permission_overrides": build_permission_overrides(args),

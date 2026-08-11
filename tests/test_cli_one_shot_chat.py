@@ -7,6 +7,32 @@ from vibeagent.config import ExecutionConfig
 
 
 class CliOneShotChatTests(unittest.TestCase):
+    def test_effort_is_validated_before_chat_request(self) -> None:
+        chat_called = False
+
+        def run_chat(*args, **kwargs) -> str:
+            nonlocal chat_called
+            chat_called = True
+            return "unexpected"
+
+        with self.assertRaisesRegex(ValueError, "does not support"):
+            run_one_shot_chat(
+                "hello",
+                provider_env={},
+                execution_config=ExecutionConfig(),
+                system_prompt=None,
+                append_system_prompt=None,
+                machine_output=False,
+                output_json=False,
+                elapsed_ms=0,
+                stream=None,
+                effort="high",
+                create_chat_client_func=lambda env: object(),
+                run_chat_func=run_chat,
+            )
+
+        self.assertFalse(chat_called)
+
     def test_run_one_shot_chat_creates_client_runs_chat_and_emits_payload(self) -> None:
         provider_env: dict[str, str | None] = {"VIBEAGENT_PROVIDER": "minimax"}
         emitted: list[dict[str, object]] = []

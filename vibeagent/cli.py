@@ -140,6 +140,7 @@ from .worktree_hooks import WorktreeHookContext
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import ProjectPermissions
 from .workspace_core import RunWorkspace
+from .model_effort import resolve_model_effort_setting
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -209,7 +210,11 @@ def run_local_flag(args: argparse.Namespace) -> int:
 
 def run_interactive(base_dir: str | None = None, startup_context: InteractiveStartupContext | None = None) -> int:
     project_root = resolve_project_root(base_dir)
-    context = startup_context or InteractiveStartupContext()
+    if startup_context is None:
+        effort = resolve_model_effort_setting(None, os.environ)
+        context = InteractiveStartupContext(effort=effort.level, effort_locked=effort.locked)
+    else:
+        context = startup_context
     if project_root is None:
         return run_interactive_loop(context)
 
@@ -258,6 +263,8 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_resume_message=context.message,
         initial_agent=context.agent,
         initial_dynamic_agent_profiles=context.dynamic_agent_profiles,
+        initial_effort=context.effort,
+        initial_effort_locked=context.effort_locked,
         initial_system_prompt=context.system_prompt,
         initial_append_system_prompt=context.append_system_prompt,
         initial_additional_directories=context.additional_directories,
