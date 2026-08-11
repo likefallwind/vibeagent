@@ -74,7 +74,7 @@ function getAgentPanelHtml(nonce) {
           <div><span id="identity" class="meta"></span><span id="status" class="status"></span></div>
           <p id="task-detail"></p>
           <div id="attention" class="attention" hidden></div>
-          <section><h2>Changes</h2><div class="change-summary"><span id="change-meta" class="meta">Loading...</span><button id="open-worktree" class="secondary" hidden>Open worktree</button></div><div id="changes" class="change-list"></div></section>
+          <section><h2>Changes</h2><div class="change-summary"><span id="change-meta" class="meta">Loading...</span><button id="apply-changes" hidden>Apply changes</button><button id="open-worktree" class="secondary" hidden>Open worktree</button></div><div id="changes" class="change-list"></div></section>
           <section><h2>Follow-up</h2><form id="message" class="row"><input id="message-text" maxlength="8000" required placeholder="Message this agent"><button type="submit">Send</button></form></section>
           <section><h2>Process</h2><div class="actions"><button id="stop" class="secondary">Stop</button><button id="respawn" class="secondary">Respawn</button><button id="remove" class="danger">Remove</button></div></section>
           <section><h2>Output</h2><pre id="stdout"></pre><pre id="stderr" class="stderr" hidden></pre></section>
@@ -136,12 +136,15 @@ function getAgentPanelHtml(nonce) {
       const entry = changesByAgent.get(agent.id);
       const list = byId('changes'); list.replaceChildren();
       byId('open-worktree').hidden = true;
+      byId('apply-changes').hidden = true;
       if (!entry) { byId('change-meta').textContent = 'Loading...'; return; }
       if (entry.error) { byId('change-meta').textContent = entry.error; return; }
       const changes = entry.changes;
       const count = changes.files.length;
       byId('change-meta').textContent = (changes.branch || 'detached HEAD') + ' | ' + count + ' file' + (count === 1 ? '' : 's') + (changes.omittedFiles ? ' | +' + changes.omittedFiles + ' omitted' : '');
       byId('open-worktree').hidden = !changes.isolated;
+      const terminal = ['completed', 'failed', 'stopped', 'lost'].includes(agent.status);
+      byId('apply-changes').hidden = !changes.isolated || !terminal || !count || Boolean(changes.omittedFiles);
       for (const file of changes.files) {
         const states = [];
         if (file.committed) states.push('commit');
@@ -161,6 +164,12 @@ function getAgentPanelHtml(nonce) {
     for (const type of ['stop', 'respawn']) byId(type).addEventListener('click', () => { const agent = selected(); if (agent) send(type, { agentId: agent.id }); });
     byId('remove').addEventListener('click', () => { const agent = selected(); if (agent && confirm('Remove this agent and its logs?')) send('remove', { agentId: agent.id }); });
     byId('open-worktree').addEventListener('click', () => { const agent = selected(); if (agent) send('openWorktree', { agentId: agent.id }); });
+    byId('apply-changes').addEventListener('click', () => {
+      const agent = selected(); const entry = agent && changesByAgent.get(agent.id);
+      if (agent && entry && entry.changes && confirm('Apply this reviewed snapshot to the main worktree? Conflicting paths will be rejected.')) {
+        send('integrate', { agentId: agent.id, snapshotId: entry.changes.snapshotId });
+      }
+    });
     window.addEventListener('message', (event) => {
       const message = event.data || {};
       if (message.type === 'state') { state = message.state; byId('notice').textContent = state.agents.length + ' agent' + (state.agents.length === 1 ? '' : 's'); render(); }

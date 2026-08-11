@@ -210,8 +210,11 @@ The extension contributes an Agent Panel that dispatches and supervises
 project-local background agents, displays bounded logs, sends follow-ups,
 answers questions, resolves approvals, and lists committed or working-tree
 changes. Each visible text file opens as an in-memory base-to-current native
-VS Code diff; an explicit button opens an isolated agent worktree in a new
-VS Code window for further inspection. It also opens one interactive
+VS Code diff. A confirmed `Apply changes` action copies the exact reviewed
+snapshot from a stopped isolated agent into the main worktree as unstaged
+changes; independently modified target paths reject the whole operation, while
+unrelated main-worktree changes remain untouched. An explicit button opens the
+isolated agent worktree in a new VS Code window for further inspection. It also opens one interactive
 VibeAgent terminal per workspace, runs a one-shot task against the active selection, inserts an
 `@path#Lx-Ly` reference, send up to 20 bounded diagnostics, and open the active
 file against Git `HEAD` in VS Code's native diff viewer. VibeAgent still runs in
@@ -237,6 +240,10 @@ same Git common directory and matching project subdirectory. It exposes at most
 200 project-relative files, omits sensitive and generated paths, and rejects
 symlinks, binary/non-UTF-8 content, stale paths, and files over 1 MiB. Absolute
 worktree paths remain in the extension host and are not sent to the Webview.
+Integration supports regular files, deletions, binary content, and executable
+bits within bounded per-file and aggregate limits. It revalidates the snapshot
+under the agent transition lock, applies writes atomically, rolls back completed
+operations on failure, and never stages or commits the result.
 
 Terminals launched by the extension also receive a private live-context bridge.
 As the active editor, selection, dirty state, or diagnostics change, the
@@ -2611,6 +2618,9 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
 - `vibeagent/background_agent_changes.py`: validates recorded Git worktrees and
   provides bounded, sensitive-path-aware base/current text for Agent Panel
   change review without mutating either checkout.
+- `vibeagent/background_agent_integration.py`: applies one exact reviewed
+  terminal-agent snapshot to non-conflicting main-worktree paths with bounded
+  binary reads, atomic writes, executable-bit preservation, and rollback.
 - `vibeagent/ide_context.py`: authenticates, bounds, sanitizes, and formats the
   private VS Code live-context protocol without exposing bridge credentials to
   child project processes.

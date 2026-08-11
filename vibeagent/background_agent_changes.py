@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import os
 from pathlib import Path
 import stat
@@ -14,6 +15,7 @@ MAX_BACKGROUND_CHANGE_FILES = 200
 MAX_BACKGROUND_CHANGE_PATH_CHARS = 1_000
 MAX_BACKGROUND_CHANGE_GIT_OUTPUT_CHARS = 512_000
 MAX_BACKGROUND_CHANGE_CONTENT_BYTES = 1_048_576
+PRIVATE_BACKGROUND_CHANGE_ROOTS = {".claude"}
 
 
 @dataclass(frozen=True)
@@ -24,6 +26,7 @@ class BackgroundAgentChangedFile:
     unstaged: bool
     untracked: bool
     deleted: bool
+    fingerprint: str
 
 
 @dataclass(frozen=True)
@@ -34,6 +37,7 @@ class BackgroundAgentChanges:
     branch: str | None
     base_commit: str
     head_commit: str
+    snapshot_id: str
     files: tuple[BackgroundAgentChangedFile, ...]
     omitted_files: int
 
@@ -79,6 +83,7 @@ def read_background_agent_changes(
         path
         for path in all_paths
         if _valid_change_path(path)
+        and Path(path).parts[0] not in PRIVATE_BACKGROUND_CHANGE_ROOTS
         and not should_ignore_git_path(context.session_root, path)
     ]
     bounded = max(1, min(max_files, MAX_BACKGROUND_CHANGE_FILES))
@@ -91,9 +96,11 @@ def read_background_agent_changes(
             unstaged=path in unstaged,
             untracked=path in untracked,
             deleted=not _regular_current_file(context.session_root, path),
+            fingerprint=_current_fingerprint(context.session_root, path),
         )
         for path in selected
     )
+    snapshot_id = _change_snapshot(context, files)
     return BackgroundAgentChanges(
         agent_id=agent_id,
         session_root=context.session_root,
@@ -101,6 +108,7 @@ def read_background_agent_changes(
         branch=context.branch,
         base_commit=context.base_commit,
         head_commit=context.head_commit,
+        snapshot_id=snapshot_id,
         files=files,
         omitted_files=max(0, len(visible) - len(files)),
     )
@@ -224,6 +232,56 @@ def _valid_change_path(value: str) -> bool:
 def _regular_current_file(root: Path, path: str) -> bool:
     candidate = root / Path(path)
     return candidate.is_file() and not candidate.is_symlink()
+
+
+def _change_snapshot(
+    context: _ChangeContext,
+    files: tuple[BackgroundAgentChangedFile, ...],
+) -> str:
+    digest = hashlib.sha256()
+    digest.update(f"v1\0{context.base_commit}\0{context.head_commit}\0".encode("ascii"))
+    for item in files:
+        flags = "".join(
+            "1" if value else "0"
+            for value in (
+                item.committed,
+                item.staged,
+                item.unstaged,
+                item.untracked,
+                item.deleted,
+            )
+        )
+        digest.update(item.path.encode("utf-8"))
+        digest.update(f"\0{flags}\0{item.fingerprint}\0".encode("utf-8"))
+    return digest.hexdigest()
+
+
+def _current_fingerprint(root: Path, path: str) -> str:
+    candidate = root / Path(path)
+    try:
+        metadata = candidate.lstat()
+    except FileNotFoundError:
+        return "missing"
+    except OSError as error:
+        raise ValueError(f"Could not inspect background agent changed file: {path}") from error
+    if stat.S_ISLNK(metadata.st_mode):
+        try:
+            target = os.readlink(candidate)
+        except OSError as error:
+            raise ValueError(f"Could not inspect background agent changed symlink: {path}") from error
+        return f"symlink:{hashlib.sha256(os.fsencode(target)).hexdigest()}"
+    if not stat.S_ISREG(metadata.st_mode):
+        return f"mode:{stat.S_IFMT(metadata.st_mode):o}"
+    result = run_readonly_git(root, ["hash-object", "--no-filters", "--", path])
+    value = result.stdout.strip()
+    if (
+        not result.ok
+        or len(value) not in {40, 64}
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise ValueError(combine_git_output(result) or f"Could not fingerprint changed file: {path}")
+    executable = "x" if metadata.st_mode & stat.S_IXUSR else "-"
+    return f"file:{executable}:{value}"
 
 
 def _read_git_blob(root: Path, object_spec: str) -> bytes | None:

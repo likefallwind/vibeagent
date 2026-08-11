@@ -39,6 +39,8 @@ class BackgroundAgentChangesTests(unittest.TestCase):
             (worktree / "unstaged.txt").write_text("unstaged change\n", encoding="utf-8")
             (worktree / "new.txt").write_text("new file\n", encoding="utf-8")
             (worktree / ".env").write_text("SECRET=value\n", encoding="utf-8")
+            (worktree / ".claude").mkdir()
+            (worktree / ".claude/settings.json").write_text("{}\n", encoding="utf-8")
 
             changes = read_background_agent_changes(root, AGENT_ID)
             files = {item.path: item for item in changes.files}
@@ -50,6 +52,7 @@ class BackgroundAgentChangesTests(unittest.TestCase):
             self.assertTrue(files["unstaged.txt"].unstaged)
             self.assertTrue(files["new.txt"].untracked)
             self.assertNotIn(".env", files)
+            self.assertNotIn(".claude/settings.json", files)
             self.assertEqual(
                 read_background_agent_change_content(root, AGENT_ID, "committed.txt", side="base"),
                 "initial\n",
@@ -61,6 +64,13 @@ class BackgroundAgentChangesTests(unittest.TestCase):
             self.assertEqual(
                 read_background_agent_change_content(root, AGENT_ID, "new.txt", side="base"),
                 "",
+            )
+
+            snapshot_id = changes.snapshot_id
+            (worktree / "new.txt").write_text("newer file\n", encoding="utf-8")
+            self.assertNotEqual(
+                read_background_agent_changes(root, AGENT_ID).snapshot_id,
+                snapshot_id,
             )
 
     def test_rejects_unlinked_session_and_unlisted_or_binary_content(self) -> None:

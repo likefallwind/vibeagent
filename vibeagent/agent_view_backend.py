@@ -19,6 +19,10 @@ from .background_agent_input import (
     answer_background_user_input,
     read_background_user_input,
 )
+from .background_agent_integration import (
+    BackgroundAgentIntegration,
+    integrate_background_agent_changes,
+)
 from .background_agent_runtime import (
     launch_background_agent,
     list_background_agents,
@@ -42,6 +46,8 @@ class AgentViewBackend(Protocol):
     def changes(self, agent_id: str) -> BackgroundAgentChanges: ...
 
     def change_content(self, agent_id: str, path: str, side: str) -> str: ...
+
+    def integrate(self, agent_id: str, snapshot_id: str) -> BackgroundAgentIntegration: ...
 
     def approval(self, agent_id: str) -> BackgroundApproval | None: ...
 
@@ -103,6 +109,13 @@ class ProjectAgentViewBackend:
             agent_id,
             path,
             side=side,
+        )
+
+    def integrate(self, agent_id: str, snapshot_id: str) -> BackgroundAgentIntegration:
+        return integrate_background_agent_changes(
+            self.project_root,
+            agent_id,
+            expected_snapshot_id=snapshot_id,
         )
 
     def approval(self, agent_id: str) -> BackgroundApproval | None:

@@ -11,6 +11,7 @@ from vibeagent.background_agent_types import BackgroundAgentRecord, BackgroundAg
 from vibeagent.background_agent_approval import BackgroundApproval
 from vibeagent.background_agent_changes import BackgroundAgentChangedFile, BackgroundAgentChanges
 from vibeagent.background_agent_input import BackgroundUserInput
+from vibeagent.background_agent_integration import BackgroundAgentIntegration
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
 from vibeagent.cli_validation import validate_cli_args
@@ -62,6 +63,7 @@ class FakeBackend:
             branch="vibeagent/review",
             base_commit="a" * 40,
             head_commit="b" * 40,
+            snapshot_id="c" * 64,
             files=(
                 BackgroundAgentChangedFile(
                     path="src/app.py",
@@ -70,6 +72,7 @@ class FakeBackend:
                     unstaged=False,
                     untracked=False,
                     deleted=False,
+                    fingerprint=f"file:-:{'d' * 40}",
                 ),
             ),
             omitted_files=0,
@@ -78,6 +81,15 @@ class FakeBackend:
     def change_content(self, agent_id, path, side):
         self.calls.append(("change-content", agent_id, path, side))
         return "old\n" if side == "base" else "new\n"
+
+    def integrate(self, agent_id, snapshot_id):
+        self.calls.append(("integrate", agent_id, snapshot_id))
+        return BackgroundAgentIntegration(
+            agent_id=agent_id,
+            snapshot_id=snapshot_id,
+            applied_files=("src/app.py",),
+            skipped_files=("README.md",),
+        )
 
     def approval(self, agent_id):
         return self.approval_value
@@ -267,6 +279,18 @@ class RemoteControlServerTests(unittest.TestCase):
                 self.assertEqual(status, expected_status)
                 self.assertEqual(self.backend.calls[-1], expected)
 
+        snapshot_id = "c" * 64
+        status, _, body = self.request(
+            "POST",
+            f"/api/agents/{AGENT_ID}/integrate",
+            {"snapshotId": snapshot_id},
+        )
+        payload = json.loads(body)
+        self.assertEqual(status, 200)
+        self.assertEqual(self.backend.calls[-1], ("integrate", AGENT_ID, snapshot_id))
+        self.assertEqual(payload["appliedFiles"], ["src/app.py"])
+        self.assertEqual(payload["skippedFiles"], ["README.md"])
+
     def test_rejects_invalid_routes_payloads_and_non_tls_network_bind(self) -> None:
         status, _, _ = self.request(
             "POST",
@@ -295,6 +319,16 @@ class RemoteControlServerTests(unittest.TestCase):
         )
         self.assertEqual(status, 400)
         self.assertIn(b"requestId", body)
+
+        for payload in ({}, {"snapshotId": "C" * 64}, {"snapshotId": "c" * 63}):
+            with self.subTest(payload=payload):
+                status, _, body = self.request(
+                    "POST",
+                    f"/api/agents/{AGENT_ID}/integrate",
+                    payload,
+                )
+                self.assertEqual(status, 400)
+                self.assertIn(b"snapshotId", body)
 
         status, _, _ = self.request("POST", "/api/agents/not-an-id/stop", {})
         self.assertEqual(status, 404)

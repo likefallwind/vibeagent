@@ -43,6 +43,7 @@ test('panel routes only validated actions and preserves exact request IDs', asyn
         branch: 'vibeagent/review',
         baseCommit: 'a'.repeat(40),
         headCommit: 'b'.repeat(40),
+        snapshotId: 'c'.repeat(64),
         omittedFiles: 0,
         files: [{
           path: 'src/app.py', committed: true, staged: false, unstaged: false,
@@ -56,7 +57,15 @@ test('panel routes only validated actions and preserves exact request IDs', asyn
         content: url.searchParams.get('side') === 'base' ? 'old\n' : 'new\n',
       };
     },
-    async post(path, payload) { apiCalls.push([path, payload]); return { message: 'ok' }; },
+    async post(path, payload) {
+      apiCalls.push([path, payload]);
+      if (path.endsWith('/integrate')) return {
+        message: 'Applied 1 background agent file(s); 0 already matched.',
+        agentId: '0123456789ab', snapshotId: 'c'.repeat(64),
+        appliedFiles: ['src/app.py'], skippedFiles: [],
+      };
+      return { message: 'ok' };
+    },
   };
   const process = { async start() { return client; }, dispose() { this.disposed = true; } };
   const panel = {
@@ -117,6 +126,21 @@ test('panel routes only validated actions and preserves exact request IDs', asyn
     { fsPath: '/workspace/project/.vibeagent/worktrees/review' },
     { forceNewWindow: true },
   ]);
+
+  await receiveMessage({
+    type: 'integrate', agentId: '0123456789ab', snapshotId: 'c'.repeat(64),
+  });
+  assert.deepEqual(apiCalls.at(-1), [
+    '/api/agents/0123456789ab/integrate', { snapshotId: 'c'.repeat(64) },
+  ]);
+  assert.match(posted.findLast((message) => message.type === 'notice').message, /Applied 1/);
+
+  const callCount = apiCalls.length;
+  await receiveMessage({
+    type: 'integrate', agentId: '0123456789ab', snapshotId: 'C'.repeat(64),
+  });
+  assert.equal(apiCalls.length, callCount);
+  assert.match(posted.findLast((message) => message.type === 'error').message, /invalid or stale/);
 
   await receiveMessage({ type: 'reviewFile', agentId: '0123456789ab', path: '../secret' });
   assert.match(posted.findLast((message) => message.type === 'error').message, /invalid or stale/);

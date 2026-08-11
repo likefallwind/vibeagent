@@ -7,9 +7,11 @@ const { getAgentPanelHtml } = require('./agentPanelView');
 
 const AGENT_ID = /^[0-9a-f]{12}$/;
 const REQUEST_ID = /^[0-9a-f]{32}$/;
+const SNAPSHOT_ID = /^[0-9a-f]{64}$/;
 const MAX_TEXT_CHARS = 8_000;
 const AGENT_ACTIONS = new Set([
   'messages', 'approval', 'answer', 'stop', 'respawn', 'remove', 'logs', 'changes', 'change',
+  'integrate',
 ]);
 
 class AgentPanelManager {
@@ -78,6 +80,9 @@ class AgentPanelManager {
           return;
         case 'openWorktree':
           await this._openWorktree(session, message.agentId);
+          return;
+        case 'integrate':
+          await this._integrate(session, message.agentId, message.snapshotId);
           return;
         case 'dispatch':
           await session.client.post('/api/agents', { task: requireText(message.task, 'Task') });
@@ -236,6 +241,22 @@ class AgentPanelManager {
     );
   }
 
+  async _integrate(session, rawAgentId, rawSnapshotId) {
+    const agentId = requireAgentId(rawAgentId);
+    const snapshotId = requireSnapshotId(rawSnapshotId);
+    const changes = session.changes.get(agentId);
+    if (!changes || changes.snapshotId !== snapshotId) {
+      throw new Error('Background agent change snapshot is invalid or stale.');
+    }
+    const result = await session.client.post(agentPath(agentId, 'integrate'), { snapshotId });
+    if (!validIntegration(result, agentId, snapshotId)) {
+      throw new Error('Remote Control returned an invalid integration result.');
+    }
+    session.changes.delete(agentId);
+    this._post(session, { type: 'notice', message: result.message });
+    await this._refresh(session);
+  }
+
   _post(session, payload) {
     if (!session.disposed) session.panel.webview.postMessage(payload);
   }
@@ -282,6 +303,13 @@ function requireRequestId(value) {
   return value;
 }
 
+function requireSnapshotId(value) {
+  if (typeof value !== 'string' || !SNAPSHOT_ID.test(value)) {
+    throw new Error('Background agent change snapshot is invalid or stale.');
+  }
+  return value;
+}
+
 function requireText(value, label) {
   if (typeof value !== 'string' || !value.trim() || value.includes('\0') || value.length > MAX_TEXT_CHARS) {
     throw new Error(`${label} must contain 1 to ${MAX_TEXT_CHARS} characters.`);
@@ -320,6 +348,8 @@ function validChanges(value, agentId) {
     && (value.branch === null || typeof value.branch === 'string')
     && typeof value.baseCommit === 'string'
     && typeof value.headCommit === 'string'
+    && typeof value.snapshotId === 'string'
+    && /^[0-9a-f]{64}$/.test(value.snapshotId)
     && Number.isInteger(value.omittedFiles)
     && value.omittedFiles >= 0
     && Array.isArray(value.files)
@@ -357,6 +387,19 @@ function validContent(value, filePath, side) {
   );
 }
 
+function validIntegration(value, agentId, snapshotId) {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && value.agentId === agentId
+    && value.snapshotId === snapshotId
+    && typeof value.message === 'string'
+    && Array.isArray(value.appliedFiles)
+    && Array.isArray(value.skippedFiles)
+    && [...value.appliedFiles, ...value.skippedFiles].every((item) => typeof item === 'string'),
+  );
+}
+
 function isConnectionFailure(error) {
   return Boolean(
     error
@@ -369,6 +412,7 @@ module.exports = {
   AgentPanelManager,
   agentPath,
   requireRequestId,
+  requireSnapshotId,
   requireText,
   validChanges,
   validState,

@@ -16,6 +16,7 @@ from .agent_view_backend import AgentViewBackend, ProjectAgentViewBackend
 from .background_agent_approval import BackgroundApproval
 from .background_agent_changes import BackgroundAgentChanges
 from .background_agent_input import BackgroundUserInput
+from .background_agent_integration import BackgroundAgentIntegration
 from .background_agent_types import BACKGROUND_AGENT_ID_PATTERN, BackgroundAgentView
 from .remote_control_assets import (
     REMOTE_CONTROL_CSS,
@@ -143,6 +144,11 @@ def _handler_factory(
                         HTTPStatus.CREATED,
                         {"message": f"Dispatched background agent {view.record.id}.", "id": view.record.id},
                     )
+                    return
+                agent_id = _agent_route(path, suffix="integrate")
+                if agent_id is not None:
+                    result = backend.integrate(agent_id, _required_snapshot_id(payload))
+                    self._json(HTTPStatus.OK, _integration_payload(result))
                     return
                 for suffix, action in (
                     ("messages", self._message),
@@ -327,6 +333,7 @@ def _changes_payload(value: BackgroundAgentChanges) -> dict[str, object]:
         "branch": value.branch,
         "baseCommit": value.base_commit,
         "headCommit": value.head_commit,
+        "snapshotId": value.snapshot_id,
         "omittedFiles": value.omitted_files,
         "files": [
             {
@@ -339,6 +346,18 @@ def _changes_payload(value: BackgroundAgentChanges) -> dict[str, object]:
             }
             for item in value.files
         ],
+    }
+
+
+def _integration_payload(value: BackgroundAgentIntegration) -> dict[str, object]:
+    applied = len(value.applied_files)
+    skipped = len(value.skipped_files)
+    return {
+        "message": f"Applied {applied} background agent file(s); {skipped} already matched.",
+        "agentId": value.agent_id,
+        "snapshotId": value.snapshot_id,
+        "appliedFiles": list(value.applied_files),
+        "skippedFiles": list(value.skipped_files),
     }
 
 
@@ -374,6 +393,17 @@ def _required_request_id(payload: dict[str, object]) -> str:
         or any(character not in "0123456789abcdef" for character in value)
     ):
         raise ValueError("Remote Control field requestId must be 32 lowercase hexadecimal characters.")
+    return value
+
+
+def _required_snapshot_id(payload: dict[str, object]) -> str:
+    value = payload.get("snapshotId")
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise ValueError("Remote Control field snapshotId must be 64 lowercase hexadecimal characters.")
     return value
 
 
