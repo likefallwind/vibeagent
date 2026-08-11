@@ -30,6 +30,7 @@ def get_help_text() -> str:
             "  /run-focused-tests [opts] [--max-paths N] [--max-candidates N] [--max-commands N] -- [path...] Run focused test commands with optional output diagnostics.",
             "  /manifests [--max-files N] [--max-items N] Show package and pyproject manifest metadata.",
             "  /instructions [--max-files N] [--max-bytes N] Show AGENTS.md and CLAUDE.md instruction sources.",
+            "  /hooks  Show resolved hook events, handlers, matchers, and sources.",
             "  /todos [--max-items N] [--max-files N] -- [path] Show TODO, FIXME, HACK, XXX, and BUG markers.",
             "  /command [--cwd PATH] -- <cmd> Preview whether a shell command can run.",
             "  /run [opts] -- <cmd> Run one finite shell command with optional output diagnostics.",

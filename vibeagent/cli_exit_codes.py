@@ -46,6 +46,7 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "run_focused_tests",
         "manifests",
         "instructions",
+        "hooks",
         "todos",
         "check_start_command",
         "start_command",
@@ -272,6 +273,8 @@ def local_result_exit_code(args: argparse.Namespace, text: str) -> int:
     if args.session_verification is not None and has_session_verification_issue(text):
         return 1
     if args.diff is not None and has_top_level_error(text):
+        return 1
+    if args.hooks and has_top_level_error(text):
         return 1
     if args.port_check is not None and has_top_level_field(text, "reachable", "no"):
         return 1

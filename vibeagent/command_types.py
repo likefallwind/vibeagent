@@ -30,6 +30,7 @@ CoreCommandType: TypeAlias = Literal[
     "run_focused_test_commands",
     "manifests",
     "instructions",
+    "hooks",
     "todos",
     "command",
     "chat",

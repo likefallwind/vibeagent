@@ -743,6 +743,7 @@ python -m vibeagent --init CLAUDE.md --cwd ../my-project
 python -m vibeagent --init-only --cwd ../my-project
 python -m vibeagent -p --init "Install dependencies, then inspect the project" --cwd ../my-project
 python -m vibeagent -p --maintenance "Refresh generated dependencies" --cwd ../my-project
+python -m vibeagent --hooks --cwd ../my-project
 python -m vibeagent --model
 python -m vibeagent --config --cwd ../my-project
 python -m vibeagent --tools
@@ -1615,13 +1616,19 @@ hook map directly or under `hooks`:
 }
 ```
 
-Supported lifecycle events are `SessionStart`, `SessionEnd`, `PreCompact`,
-`PostCompact`, `CwdChanged`, `FileChanged`, `InstructionsLoaded`, `MessageDisplay`, `Notification`, `UserPromptExpansion`,
+Use `/hooks` interactively or `--hooks [--json]` non-interactively to inspect
+the resolved event, matcher, handler type, source, timeout, and safe handler
+metadata. Command and URL targets are redacted, while HTTP header values,
+MCP input values, and injected environment values are never displayed. Invalid
+hook configuration is included in the report and makes `--hooks` exit nonzero.
+
+Supported lifecycle events are `Setup`, `SessionStart`, `SessionEnd`, `PreCompact`,
+`PostCompact`, `CwdChanged`, `FileChanged`, `ConfigChange`, `InstructionsLoaded`, `MessageDisplay`, `Notification`, `UserPromptExpansion`,
 `UserPromptSubmit`,
 `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
 `StopFailure`,
 `SubagentStart`, `SubagentStop`, `TeammateIdle`, `PostToolBatch`, `TaskCreated`, `TaskCompleted`,
-`DirectoryAdded`, `WorktreeCreate`, and `WorktreeRemove`. Tool-event
+`DirectoryAdded`, `Elicitation`, `ElicitationResult`, `WorktreeCreate`, and `WorktreeRemove`. Tool-event
 matchers apply to the model tool name, parsed VibeAgent action type, and
 Claude-compatible aliases.
 `SessionStart` matches `startup` or `resume`; `InstructionsLoaded` matches

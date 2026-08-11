@@ -235,6 +235,14 @@ def run_project_local_flag(
             commands["format_instructions_report_text"],
             lambda: commands["get_instructions_text"](root, **instructions_kwargs),
         )
+    if args.hooks:
+        return local_text_or_report(
+            args,
+            "hooks",
+            lambda: commands["get_hooks_report"](root),
+            commands["format_hooks_report_text"],
+            lambda: commands["get_hooks_text"](root),
+        )
     if args.todos is not None:
         todos_kwargs = build_todos_kwargs(args)
         return local_text_or_report(

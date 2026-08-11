@@ -34,6 +34,8 @@ def parse_runtime_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("manifests", trimmed[11:].strip() or None)
     if trimmed == "/instructions" or trimmed.startswith("/instructions "):
         return make_local_command("instructions", trimmed[14:].strip() or None)
+    if trimmed == "/hooks":
+        return make_local_command("hooks", None)
     if trimmed == "/todos" or trimmed.startswith("/todos "):
         return make_local_command("todos", trimmed[7:].strip() or None)
     if trimmed == "/command" or trimmed.startswith("/command "):

@@ -164,6 +164,8 @@ def run_interactive_project_command(
         if error:
             return error
         return commands["get_instructions_text"](**kwargs) if uses_named_options else commands["get_instructions_text"]()
+    if command.type == "hooks":
+        return commands["get_hooks_text"]()
     if command.type == "todos":
         path, kwargs, error, uses_named_options = commands["parse_interactive_todos_argument"](command.argument)
         if error:

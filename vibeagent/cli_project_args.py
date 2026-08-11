@@ -18,6 +18,7 @@ def add_project_check_local_arguments(local: argparse._MutuallyExclusiveGroup) -
     local.add_argument("--run-focused-tests", nargs="*", metavar="PATH", help="Run focused test commands related to paths or current git changes and exit.")
     local.add_argument("--manifests", action="store_true", help="Show package and pyproject manifest metadata and exit.")
     local.add_argument("--instructions", action="store_true", help="Show AGENTS.md and CLAUDE.md instruction sources and exit.")
+    local.add_argument("--hooks", action="store_true", help="Show resolved hook events, handlers, and sources and exit.")
     local.add_argument("--todos", nargs="?", const="", metavar="PATH", help="Show TODO, FIXME, HACK, XXX, and BUG markers and exit.")
 
 
