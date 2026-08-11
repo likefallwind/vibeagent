@@ -202,6 +202,7 @@ python -m vibeagent --compact <run-id> --compact-max-output-chars 0 --compact-ma
 python -m vibeagent --cwd ../my-project --max-iterations 8 --command-timeout-ms 120000 --max-output-tokens 8192 --model-retries 2 --model-retry-delay-ms 500 --model-timeout-ms 120000 "run the release checks"
 python -m vibeagent --json --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format json --max-budget-usd 1.00 --cwd ../my-project "run the release checks"
+python -m vibeagent -p --no-session-persistence --output-format json --cwd ../my-project "run an isolated CI check"
 python -m vibeagent -p --output-format json --fallback-model backup-model --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format json --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
@@ -1570,6 +1571,15 @@ Malformed, oversized, mismatched, or symbolic-link conversation state falls
 back to the bounded handoff instead of being trusted. `--compact`, `/compact`,
 automatic one-shot compaction, `/clear`, and conversation rewind remain explicit
 compressed or fresh conversation boundaries.
+For isolated automation, `-p --no-session-persistence` runs coding-session
+events, hooks, usage accounting, structured output, and stream-json observers
+against a private temporary session tree, then removes that tree after final
+output. It disables implicit latest-session context. An explicit `--resume` or
+`--compact` may still read a stored source session, but never appends to it; the
+ephemeral run ID cannot be resumed afterward. Persistent-identity operations
+`--name`, `--fork-session`, `--worktree`, and one-shot `/goal` are rejected with
+this mode. The option controls resumable session storage, not requested project
+edits, commands, commits, plugin data, or background-process records.
 Only one agent turn may write a Session at a time. A nonblocking per-turn lease
 reports the active owner and asks the caller to wait or fork instead of allowing
 concurrent whole-conversation snapshots to overwrite each other; process exit

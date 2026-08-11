@@ -8,6 +8,34 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_no_session_persistence_requires_print_and_rejects_persistent_identity(self) -> None:
+        valid = cli_module.parse_args(["-p", "--no-session-persistence", "inspect"])
+        no_print = cli_module.parse_args(["--no-session-persistence", "inspect"])
+        named = cli_module.parse_args(["-p", "--no-session-persistence", "--name", "temp", "inspect"])
+        forked = cli_module.parse_args(["-p", "--no-session-persistence", "--fork-session", "inspect"])
+        worktree = cli_module.parse_args(["-p", "--no-session-persistence", "--worktree", "temp", "inspect"])
+
+        self.assertIsNone(cli_module.validate_cli_args(valid))
+        kwargs = cli_module.build_one_shot_kwargs_from_args(valid)
+        self.assertFalse(kwargs["session_persistence"])
+        self.assertFalse(kwargs["auto_compact"])
+        self.assertEqual(
+            cli_module.validate_cli_args(no_print),
+            "--no-session-persistence requires a one-shot task with --print.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(named),
+            "--no-session-persistence cannot be combined with --name.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(forked),
+            "--no-session-persistence cannot be combined with --fork-session.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(worktree),
+            "--no-session-persistence cannot be combined with --worktree.",
+        )
+
     def test_autocompact_accepts_compatible_values_and_rejects_local_commands(self) -> None:
         one_shot = cli_module.parse_args(["--autocompact", "200", "inspect"])
         interactive = cli_module.parse_args(["--autocompact", "auto"])

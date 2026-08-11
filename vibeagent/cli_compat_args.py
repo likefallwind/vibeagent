@@ -34,6 +34,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Fork a resumed coding session under a new session id.",
     )
     parser.add_argument(
+        "--no-session-persistence",
+        action="store_true",
+        help="Run a print-mode task without saving a resumable session.",
+    )
+    parser.add_argument(
         "--permission-mode",
         choices=PERMISSION_MODE_CHOICES,
         help="Claude-compatible alias for --approval.",

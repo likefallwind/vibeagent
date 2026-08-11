@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 from decimal import Decimal
 from pathlib import Path
 from time import monotonic
@@ -8,6 +9,7 @@ from time import monotonic
 from .agent import run_agent
 from .chat import run_chat
 from .cli_config import resolve_project_root
+from .cli_ephemeral_session import ephemeral_session_scope
 from .cli_one_shot_chat import run_one_shot_chat
 from .cli_one_shot_code import run_one_shot_code
 from .cli_one_shot_input import (
@@ -70,6 +72,7 @@ def run_one_shot(
     output_json: bool = False,
     output_format: str | None = None,
     print_mode: bool = False,
+    session_persistence: bool = True,
     structured_output_schema: dict[str, object] | None = None,
     max_budget_usd: Decimal | None = None,
     fallback_model: str | None = None,
@@ -148,58 +151,71 @@ def run_one_shot(
                 run_chat_func=run_chat_func,
             )
 
-        exit_code, prior_context = run_one_shot_code(
-            task,
-            project_root=project_root,
-            execution_config=execution_config,
-            provider_env=provider_env,
-            approval_policy=approval_policy,
-            agent=agent,
-            dynamic_agent_profiles=dynamic_agent_profiles,
-            session_name=session_name,
-            trust_project_permissions=trust_project_permissions,
-            permission_overrides=permission_overrides,
-            resolved_mcp_config_paths=resolved_mcp_config_paths,
-            strict_mcp_config=strict_mcp_config,
-            output_mode=output_mode,
-            output_json=output_json,
-            print_mode=print_mode,
-            structured_output_schema=structured_output_schema,
-            max_budget_usd=max_budget_usd,
-            fallback_model=fallback_model,
-            effort=effort,
-            effort_locked=effort_locked,
-            autocompact_tokens=autocompact_tokens,
-            setup_trigger=setup_trigger,
-            tool_names=tool_names,
-            elapsed_ms=elapsed_milliseconds(started_at),
-            stream=stream,
-            input_prior_context=input_prior_context,
-            system_prompt=system_prompt,
-            append_system_prompt=append_system_prompt,
-            additional_directories=additional_directories,
-            task_metadata=task_metadata,
-            resume_arg=resume_arg,
-            compact_arg=compact_arg,
-            auto_compact=auto_compact,
-            fork_session=fork_session,
-            resume_max_failures=resume_max_failures,
-            resume_max_files=resume_max_files,
-            resume_max_commands=resume_max_commands,
-            resume_max_checks=resume_max_checks,
-            resume_max_output_chars=resume_max_output_chars,
-            resume_max_text=resume_max_text,
-            compact_max_failures=compact_max_failures,
-            compact_max_files=compact_max_files,
-            compact_max_commands=compact_max_commands,
-            compact_max_checks=compact_max_checks,
-            compact_max_output_chars=compact_max_output_chars,
-            compact_max_text=compact_max_text,
-            create_chat_client_func=create_chat_client_func,
-            run_agent_func=run_agent_func,
-            get_resume_context_func=get_resume_context_func,
-            get_compact_context_func=get_compact_context_func,
+        session_scope = (
+            nullcontext(None)
+            if session_persistence or request_mode == "chat"
+            else ephemeral_session_scope(
+                project_root,
+                mcp_config_paths=resolved_mcp_config_paths,
+                strict_mcp_config=strict_mcp_config,
+                additional_roots=additional_directories,
+            )
         )
+        with session_scope as ephemeral:
+            exit_code, prior_context = run_one_shot_code(
+                task,
+                project_root=project_root,
+                execution_config=execution_config,
+                provider_env=provider_env,
+                approval_policy=approval_policy,
+                agent=agent,
+                dynamic_agent_profiles=dynamic_agent_profiles,
+                session_name=session_name,
+                trust_project_permissions=trust_project_permissions,
+                permission_overrides=permission_overrides,
+                resolved_mcp_config_paths=resolved_mcp_config_paths,
+                strict_mcp_config=strict_mcp_config,
+                output_mode=output_mode,
+                output_json=output_json,
+                print_mode=print_mode,
+                structured_output_schema=structured_output_schema,
+                max_budget_usd=max_budget_usd,
+                fallback_model=fallback_model,
+                effort=effort,
+                effort_locked=effort_locked,
+                autocompact_tokens=autocompact_tokens,
+                setup_trigger=setup_trigger,
+                tool_names=tool_names,
+                elapsed_ms=elapsed_milliseconds(started_at),
+                stream=stream,
+                input_prior_context=input_prior_context,
+                system_prompt=system_prompt,
+                append_system_prompt=append_system_prompt,
+                additional_directories=additional_directories,
+                task_metadata=task_metadata,
+                resume_arg=resume_arg,
+                compact_arg=compact_arg,
+                auto_compact=auto_compact,
+                fork_session=fork_session,
+                resume_max_failures=resume_max_failures,
+                resume_max_files=resume_max_files,
+                resume_max_commands=resume_max_commands,
+                resume_max_checks=resume_max_checks,
+                resume_max_output_chars=resume_max_output_chars,
+                resume_max_text=resume_max_text,
+                compact_max_failures=compact_max_failures,
+                compact_max_files=compact_max_files,
+                compact_max_commands=compact_max_commands,
+                compact_max_checks=compact_max_checks,
+                compact_max_output_chars=compact_max_output_chars,
+                compact_max_text=compact_max_text,
+                ephemeral_workspace=ephemeral.workspace if ephemeral is not None else None,
+                session_record_root=ephemeral.record_root if ephemeral is not None else None,
+                create_chat_client_func=create_chat_client_func,
+                run_agent_func=run_agent_func,
+                get_resume_context_func=get_resume_context_func,
+                get_compact_context_func=get_compact_context_func,
+            )
         if prior_context.error is not None:
             return emit_error(prior_context.error)
         return exit_code

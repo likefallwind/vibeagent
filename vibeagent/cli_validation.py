@@ -47,6 +47,14 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
             return str(error)
     if args.print_mode and (not args.task or has_local_flag(args)):
         return "--print requires a one-shot task."
+    if args.no_session_persistence and (not args.print_mode or not args.task or has_local_flag(args)):
+        return "--no-session-persistence requires a one-shot task with --print."
+    if args.no_session_persistence and args.name is not None:
+        return "--no-session-persistence cannot be combined with --name."
+    if args.no_session_persistence and args.fork_session:
+        return "--no-session-persistence cannot be combined with --fork-session."
+    if args.no_session_persistence and args.worktree is not None:
+        return "--no-session-persistence cannot be combined with --worktree."
     if args.model is True and has_non_model_local_flag(args):
         return "--model cannot be combined with other local command flags unless a MODEL value is provided."
     if isinstance(args.model, str) and not args.task and not args.save_config and not has_non_model_local_flag(args):

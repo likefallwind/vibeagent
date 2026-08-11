@@ -38,7 +38,7 @@ from .session_names import name_session, normalize_session_name
 from .session_usage import summarize_run_usage
 from .structured_output import StructuredOutputResult, generate_structured_output
 from .types import ApprovalPolicy, ChatMessage
-from .workspace_core import create_local_workspace
+from .workspace_core import RunWorkspace, create_local_workspace
 from .workspace_permissions import ProjectPermissions
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .monitor_runtime import stop_session_monitors
@@ -96,6 +96,8 @@ def run_one_shot_code(
     compact_max_checks: int | None = None,
     compact_max_output_chars: int | None = None,
     compact_max_text: int | None = None,
+    ephemeral_workspace: RunWorkspace | None = None,
+    session_record_root: Path | None = None,
     create_chat_client_func: Callable[[dict[str, str | None]], object],
     run_agent_func: Callable[..., AgentResult],
     get_resume_context_func: SessionContextGetter,
@@ -136,6 +138,11 @@ def run_one_shot_code(
         return 1, replace(prior_context, error=str(error))
 
     merged_prior_context = combine_optional_text(prior_context.context, input_prior_context)
+    goal_state, steering_task = _resolve_one_shot_goal(task, prior_context, project_root)
+    if ephemeral_workspace is not None and goal_state is not None:
+        raise ValueError("--no-session-persistence cannot be used with a one-shot /goal task.")
+    if goal_state is not None:
+        task = goal_turn_prompt(goal_state, steering_task)
     model_budget: ModelCostBudget | None = None
     if max_budget_usd is not None:
         model_budget = create_model_cost_budget(max_budget_usd, provider_env)
@@ -149,21 +156,21 @@ def run_one_shot_code(
         client,  # type: ignore[arg-type]
         ModelEffortSetting(effort, locked=effort_locked),
     )
-    goal_state, steering_task = _resolve_one_shot_goal(task, prior_context, project_root)
-    if goal_state is not None:
-        task = goal_turn_prompt(goal_state, steering_task)
     resumed_workspace = (
-        create_local_workspace(
-            project_root,
-            prior_context.run_id,
-            mcp_config_paths=resolved_mcp_config_paths,
-            strict_mcp_config=strict_mcp_config,
-            additional_roots=additional_directories,
+        ephemeral_workspace
+        or (
+            create_local_workspace(
+                project_root,
+                prior_context.run_id,
+                mcp_config_paths=resolved_mcp_config_paths,
+                strict_mcp_config=strict_mcp_config,
+                additional_roots=additional_directories,
+            )
+            if prior_context.source == "resume"
+            and prior_context.run_id is not None
+            and not fork_session
+            else None
         )
-        if prior_context.source == "resume"
-        and prior_context.run_id is not None
-        and not fork_session
-        else None
     )
     stream_scope = build_one_shot_stream_scope(
         stream,
@@ -171,7 +178,7 @@ def run_one_shot_code(
         mcp_config_paths=resolved_mcp_config_paths,
         strict_mcp_config=strict_mcp_config,
         additional_roots=additional_directories,
-        force_workspace=fork_session or session_name is not None,
+        force_workspace=fork_session or session_name is not None or ephemeral_workspace is not None,
         workspace=resumed_workspace,
     )
     peer_runtime = create_peer_runtime(project_root, approval_policy)
@@ -200,7 +207,12 @@ def run_one_shot_code(
         workspace=stream_scope.workspace,
         peer_runtime=peer_runtime,
     )
-    if prior_context.run_id is not None and resumed_workspace is None:
+    continuing_source_session = (
+        ephemeral_workspace is None
+        and resumed_workspace is not None
+        and resumed_workspace.run_id == prior_context.run_id
+    )
+    if prior_context.run_id is not None and not continuing_source_session:
         run_kwargs["task_source_run_id"] = prior_context.run_id
     if prior_context.source == "resume" and prior_context.run_id is not None:
         restored_conversation = load_session_conversation(project_root, prior_context.run_id)
@@ -214,8 +226,9 @@ def run_one_shot_code(
             )
         if prior_messages:
             run_kwargs["prior_messages"] = prior_messages
-        if resumed_workspace is not None:
-            deferred_state = read_deferred_tool_state(resumed_workspace)
+        source_workspace = create_local_workspace(project_root, prior_context.run_id)
+        if continuing_source_session or ephemeral_workspace is not None:
+            deferred_state = read_deferred_tool_state(source_workspace)
             if deferred_state is not None:
                 run_kwargs["deferred_tool_state"] = deferred_state
     goal_turns = 0
@@ -224,19 +237,25 @@ def run_one_shot_code(
     session_end_ran = False
     recorded_session_tokens: dict[str, int] = {}
 
-    def end_session() -> None:
-        nonlocal session_end_ran
-        if result is None or session_end_ran:
-            return
-        session_workspace = create_local_workspace(
+    def result_workspace() -> RunWorkspace:
+        assert result is not None
+        if ephemeral_workspace is not None and ephemeral_workspace.run_id == result.run_id:
+            return replace(ephemeral_workspace, root=result.run_dir)
+        return create_local_workspace(
             result.run_dir,
             result.run_id,
             additional_roots=additional_directories,
         )
+
+    def end_session() -> None:
+        nonlocal session_end_ran
+        if result is None or session_end_ran:
+            return
+        current_workspace = result_workspace()
         session_end_ran = True
         try:
             run_session_end_hooks(
-                session_workspace,
+                current_workspace,
                 "other",
                 command_timeout_ms=execution_config.command_timeout_ms,
                 approval_handler=run_kwargs.get("approval_handler"),
@@ -244,7 +263,7 @@ def run_one_shot_code(
             )
         except Exception as error:
             append_session_event(
-                session_workspace.session_dir,
+                current_workspace.session_dir,
                 "session_end_hook_error",
                 {"reason": "other", "message": format_exception(error)},
             )
@@ -305,7 +324,7 @@ def run_one_shot_code(
                     client,
                     result.conversation,
                     structured_output_schema,
-                    session_dir=result.run_dir / ".vibeagent" / "sessions" / result.run_id,
+                    session_dir=result_workspace().session_dir,
                     max_output_tokens=execution_config.max_output_tokens,
                     model_retries=execution_config.model_retries,
                     model_retry_delay_ms=execution_config.model_retry_delay_ms,
@@ -325,7 +344,7 @@ def run_one_shot_code(
         prior_context,
         machine_output=output_mode.machine,
         elapsed_ms=elapsed_ms,
-        project_root=project_root,
+        project_root=session_record_root or project_root,
         provider_env=provider_env,
     )
     apply_structured_output_result(result_payload, structured_output)
@@ -347,6 +366,9 @@ def run_one_shot_code(
         }
     if session_name is not None:
         result_payload["sessionName"] = normalize_session_name(session_name)
+    if ephemeral_workspace is not None:
+        result_payload["sessionPersistence"] = False
+        result_payload["session_persistence"] = False
     emit_one_shot_code_payload(
         result,
         result_payload,
