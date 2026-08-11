@@ -278,6 +278,12 @@ absolute paths. The latest directory set is recorded in the active session and
 restored by interactive or one-shot resume/compact, while unavailable stored
 paths are skipped instead of expanding the workspace boundary.
 
+Use `/cd PATH` to switch the main project without leaving the interactive
+conversation. Relative and quoted paths are supported. VibeAgent ends the old
+project runtime, starts a new session branch under the target project, reloads
+its provider and trusted project configuration, and keeps the current mode,
+conversation, goal, approval policy, and valid additional roots.
+
 `--provider`, `--model MODEL` / `--model-name MODEL`, `--base-url`, `--api-key`,
 `--effort auto|low|medium|high|xhigh|max`,
 `--autocompact auto|TOKENS`,

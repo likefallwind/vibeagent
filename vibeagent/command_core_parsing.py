@@ -48,6 +48,8 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("append_system_prompt", trimmed[21:].strip() or None)
     if trimmed == "/add-dir" or trimmed.startswith("/add-dir "):
         return make_local_command("add_dir", trimmed[8:].strip() or None)
+    if trimmed == "/cd" or trimmed.startswith("/cd "):
+        return make_local_command("cd", trimmed[3:].strip() or None)
     if trimmed == "/resume" or trimmed.startswith("/resume "):
         return make_local_command("resume", trimmed[8:].strip() or None)
     if trimmed == "/compact" or trimmed.startswith("/compact "):

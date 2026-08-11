@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
+import os
 from pathlib import Path
 from threading import Lock
 from typing import Any, Literal, cast
@@ -57,6 +58,7 @@ from .cli_runtime_local_flags import run_interactive_runtime_command
 from .cli_session_local_flags import run_interactive_resume_command, run_interactive_session_command
 from .cli_system_prompt_state import update_system_prompt_state
 from .cli_additional_directory_state import update_additional_directory_state
+from .cli_interactive_cd import resolve_interactive_directory_change
 from .cli_interactive_branch import prepare_interactive_branch_switch
 from .cli_interactive_model import interactive_provider_env
 from .cli_interactive_effort import configure_interactive_effort
@@ -99,7 +101,7 @@ from .plugin_auto_update import (
 from .dynamic_workflow_agent import background_workflow_approval_handler, execute_workflow_agent_request
 from .dynamic_workflow_commands import handle_workflows_command
 from .dynamic_workflow_runtime import DynamicWorkflowManager
-from .workspace_core import create_local_workspace, create_run_workspace
+from .workspace_core import create_local_workspace, create_run_workspace, normalize_additional_roots
 from .monitor_runtime import (
     collect_monitor_notifications,
     monitor_notifications_prompt,
@@ -864,6 +866,74 @@ def run_interactive_loop(
                     except (OSError, RuntimeError, ValueError) as error:
                         print(f"DirectoryAdded hook warning: {format_error(error)}")
             print(update.text)
+            continue
+        if command and command.type == "cd":
+            change = resolve_interactive_directory_change(Path.cwd(), command.argument)
+            if not change.changed or change.target is None:
+                print(change.text)
+                continue
+
+            target = change.target
+            try:
+                target_additional_directories = normalize_additional_roots(
+                    target,
+                    additional_directories,
+                )
+                target_permissions_trusted = prompt_project_permission_trust(target)
+                target_workspace = create_run_workspace(
+                    target,
+                    additional_roots=target_additional_directories,
+                )
+            except (OSError, ValueError) as error:
+                print(f"Cannot change project directory: {format_error(error)}")
+                continue
+
+            source_run_id = resume_run_id
+            run_active_session_hook("session_end", "other")
+            stop_owned_background_runtime()
+            owned_monitor_session_ids.clear()
+            if workflow_manager is not None:
+                workflow_manager.close()
+                workflow_manager = None
+            if peer_runtime is not None:
+                peer_runtime.close()
+            plugin_auto_updates.close()
+            from .lsp_runtime import close_project_lsp
+
+            close_project_lsp(Path.cwd())
+            try:
+                os.chdir(target)
+            except OSError as error:
+                print(f"Cannot change project directory: {format_error(error)}")
+                peer_runtime = create_peer_runtime(Path.cwd(), approval_policy)
+                plugin_auto_updates = PluginAutoUpdateRuntime(Path.cwd())
+                plugin_auto_updates.start()
+                continue
+
+            project_permissions_trusted = target_permissions_trusted
+            additional_directories = target_additional_directories
+            pending_workspace = target_workspace
+            pending_branch_source_run_id = source_run_id
+            resume_run_id = target_workspace.run_id
+            owned_monitor_session_ids.add(target_workspace.run_id)
+            client = None
+            peer_runtime = create_peer_runtime(target, approval_policy)
+            plugin_auto_updates = PluginAutoUpdateRuntime(target)
+            plugin_auto_updates.start()
+            file_changed_runtime = None
+            config_change_runtime = None
+            try:
+                record_session_additional_directories(
+                    target,
+                    resume_run_id,
+                    additional_directories,
+                )
+                if goal_state is not None:
+                    write_goal(target_workspace, goal_state)
+            except (OSError, ValueError) as error:
+                print(f"Session persistence warning: {format_error(error)}")
+            print(change.text)
+            print(f"Conversation preserved in new session: {resume_run_id}")
             continue
         if command and command.type == "approval":
             previous_policy = approval_policy

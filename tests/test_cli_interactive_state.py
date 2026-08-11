@@ -369,6 +369,86 @@ class CliInteractiveStateTests(unittest.TestCase):
         self.assertIn("Added working directory", stdout.getvalue())
         self.assertIn("Removed additional working directory", stdout.getvalue())
 
+    def test_main_interactive_cd_switches_project_and_preserves_conversation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-cd-") as base:
+            root = Path(base)
+            first = root / "first"
+            second = root / "second project"
+            first.mkdir()
+            second.mkdir()
+            calls: list[tuple[str, Path, dict[str, object]]] = []
+
+            def run_agent(task, **kwargs):
+                current_root = Path.cwd().resolve()
+                calls.append((task, current_root, kwargs))
+                workspace = kwargs["workspace"] or create_run_workspace(current_root, "source-run")
+                return AgentResult(
+                    True,
+                    "done",
+                    current_root,
+                    workspace.run_id,
+                    1,
+                    [],
+                    [],
+                    conversation=[ChatMessage(role="assistant", content=f"memory: {task}")],
+                )
+
+            stdout = io.StringIO()
+            create_client = Mock(return_value=object())
+            with (
+                patch(
+                    "builtins.input",
+                    side_effect=["first task", '/cd "../second project"', "second task", "/exit"],
+                ),
+                patch("vibeagent.cli.create_chat_client", create_client),
+                patch("vibeagent.cli.run_agent", side_effect=run_agent),
+                patch(
+                    "vibeagent.cli.get_resume_context",
+                    side_effect=lambda run_id, **kwargs: (run_id, f"context for {run_id}", "loaded"),
+                ),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", str(first)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(calls[0][0:2], ("first task", first.resolve()))
+        self.assertEqual(calls[1][0:2], ("second task", second.resolve()))
+        self.assertEqual(calls[1][2]["workspace"].root, second.resolve())
+        self.assertEqual(calls[1][2]["task_source_run_id"], "source-run")
+        self.assertEqual(calls[1][2]["prior_messages"][-1].content, "memory: first task")
+        self.assertEqual(create_client.call_count, 2)
+        self.assertIn("Changed project directory", stdout.getvalue())
+        self.assertIn("Conversation preserved in new session", stdout.getvalue())
+
+    def test_main_interactive_cd_failure_keeps_current_project(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-cd-failure-") as base:
+            project = Path(base) / "project"
+            project.mkdir()
+            roots: list[Path] = []
+
+            def run_agent(task, **kwargs):
+                current_root = Path.cwd().resolve()
+                roots.append(current_root)
+                workspace = kwargs["workspace"] or create_run_workspace(current_root, "current-run")
+                return AgentResult(True, "done", current_root, workspace.run_id, 1, [], [])
+
+            stdout = io.StringIO()
+            with (
+                patch("builtins.input", side_effect=["/cd missing", "inspect", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", side_effect=run_agent),
+                patch(
+                    "vibeagent.cli.get_resume_context",
+                    side_effect=lambda run_id, **kwargs: (run_id, "context", "loaded"),
+                ),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", str(project)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(roots, [project.resolve()])
+        self.assertIn("Cannot change directory", stdout.getvalue())
+
     def test_main_interactive_add_dir_schedules_only_added_directory_hook(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-directory-hook-") as base:
             project = Path(base) / "project"

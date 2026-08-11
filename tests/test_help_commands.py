@@ -44,6 +44,7 @@ HELP_SNIPPETS = [
     "/system-prompt [text|off]",
     "/append-system-prompt [text|off]",
     "/add-dir [path|remove path|clear]",
+    "/cd <path>",
     "/tools",
     "/tool <name>",
     "/permissions",

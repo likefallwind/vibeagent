@@ -344,6 +344,10 @@ local changes when asked, and resume from recorded session context.
   later agent turns, workflows, idle tasks, and absolute-path completion. The
   latest set is persisted as session state and restored by resume or compact,
   with missing stored paths ignored safely.
+- Interactive `/cd PATH` changes the main project while preserving the active
+  conversation, mode, goal, approval policy, and valid additional roots. It
+  closes old-project background resources, reloads target configuration, and
+  records subsequent work in a new target-local session branch.
 - `tests.test_session_branching.SessionBranchingTests`, interactive CLI state
   tests, and one-shot code tests cover named session branches, immutable source
   transcripts, task/cron/goal/directory inheritance, parent-context fallback

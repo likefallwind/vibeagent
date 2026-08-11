@@ -22,6 +22,8 @@ class CommandCoreParsingTests(unittest.TestCase):
             "/append-system-prompt Prefer focused tests": LocalCommand(type="append_system_prompt", argument="Prefer focused tests"),
             "/add-dir": LocalCommand(type="add_dir"),
             "/add-dir ../shared": LocalCommand(type="add_dir", argument="../shared"),
+            "/cd": LocalCommand(type="cd"),
+            "/cd ../other project": LocalCommand(type="cd", argument="../other project"),
             "/resume": LocalCommand(type="resume"),
             "/resume run-1": LocalCommand(type="resume", argument="run-1"),
             "/resume off": LocalCommand(type="resume", argument="off"),

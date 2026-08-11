@@ -42,6 +42,7 @@ CoreCommandType: TypeAlias = Literal[
     "workflows",
     "list_agents_local",
     "peer_inbox",
+    "cd",
 ]
 
 RuntimeCommandType: TypeAlias = Literal[

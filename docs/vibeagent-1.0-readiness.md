@@ -35,6 +35,9 @@ Interactive `/add-dir` can list, add, remove, or clear roots without restarting;
 the active set is shared with agent turns, workflows, idle scheduled tasks, and
 absolute-path completion. Directory changes are session events, and resume or
 compact restores the latest valid set while ignoring unavailable stored paths.
+Interactive `/cd PATH` switches the main project in place: the old project's
+background runtime is closed, target configuration is reloaded, and the
+conversation continues in a new target-local session branch.
 
 That release gate expands to:
 

@@ -208,6 +208,7 @@ def get_help_text() -> str:
             "  /system-prompt [text|off]  Show, set, or clear the session system-prompt override.",
             "  /append-system-prompt [text|off]  Show, set, or clear extra session system-prompt instructions.",
             "  /add-dir [path|remove path|clear]  Show or update additional working directories for this session.",
+            "  /cd <path>  Switch projects while preserving this conversation in a new session branch.",
             "  /sandbox  Show command sandbox configuration and Bubblewrap availability.",
             "  /sessions  List recent local sessions.",
             "  /rename [name]  Rename the active coding session; omit name to derive one from its first task.",
