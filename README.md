@@ -250,6 +250,13 @@ timeline events. Workspace, session, and display-name metadata remain in
 trusted extension memory, so editing the document cannot change the exact ID
 used by `Resume Inspected Session`.
 
+`Run Inspected Verification` refreshes the same trusted session immediately
+before execution, shows the current failed and pending checks in a modal
+confirmation, and runs at most 10 de-duplicated checks in a visible one-shot
+terminal. The launch uses an argument array with the exact stored session ID,
+extracts source contexts and diagnostics, does not become a file-reference
+target, and does nothing when confirmation is cancelled.
+
 Plan review uses the provider-free `--json --plan RUN_ID` contract through the
 same bounded local client. The extension validates the returned session ID,
 status, task, item count, item statuses, and text limits before opening an

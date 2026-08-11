@@ -25,6 +25,7 @@ class VsCodeExtensionTests(unittest.TestCase):
                 "vibeagent.resumeSession",
                 "vibeagent.inspectSession",
                 "vibeagent.resumeInspectedSession",
+                "vibeagent.runInspectedVerification",
                 "vibeagent.reviewSessionPlan",
                 "vibeagent.executeReviewedPlan",
                 "vibeagent.reviewSessionRewind",

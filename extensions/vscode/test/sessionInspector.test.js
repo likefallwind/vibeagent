@@ -198,3 +198,72 @@ test('opens an inspector document, resumes its exact session, and invalidates cl
   manager.closed(document);
   assert.throws(() => manager.resumeActive(config), /not a VibeAgent session inspector/);
 });
+
+test('refreshes, confirms, and reruns inspected verification in the exact session', async () => {
+  const calls = [];
+  const warnings = [];
+  const runs = [];
+  let confirm = true;
+  const document = { uri: { toString: () => 'untitled:session-inspector-verification' } };
+  const report = inspectorReport();
+  report.verification = {
+    ...report.verification,
+    ok: false,
+    ready: false,
+    status: 'blocked',
+    failed: group(['npm test (exit=1)']),
+    pending: group(['npm run lint']),
+  };
+  const vscode = {
+    window: {
+      activeTextEditor: null,
+      async showQuickPick(items) { return items[0]; },
+      async showTextDocument(value) { this.activeTextEditor = { document: value }; },
+      async showWarningMessage(message, options, action) {
+        warnings.push({ message, options, action });
+        return confirm ? action : null;
+      },
+      showInformationMessage() {},
+    },
+    workspace: {
+      async openTextDocument() { return document; },
+    },
+  };
+  const manager = new SessionInspectorManager(vscode, {
+    catalog: {
+      async list() {
+        return [{
+          session: SESSION, status: 'completed', events: 5, malformed: 0,
+          lastEventTime: '2026-08-11T00:00:00Z', name: 'Parser repair', task: 'Repair parser',
+          completed: true, failed: false, blocked: false,
+        }];
+      },
+    },
+    client: {
+      async get(_config, root, session) {
+        calls.push({ root, session });
+        return parseSessionInspector(envelope(report), SESSION);
+      },
+    },
+    terminals: {
+      runVerification(config, root, session, name) {
+        runs.push({ config, root, session, name });
+        return 'verification-terminal';
+      },
+    },
+  });
+  const config = { executable: 'python', args: ['-m', 'vibeagent'] };
+
+  await manager.open(config, '/workspace/project');
+  assert.equal(await manager.runVerificationActive(config), 'verification-terminal');
+  assert.equal(calls.length, 2);
+  assert.equal(warnings[0].options.modal, true);
+  assert.match(warnings[0].options.detail, /Session: run-inspect-1/);
+  assert.match(warnings[0].options.detail, /npm test \(exit=1\)/);
+  confirm = false;
+  assert.equal(await manager.runVerificationActive(config), null);
+  assert.equal(runs.length, 1);
+  assert.deepEqual(runs[0], {
+    config, root: '/workspace/project', session: SESSION, name: 'Parser repair',
+  });
+});

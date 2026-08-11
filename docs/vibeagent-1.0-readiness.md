@@ -121,6 +121,11 @@ checks per verification group, 100 referenced files, and 80 timeline events
 before rendering native Markdown. Trusted workspace, session, and display-name
 metadata remain outside the document, and `Resume Inspected Session` uses the
 exact stored ID regardless of document edits.
+The adjacent verification action refreshes the same session before showing a
+modal confirmation, then launches at most 10 de-duplicated failed and pending
+checks in a visible one-shot terminal with bounded source-context and diagnostic
+extraction. It uses the exact out-of-band session ID and an argument array with
+no shell; cancellation creates no terminal.
 The extension also provides an Agent Panel over a temporary loopback Remote
 Control process. The extension host retains its bearer token while the
 CSP-restricted Webview receives only bounded state and logs. A validated message
@@ -182,6 +187,9 @@ The automated suite currently covers these 1.0 surfaces:
 - Session inspector: real CLI aggregation from one event snapshot, fixed report
   bounds, invalid or missing-session failure, deeply validated JavaScript
   parsing, native Markdown review, close invalidation, and exact-ID resume.
+- IDE verification rerun: fresh exact-session inspection, bounded modal command
+  preview, cancel-without-execution, and visible untracked terminal launch with
+  exact argument-array flags and source-linked output analysis.
 - IDE live context: atomic authenticated JavaScript payloads, Python protocol
   validation, sensitive and symlink rejection, untrusted diagnostic redaction,
   no source-buffer transfer, and bridge-secret stripping for child processes.

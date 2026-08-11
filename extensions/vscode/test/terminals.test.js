@@ -66,3 +66,34 @@ test('keeps one-shot task terminals outside interactive reference routing', () =
   vscode.window.activeTerminal = terminals[0];
   assert.equal(manager.referenceTarget('/workspace/project'), null);
 });
+
+test('runs bounded session verification in a visible untracked terminal', () => {
+  const terminals = [];
+  const vscode = {
+    window: {
+      activeTerminal: null,
+      createTerminal(options) {
+        const terminal = { options, shown: 0, show() { this.shown += 1; } };
+        terminals.push(terminal);
+        return terminal;
+      },
+    },
+  };
+  const manager = new InteractiveTerminalManager(vscode);
+  const config = { executable: 'python', args: ['-m', 'vibeagent'] };
+  const terminal = manager.runVerification(config, '/workspace/project', 'run-123', 'Parser repair');
+
+  assert.equal(terminal.options.name, 'VibeAgent Verify: Parser repair');
+  assert.deepEqual(terminal.options.shellArgs, [
+    '-m', 'vibeagent', '--cwd', path.resolve('/workspace/project'),
+    '--run-session-verification', 'run-123', '--session-max-checks', '10',
+    '--run-output-contexts', '--run-output-diagnostics',
+  ]);
+  assert.equal(terminal.shown, 1);
+  vscode.window.activeTerminal = terminal;
+  assert.equal(manager.referenceTarget('/workspace/project'), null);
+  assert.throws(
+    () => manager.runVerification(config, '/workspace/project', '../escape'),
+    /session ID/,
+  );
+});

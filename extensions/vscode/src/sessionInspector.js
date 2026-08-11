@@ -4,6 +4,7 @@ const { sessionQuickPickItems } = require('./sessionCatalog');
 const { SessionInspectorClient } = require('./sessionInspectorClient');
 
 const MAX_INSPECTOR_DOCUMENT_CHARS = 250_000;
+const MAX_VERIFICATION_RUNS = 10;
 
 class SessionInspectorManager {
   constructor(vscode, options = {}) {
@@ -46,11 +47,30 @@ class SessionInspectorManager {
   }
 
   resumeActive(config) {
-    const editor = this.vscode.window.activeTextEditor;
-    if (!editor) throw new Error('Open a VibeAgent session inspector before resuming it.');
-    const inspected = this.documents.get(editor.document.uri.toString());
-    if (!inspected) throw new Error('The active editor is not a VibeAgent session inspector.');
+    const inspected = this._activeInspection('resuming it');
     return this.terminals.resume(config, inspected.root, inspected.session, inspected.name);
+  }
+
+  async runVerificationActive(config) {
+    const inspected = this._activeInspection('running its verification');
+    const report = await this.client.get(config, inspected.root, inspected.session);
+    const selection = verificationRunSelection(report.verification);
+    if (!selection.total) {
+      this.vscode.window.showInformationMessage('This VibeAgent session has no failed or pending verification checks.');
+      return null;
+    }
+    const confirmed = await this.vscode.window.showWarningMessage(
+      'Run recorded verification checks?',
+      { modal: true, detail: verificationConfirmationDetail(inspected, selection) },
+      'Run Checks',
+    );
+    if (confirmed !== 'Run Checks') return null;
+    return this.terminals.runVerification(
+      config,
+      inspected.root,
+      inspected.session,
+      inspected.name,
+    );
   }
 
   closed(document) {
@@ -60,6 +80,36 @@ class SessionInspectorManager {
   dispose() {
     this.documents.clear();
   }
+
+  _activeInspection(action) {
+    const editor = this.vscode.window.activeTextEditor;
+    if (!editor) throw new Error(`Open a VibeAgent session inspector before ${action}.`);
+    const inspected = this.documents.get(editor.document.uri.toString());
+    if (!inspected) throw new Error('The active editor is not a VibeAgent session inspector.');
+    return inspected;
+  }
+}
+
+function verificationRunSelection(verification) {
+  const failed = verification.failed;
+  const pending = verification.pending;
+  return {
+    failed: failed.total,
+    pending: pending.total,
+    total: Math.min(MAX_VERIFICATION_RUNS, failed.total + pending.total),
+    commands: [...failed.items, ...pending.items].slice(0, MAX_VERIFICATION_RUNS),
+  };
+}
+
+function verificationConfirmationDetail(inspected, selection) {
+  const lines = [
+    `Session: ${inspected.session}`,
+    `Failed checks: ${selection.failed}`,
+    `Pending checks: ${selection.pending}`,
+    `The CLI will re-read, de-duplicate, and run at most ${selection.total} check(s) in a visible terminal.`,
+  ];
+  if (selection.commands.length) lines.push('', ...selection.commands.map((command) => `- ${command}`));
+  return lines.join('\n');
 }
 
 function renderSessionInspector(report) {
@@ -159,6 +209,9 @@ function booleanLabel(value) {
 
 module.exports = {
   MAX_INSPECTOR_DOCUMENT_CHARS,
+  MAX_VERIFICATION_RUNS,
   SessionInspectorManager,
   renderSessionInspector,
+  verificationConfirmationDetail,
+  verificationRunSelection,
 };

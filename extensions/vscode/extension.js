@@ -131,6 +131,9 @@ function activate(context) {
     sessionInspectors.resumeActive(launchConfig());
   });
 
+  register('vibeagent.runInspectedVerification', async () => {
+    await sessionInspectors.runVerificationActive(launchConfig());
+  });
   register('vibeagent.reviewSessionPlan', async () => {
     const root = activeWorkspaceRoot();
     const launch = launchConfig();

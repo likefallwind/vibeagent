@@ -23,6 +23,7 @@
     "onCommand:vibeagent.resumeSession",
     "onCommand:vibeagent.inspectSession",
     "onCommand:vibeagent.resumeInspectedSession",
+    "onCommand:vibeagent.runInspectedVerification",
     "onCommand:vibeagent.reviewSessionPlan",
     "onCommand:vibeagent.executeReviewedPlan",
     "onCommand:vibeagent.reviewSessionRewind",
@@ -54,6 +55,10 @@
       {
         "command": "vibeagent.resumeInspectedSession",
         "title": "VibeAgent: Resume Inspected Session"
+      },
+      {
+        "command": "vibeagent.runInspectedVerification",
+        "title": "VibeAgent: Run Inspected Verification"
       },
       {
         "command": "vibeagent.reviewSessionPlan",

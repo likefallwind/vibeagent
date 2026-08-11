@@ -23,6 +23,9 @@ terminal, preserving terminal permission prompts while adding editor context.
   overview, plan, verification, file, and timeline report as native Markdown.
 - `VibeAgent: Resume Inspected Session` resumes the exact session associated
   with the active inspector document.
+- `VibeAgent: Run Inspected Verification` refreshes the active inspector,
+  confirms its current failed and pending checks, and reruns up to 10 checks in
+  a visible one-shot terminal for the exact stored session.
 - `VibeAgent: Review Session Plan` selects a recent session, reads its structured
   local plan, and opens it as editable Markdown.
 - `VibeAgent: Execute Reviewed Plan` resumes the exact session associated with
@@ -62,6 +65,12 @@ document. At most 20 plan items, 50 checks per verification group, 100 files,
 and 80 timeline events are accepted. Workspace, session, and display-name
 metadata stay outside editable Markdown, so document edits cannot redirect the
 resume command.
+
+Verification execution refreshes the inspector before displaying a modal
+confirmation. Only an explicit `Run Checks` response opens a terminal with
+`--run-session-verification`, the exact stored session ID, a 10-check limit,
+and bounded source-context and diagnostic extraction. The argument array uses
+no shell, and the one-shot terminal is excluded from file-reference routing.
 
 Plan review uses the same provider-free, credential-isolated process boundary
 with `--json --plan RUN_ID`. It validates bounded report and item fields before

@@ -3,6 +3,8 @@
 const { buildLaunchSpec } = require('./core');
 const { requireSessionId } = require('./sessionCatalog');
 
+const SESSION_VERIFICATION_MAX_CHECKS = 10;
+
 class InteractiveTerminalManager {
   constructor(vscode, options = {}) {
     this.vscode = vscode;
@@ -56,6 +58,24 @@ class InteractiveTerminalManager {
       root,
       ['--resume', safeId],
       task,
+    );
+    terminal.show(false);
+    return terminal;
+  }
+
+  runVerification(config, root, sessionId, sessionName = null) {
+    const safeId = requireSessionId(sessionId);
+    const title = boundedTerminalTitle(sessionName) || safeId.slice(0, 20);
+    const terminal = this._create(
+      `VibeAgent Verify: ${title}`,
+      config,
+      root,
+      [
+        '--run-session-verification', safeId,
+        '--session-max-checks', String(SESSION_VERIFICATION_MAX_CHECKS),
+        '--run-output-contexts',
+        '--run-output-diagnostics',
+      ],
     );
     terminal.show(false);
     return terminal;
@@ -118,4 +138,4 @@ function boundedTerminalTitle(value) {
   return normalized ? normalized.slice(0, 80) : null;
 }
 
-module.exports = { InteractiveTerminalManager, boundedTerminalTitle };
+module.exports = { InteractiveTerminalManager, SESSION_VERIFICATION_MAX_CHECKS, boundedTerminalTitle };
