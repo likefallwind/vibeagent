@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError
+from .review_profiles import REVIEW_PERSPECTIVES
 from .types import DeepReviewAction, DelegateTaskAction, ListAgentsAction, SendMessageAction, TaskOutputAction, TaskStopAction
 
 
@@ -114,17 +115,21 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
 
 
 def _parse_deep_review_action(value: dict[str, Any], raw: str) -> DeepReviewAction:
-    perspectives = value.get("perspectives", ["correctness", "security", "tests"])
-    allowed = {"correctness", "security", "tests"}
+    review_kind = value.get("review_kind", "defects")
+    if not isinstance(review_kind, str) or review_kind not in REVIEW_PERSPECTIVES:
+        raise ActionParseError("deep_review action review_kind must be defects or cleanup.", raw)
+    allowed = REVIEW_PERSPECTIVES[review_kind]
+    perspectives = value.get("perspectives", list(allowed))
     if (
         not isinstance(perspectives, list)
         or not perspectives
-        or len(perspectives) > 3
+        or len(perspectives) > len(allowed)
         or any(not isinstance(item, str) or item not in allowed for item in perspectives)
         or len(set(perspectives)) != len(perspectives)
     ):
         raise ActionParseError(
-            "deep_review action perspectives must be a non-empty unique list of correctness, security, or tests.",
+            f"deep_review action perspectives must be a non-empty unique list for the {review_kind} review profile: "
+            f"{', '.join(allowed)}.",
             raw,
         )
     max_iterations = value.get("max_iterations", 4)
@@ -152,6 +157,7 @@ def _parse_deep_review_action(value: dict[str, Any], raw: str) -> DeepReviewActi
         raise ActionParseError("deep_review action accepts either base_ref or target, not both.", raw)
     return DeepReviewAction(
         type="deep_review",
+        review_kind=review_kind,
         perspectives=list(perspectives),
         max_iterations=max_iterations,
         base_ref=base_ref,

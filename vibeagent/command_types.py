@@ -218,6 +218,7 @@ ReviewCommandType: TypeAlias = Literal[
     "doctor",
     "review",
     "code_review",
+    "simplify",
     "handoff",
     "changes",
     "diff",

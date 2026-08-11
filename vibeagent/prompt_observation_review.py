@@ -14,13 +14,14 @@ def format_review_observation(index: int, observation: object) -> str | None:
 
 
 def _format_deep_review(index: int, observation: object) -> str:
+    review_kind = getattr(observation, "review_kind", "defects")
     scope = (
         getattr(observation, "target", None)
         or getattr(observation, "base_ref", None)
         or "current branch and worktree"
     )
     parts = [
-        f"{index}. deep_review scope={scope}: {getattr(observation, 'message', '')}",
+        f"{index}. deep_review kind={review_kind} scope={scope}: {getattr(observation, 'message', '')}",
         f"verified findings:\n{truncate(str(getattr(observation, 'summary', '')))}",
     ]
     for result in getattr(observation, "results", []):

@@ -280,6 +280,11 @@ def _deep_review_next_action_instruction(base: str, latest: Observation) -> str:
     summary = str(getattr(latest, "summary", "") or "").strip()
     if summary == "No findings.":
         return f"{base} Deep review verified no findings. Run required checks, then use final_review before finishing."
+    if getattr(latest, "review_kind", "defects") == "cleanup":
+        return (
+            f"{base} Cleanup review produced verified opportunities. Apply only clearly behavior-preserving improvements, "
+            "run focused checks, and use final_review before finishing."
+        )
     return (
         f"{base} Deep review produced verified findings. Inspect each cited location, fix justified issues introduced "
         "by the changes, run focused checks, and rerun deep_review when the fixes materially change reviewed behavior."

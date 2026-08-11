@@ -5,7 +5,16 @@ from typing import Literal, TypeAlias
 
 
 PlanItemStatus: TypeAlias = Literal["pending", "in_progress", "completed"]
-DeepReviewPerspective: TypeAlias = Literal["correctness", "security", "tests"]
+DeepReviewKind: TypeAlias = Literal["defects", "cleanup"]
+DeepReviewPerspective: TypeAlias = Literal[
+    "correctness",
+    "security",
+    "tests",
+    "reuse",
+    "simplicity",
+    "efficiency",
+    "abstraction",
+]
 
 
 @dataclass(frozen=True)
@@ -75,6 +84,7 @@ class DelegateTaskAction:
 @dataclass(frozen=True)
 class DeepReviewAction:
     type: Literal["deep_review"]
+    review_kind: DeepReviewKind = "defects"
     perspectives: list[DeepReviewPerspective] = field(
         default_factory=lambda: ["correctness", "security", "tests"]
     )

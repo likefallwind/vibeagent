@@ -30,6 +30,9 @@ class DeepReviewTests(unittest.TestCase):
         self.assertEqual(configured.base_ref, "origin/main")
         targeted = parse_tool_action("deep_review", {"target": "src/auth.py"})
         self.assertEqual(targeted.target, "src/auth.py")
+        cleanup = parse_tool_action("deep_review", {"review_kind": "cleanup"})
+        self.assertEqual(cleanup.review_kind, "cleanup")
+        self.assertEqual(cleanup.perspectives, ["reuse", "simplicity", "efficiency", "abstraction"])
 
     def test_rejects_invalid_deep_review_inputs(self) -> None:
         invalid_inputs = [
@@ -41,6 +44,9 @@ class DeepReviewTests(unittest.TestCase):
             {"base_ref": "main branch"},
             {"base_ref": "main", "target": "src"},
             {"target": "x" * 1001},
+            {"review_kind": "style"},
+            {"review_kind": "cleanup", "perspectives": ["correctness"]},
+            {"review_kind": "defects", "perspectives": ["reuse"]},
         ]
         for value in invalid_inputs:
             with self.subTest(value=value), self.assertRaises(ActionParseError):
@@ -132,6 +138,65 @@ class DeepReviewTests(unittest.TestCase):
         self.assertIn("security report", rendered)
         self.assertIn("verifier report", observation.summary)
         self.assertIn("verified findings", get_next_action_instruction("review", [observation]))
+
+    def test_runs_four_cleanup_reviewers_and_filters_out_correctness_findings(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cleanup-review-") as base:
+            workspace = create_run_workspace(Path(base))
+            barrier = threading.Barrier(4)
+            calls = []
+
+            def delegate_executor(_workspace, action, _client, **kwargs):
+                calls.append((action, kwargs))
+                perspective = kwargs["subagent_id"].rsplit("-", 1)[-1]
+                if perspective != "verifier":
+                    barrier.wait(timeout=2)
+                return DelegateTaskObservation(
+                    kind="delegate_task",
+                    ok=True,
+                    task=action.task,
+                    summary=f"{perspective} report",
+                    iterations=1,
+                    tool_calls=["git_diff"],
+                    message="done",
+                )
+
+            observation = execute_deep_review_action(
+                workspace,
+                DeepReviewAction(
+                    type="deep_review",
+                    review_kind="cleanup",
+                    perspectives=["reuse", "simplicity", "efficiency", "abstraction"],
+                    target="vibeagent/cli.py",
+                ),
+                object(),
+                parent_iteration=2,
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=None,
+                approval_policy="ask",
+                hooks=ProjectHooks(),
+                permissions=ProjectPermissions(),
+                tool_ceiling_names=None,
+                delegate_executor=delegate_executor,
+            )
+
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.review_kind, "cleanup")
+        self.assertEqual(
+            [result.perspective for result in observation.results],
+            ["reuse", "simplicity", "efficiency", "abstraction"],
+        )
+        self.assertEqual(len(calls), 5)
+        reviewer_tasks = [call[0].task for call in calls if not call[1]["subagent_id"].endswith("verifier")]
+        self.assertTrue(all("correctness bugs are out of scope" in task for task in reviewer_tasks))
+        verifier_task = next(call[0].task for call in calls if call[1]["subagent_id"].endswith("verifier"))
+        self.assertIn("Discard correctness findings", verifier_task)
+        self.assertNotIn("PRE-EXISTING", verifier_task)
+        self.assertIn("kind=cleanup", format_observations([observation]))
 
     def test_returns_other_results_when_one_reviewer_fails(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-deep-review-") as base:

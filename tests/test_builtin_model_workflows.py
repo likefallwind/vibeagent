@@ -10,7 +10,9 @@ from unittest.mock import Mock, patch
 from vibeagent.agent import AgentResult
 from vibeagent.builtin_model_workflows import (
     build_code_review_workflow,
+    build_simplify_workflow,
     parse_code_review_arguments,
+    parse_simplify_arguments,
 )
 from vibeagent.cli_project_command_expansion import expand_one_shot_project_command
 from vibeagent.cli import main
@@ -66,6 +68,36 @@ class BuiltinModelWorkflowTests(unittest.TestCase):
         self.assertEqual(metadata["source"], "builtin_command")
         self.assertEqual(metadata["name"], "code-review")
 
+    def test_builds_simplify_with_all_cleanup_perspectives(self) -> None:
+        workflow = build_simplify_workflow('"src/auth flow.py"')
+
+        self.assertIn('"review_kind": "cleanup"', workflow.task)
+        for perspective in ("reuse", "simplicity", "efficiency", "abstraction"):
+            self.assertIn(f'"{perspective}"', workflow.task)
+        self.assertIn('"target": "src/auth flow.py"', workflow.task)
+        self.assertIn("behavior-preserving", workflow.task)
+        self.assertIn("focused verification and final_review", workflow.task)
+        self.assertEqual(workflow.metadata["name"], "simplify")
+
+    def test_simplify_argument_parser_is_bounded_and_fail_closed(self) -> None:
+        self.assertEqual(parse_simplify_arguments("-- --generated"), "--generated")
+        for argument, message in (
+            ("--fix", "Unknown"),
+            ("'unterminated", "invalid"),
+            ("x" * 1001, "1000"),
+        ):
+            with self.subTest(argument=argument), self.assertRaisesRegex(ValueError, message):
+                parse_simplify_arguments(argument)
+
+    def test_one_shot_simplify_expands_before_provider_execution(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-simplify-") as base:
+            task, metadata = expand_one_shot_project_command(Path(base), "/simplify src")
+
+        self.assertIn('"review_kind": "cleanup"', task)
+        self.assertIn('"target": "src"', task)
+        self.assertEqual(metadata["source"], "builtin_command")
+        self.assertEqual(metadata["name"], "simplify")
+
     def test_non_workflow_builtin_remains_unexpanded(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-code-review-") as base:
             task, metadata = expand_one_shot_project_command(Path(base), "/help")
@@ -107,6 +139,37 @@ class BuiltinModelWorkflowTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn('"target": "main"', run_agent.call_args.args[0])
         self.assertEqual(run_agent.call_args.kwargs["task_metadata"]["source"], "builtin_command")
+
+    def test_interactive_simplify_runs_as_code_workflow_with_metadata(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-simplify-") as base:
+            root = Path(base)
+            result = AgentResult(True, "simplified", root, "simplify-run", 1, [], [])
+            run_agent = Mock(return_value=result)
+            with (
+                patch("builtins.input", side_effect=["/simplify vibeagent/cli.py", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", str(root)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn('"review_kind": "cleanup"', run_agent.call_args.args[0])
+        self.assertEqual(run_agent.call_args.kwargs["task_metadata"]["name"], "simplify")
+
+    def test_invalid_print_mode_simplify_fails_before_provider_creation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-simplify-") as base:
+            create_client = Mock()
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", create_client),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, "--print", "/simplify --fix"])
+
+        self.assertNotEqual(exit_code, 0)
+        create_client.assert_not_called()
+        self.assertIn("Unknown", stdout.getvalue())
 
     def test_unsupported_print_mode_option_fails_before_provider_creation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-code-review-") as base:

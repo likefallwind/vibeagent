@@ -18,6 +18,8 @@ class CommandReviewParsingTests(unittest.TestCase):
             "/code-review high --fix main...feature": LocalCommand(
                 type="code_review", argument="high --fix main...feature"
             ),
+            "/simplify": LocalCommand(type="simplify"),
+            "/simplify vibeagent/cli.py": LocalCommand(type="simplify", argument="vibeagent/cli.py"),
             "/handoff": LocalCommand(type="handoff"),
             "/handoff --max-files 1 --max-checks 2": LocalCommand(type="handoff", argument="--max-files 1 --max-checks 2"),
             "/changes": LocalCommand(type="changes"),

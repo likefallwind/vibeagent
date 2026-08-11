@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from .action_types import PlanItem
+from .action_types import DeepReviewPerspective, PlanItem
 from .peer_types import PeerSession
 from .runtime_types import ApprovalPolicy
 
@@ -68,7 +68,7 @@ class DelegateTaskObservation:
 
 @dataclass(frozen=True)
 class DeepReviewResult:
-    perspective: Literal["correctness", "security", "tests"]
+    perspective: DeepReviewPerspective
     ok: bool
     summary: str
     iterations: int
@@ -86,6 +86,7 @@ class DeepReviewObservation:
     target: str | None
     instructions_path: str | None
     message: str
+    review_kind: Literal["defects", "cleanup"] = "defects"
 
 
 @dataclass(frozen=True)

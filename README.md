@@ -2527,6 +2527,12 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   file, branch, ref range, or short review scope; review is read-only unless
   `--fix` is explicit. Unsupported cloud `ultra` and GitHub `--comment` modes
   fail before any model request or external write.
+  `/simplify [target]` reuses the verified parallel review engine with four
+  cleanup-only agents for existing-helper reuse, simplicity, concrete
+  efficiency, and abstraction placement. It excludes correctness bugs and
+  pre-existing/style-only findings, applies only justified behavior-preserving
+  fixes, and then requires focused verification plus `final_review`. Targets
+  currently resolve against the local checkout rather than a GitHub PR.
 - `final_review` is a read-only handoff bundle for non-trivial code changes:
   blocking issues, warnings, running background processes, changed files, and
   suggested verification commands plus focused test commands inferred from

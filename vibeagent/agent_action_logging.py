@@ -127,7 +127,7 @@ ACTION_LOG_SPECS: dict[str, tuple[str, ActionTargetBuilder]] = {
     "git_commit": ("committing staged changes", _target_action),
     "review_changes": ("reviewing changes", _target_none),
     "final_review": ("final reviewing changes", _target_none),
-    "deep_review": ("running deep code review", _target_none),
+    "deep_review": ("running parallel code review", _target_none),
     "suggest_checks": ("suggesting checks", _target_none),
     "check_suggested_checks": ("checking suggested checks", _target_action),
     "run_suggested_checks": ("running suggested checks", _target_action),

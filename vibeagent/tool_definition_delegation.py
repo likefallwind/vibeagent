@@ -6,15 +6,23 @@ from typing import Any
 DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "deep_review",
-        "description": "Run parallel read-only review agents over current changes for correctness, security, and test risks, then independently verify, deduplicate, and rank their findings. Reviewers inspect surrounding code, obey root REVIEW.md guidance, and return evidence with file and line references.",
+        "description": "Run a verified parallel read-only review over current changes. The default defects profile covers correctness, security, and test risks; the cleanup profile covers helper reuse, simplicity, efficiency, and abstraction level. Reviewers inspect surrounding code, obey root REVIEW.md guidance, and return evidence with file and line references.",
         "input_schema": {
             "type": "object",
             "properties": {
+                "review_kind": {
+                    "type": "string",
+                    "enum": ["defects", "cleanup"],
+                    "description": "Select the defects or behavior-preserving cleanup review profile.",
+                },
                 "perspectives": {
                     "type": "array",
-                    "items": {"type": "string", "enum": ["correctness", "security", "tests"]},
+                    "items": {
+                        "type": "string",
+                        "enum": ["correctness", "security", "tests", "reuse", "simplicity", "efficiency", "abstraction"],
+                    },
                     "minItems": 1,
-                    "maxItems": 3,
+                    "maxItems": 4,
                     "uniqueItems": True,
                 },
                 "max_iterations": {"type": "integer", "minimum": 1, "maximum": 8},

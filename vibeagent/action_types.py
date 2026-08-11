@@ -264,6 +264,7 @@ from .action_workflow_types import (
     AskUserOption,
     AskUserQuestion,
     DeepReviewAction,
+    DeepReviewKind,
     DeepReviewPerspective,
     DelegateTaskAction,
     EnterPlanModeAction,

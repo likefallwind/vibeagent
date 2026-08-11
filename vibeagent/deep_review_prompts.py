@@ -1,28 +1,13 @@
 from __future__ import annotations
 
 from .deep_review_instructions import ReviewInstructions
+from .review_profiles import PERSPECTIVE_GUIDANCE
 from .types import (
     DeepReviewAction,
     DeepReviewPerspective,
     DeepReviewResult,
     DelegateTaskAction,
 )
-
-
-PERSPECTIVE_GUIDANCE: dict[DeepReviewPerspective, str] = {
-    "correctness": (
-        "Trace changed behavior through callers and contracts. Look for logic errors, regressions, "
-        "broken edge cases, state inconsistencies, and incorrect error handling."
-    ),
-    "security": (
-        "Inspect changed trust boundaries. Look for authorization mistakes, injection, unsafe path or "
-        "command handling, secret exposure, insecure defaults, and validation bypasses."
-    ),
-    "tests": (
-        "Assess whether tests exercise the changed behavior and likely failure modes. Report missing or "
-        "misleading coverage only when it can hide a concrete regression; do not request coverage for its own sake."
-    ),
-}
 
 
 def build_reviewer_action(
@@ -33,12 +18,12 @@ def build_reviewer_action(
         type="delegate_task",
         task="\n".join(
             [
-                f"Act as the {perspective} specialist in a deep code review.",
+                f"Act as the {perspective} specialist in a {action.review_kind} code review.",
                 review_scope(action.base_ref, action.target),
                 PERSPECTIVE_GUIDANCE[perspective],
-                "Inspect the diff and enough surrounding code to verify every claim. Focus on issues introduced by the changes.",
+                review_focus(action),
                 "Do not edit files, run commands, discuss style preferences, or praise the implementation.",
-                "For each actionable finding use exactly: [IMPORTANT|NIT|PRE-EXISTING] path:line - short title",
+                review_output_contract(action),
                 "Follow each heading with concise evidence, impact, and the condition that triggers it. Do not invent line numbers.",
                 "If there are no verified findings, return exactly: No findings.",
             ]
@@ -63,8 +48,8 @@ def build_verifier_action(
             [
                 "Verify and consolidate candidate findings from specialized code reviewers.",
                 review_scope(action.base_ref, action.target),
-                "Inspect the actual diff and surrounding code for every candidate. Discard false positives, issues not introduced by the changes, unsupported claims, and duplicates.",
-                "Return only verified findings, ordered IMPORTANT, NIT, then PRE-EXISTING, using: [IMPORTANT|NIT|PRE-EXISTING] path:line - short title",
+                review_verification_contract(action),
+                review_output_contract(action, verifier=True),
                 "Include concise evidence, impact, and trigger conditions. If no candidates survive verification, return exactly: No findings.",
             ]
         ),
@@ -100,6 +85,44 @@ def review_scope(base_ref: str | None, target: str | None = None) -> str:
     return "Review the current branch commits ahead of upstream plus all staged, unstaged, and untracked changes."
 
 
+def review_focus(action: DeepReviewAction) -> str:
+    if action.review_kind == "cleanup":
+        return (
+            "Inspect the diff and enough surrounding code to verify every claim. Report only concrete, "
+            "behavior-preserving cleanup opportunities in changed code; correctness bugs are out of scope."
+        )
+    return "Inspect the diff and enough surrounding code to verify every claim. Focus on issues introduced by the changes."
+
+
+def review_verification_contract(action: DeepReviewAction) -> str:
+    if action.review_kind == "cleanup":
+        return (
+            "Inspect the actual diff and surrounding code for every candidate. Discard correctness findings, "
+            "pure style preferences, speculative optimizations, unsupported claims, pre-existing issues, and duplicates. "
+            "Keep only specific behavior-preserving improvements whose replacement is simpler or reuses verified existing code."
+        )
+    return (
+        "Inspect the actual diff and surrounding code for every candidate. Discard false positives, issues not introduced "
+        "by the changes, unsupported claims, and duplicates."
+    )
+
+
+def review_output_contract(action: DeepReviewAction, *, verifier: bool = False) -> str:
+    if action.review_kind == "cleanup":
+        prefix = (
+            "Return only verified findings, ordered IMPORTANT then NIT, using"
+            if verifier
+            else "For each actionable finding use exactly"
+        )
+        return f"{prefix}: [IMPORTANT|NIT] path:line - short title"
+    prefix = (
+        "Return only verified findings, ordered IMPORTANT, NIT, then PRE-EXISTING, using"
+        if verifier
+        else "For each actionable finding use exactly"
+    )
+    return f"{prefix}: [IMPORTANT|NIT|PRE-EXISTING] path:line - short title"
+
+
 def clip_candidate_summary(value: str, max_chars: int = 3_500) -> str:
     value = value.strip()
     return value if len(value) <= max_chars else f"{value[:max_chars]}\n[candidate report truncated]"
@@ -111,5 +134,8 @@ __all__ = [
     "build_verifier_action",
     "clip_candidate_summary",
     "review_scope",
+    "review_focus",
+    "review_output_contract",
     "review_system_prompt",
+    "review_verification_contract",
 ]

@@ -53,6 +53,7 @@ class AgentSpecialToolTests(unittest.TestCase):
             instructions_path=None,
             message="Deep review completed: 1/1 reviewer(s) succeeded.",
         )
+        self.assertEqual(expected.review_kind, "defects")
         with tempfile.TemporaryDirectory(prefix="vibeagent-special-") as base:
             workspace = create_run_workspace(Path(base))
             steps = []

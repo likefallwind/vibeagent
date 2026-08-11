@@ -49,6 +49,7 @@ def execute_deep_review_action(
         return DeepReviewObservation(
             kind="deep_review",
             ok=False,
+            review_kind=action.review_kind,
             results=[],
             verification_ok=False,
             summary="",
@@ -138,6 +139,7 @@ def execute_deep_review_action(
     return DeepReviewObservation(
         kind="deep_review",
         ok=successful == len(results) and verification.ok,
+        review_kind=action.review_kind,
         results=results,
         verification_ok=verification.ok,
         summary=verification.summary,
