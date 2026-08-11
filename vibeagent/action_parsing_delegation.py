@@ -4,7 +4,7 @@ import re
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError
-from .types import DelegateTaskAction, ListAgentsAction, SendMessageAction, TaskOutputAction, TaskStopAction
+from .types import DeepReviewAction, DelegateTaskAction, ListAgentsAction, SendMessageAction, TaskOutputAction, TaskStopAction
 
 
 AGENT_PROFILE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -14,6 +14,8 @@ AGENT_REFERENCE_PATTERN = re.compile(
 
 
 def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
+    if action_type == "deep_review":
+        return _parse_deep_review_action(value, raw)
     if action_type == "list_agents":
         max_agents = value.get("max_agents", 100)
         if isinstance(max_agents, bool) or not isinstance(max_agents, int):
@@ -108,6 +110,42 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
         run_in_background=run_in_background,
         isolation=isolation,
         teammate_name=teammate_name,
+    )
+
+
+def _parse_deep_review_action(value: dict[str, Any], raw: str) -> DeepReviewAction:
+    perspectives = value.get("perspectives", ["correctness", "security", "tests"])
+    allowed = {"correctness", "security", "tests"}
+    if (
+        not isinstance(perspectives, list)
+        or not perspectives
+        or len(perspectives) > 3
+        or any(not isinstance(item, str) or item not in allowed for item in perspectives)
+        or len(set(perspectives)) != len(perspectives)
+    ):
+        raise ActionParseError(
+            "deep_review action perspectives must be a non-empty unique list of correctness, security, or tests.",
+            raw,
+        )
+    max_iterations = value.get("max_iterations", 4)
+    if isinstance(max_iterations, bool) or not isinstance(max_iterations, int):
+        raise ActionParseError("deep_review action max_iterations must be an integer.", raw)
+    if not 1 <= max_iterations <= 8:
+        raise ActionParseError("deep_review action max_iterations must be between 1 and 8.", raw)
+    base_ref = value.get("base_ref")
+    if base_ref is not None:
+        if not isinstance(base_ref, str) or not base_ref.strip():
+            raise ActionParseError("deep_review action base_ref must be a non-empty string when provided.", raw)
+        base_ref = base_ref.strip()
+        if len(base_ref) > 200 or any(character.isspace() for character in base_ref):
+            raise ActionParseError("deep_review action base_ref must be one token of at most 200 characters.", raw)
+        if base_ref.startswith("-"):
+            raise ActionParseError("deep_review action base_ref must not start with '-'.", raw)
+    return DeepReviewAction(
+        type="deep_review",
+        perspectives=list(perspectives),
+        max_iterations=max_iterations,
+        base_ref=base_ref,
     )
 
 

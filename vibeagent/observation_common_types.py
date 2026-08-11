@@ -67,6 +67,27 @@ class DelegateTaskObservation:
 
 
 @dataclass(frozen=True)
+class DeepReviewResult:
+    perspective: Literal["correctness", "security", "tests"]
+    ok: bool
+    summary: str
+    iterations: int
+    tool_calls: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class DeepReviewObservation:
+    kind: Literal["deep_review"]
+    ok: bool
+    results: list[DeepReviewResult]
+    verification_ok: bool
+    summary: str
+    base_ref: str | None
+    instructions_path: str | None
+    message: str
+
+
+@dataclass(frozen=True)
 class SubagentInstance:
     id: str
     task: str

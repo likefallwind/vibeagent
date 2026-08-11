@@ -5,6 +5,30 @@ from typing import Any
 
 DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
+        "name": "deep_review",
+        "description": "Run parallel read-only review agents over current changes for correctness, security, and test risks, then independently verify, deduplicate, and rank their findings. Reviewers inspect surrounding code, obey root REVIEW.md guidance, and return evidence with file and line references.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "perspectives": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": ["correctness", "security", "tests"]},
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "uniqueItems": True,
+                },
+                "max_iterations": {"type": "integer", "minimum": 1, "maximum": 8},
+                "base_ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Optional git base ref to compare with the working tree or HEAD.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "delegate_task",
         "description": "Delegate one bounded task to a subagent. Use explore for research, code for implementation, and isolation=worktree for parallel-safe edits.",
         "input_schema": {

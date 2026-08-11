@@ -14,6 +14,7 @@ OK_FLAG_FAILURE_KINDS = {
     "enter_worktree",
     "exit_worktree",
     "delegate_task",
+    "deep_review",
     "list_agents",
     "peer_message",
     "task_output",

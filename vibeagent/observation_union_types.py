@@ -34,6 +34,7 @@ from .observation_code_intel_types import (
 )
 from .observation_common_types import (
     ApprovalDeniedObservation,
+    DeepReviewObservation,
     DelegateTaskObservation,
     FinishObservation,
     ListAgentsObservation,
@@ -386,6 +387,7 @@ Observation: TypeAlias = (
     | UpdatePlanObservation
     | PlanModeObservation
     | UserInputObservation
+    | DeepReviewObservation
     | DelegateTaskObservation
     | ListAgentsObservation
     | PeerMessageObservation

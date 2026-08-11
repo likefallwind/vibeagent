@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from vibeagent.agent_special_tools import execute_special_tool_action
 from vibeagent.types import (
@@ -10,6 +11,9 @@ from vibeagent.types import (
     AskUserAction,
     ChatMessage,
     ContentBlock,
+    DeepReviewAction,
+    DeepReviewObservation,
+    DeepReviewResult,
     DelegateTaskAction,
     Observation,
 )
@@ -30,6 +34,54 @@ class SpecialToolClient:
 
 
 class AgentSpecialToolTests(unittest.TestCase):
+    def test_executes_deep_review_through_special_tool_wrapper(self) -> None:
+        expected = DeepReviewObservation(
+            kind="deep_review",
+            ok=True,
+            results=[
+                DeepReviewResult(
+                    perspective="correctness",
+                    ok=True,
+                    summary="No findings.",
+                    iterations=1,
+                )
+            ],
+            verification_ok=True,
+            summary="No findings.",
+            base_ref=None,
+            instructions_path=None,
+            message="Deep review completed: 1/1 reviewer(s) succeeded.",
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-special-") as base:
+            workspace = create_run_workspace(Path(base))
+            steps = []
+            with patch("vibeagent.agent_special_tools.execute_deep_review_action", return_value=expected) as execute:
+                wrapped = execute_special_tool_action(
+                    workspace,
+                    DeepReviewAction(type="deep_review", perspectives=["correctness"]),
+                    SpecialToolClient([]),
+                    steps=steps,
+                    observations=[],
+                    iteration=1,
+                    tool_name="deep_review",
+                    max_output_tokens=2048,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                    approval_handler=None,
+                    approval_policy="ask",
+                    user_input_handler=None,
+                    hooks=ProjectHooks(),
+                    permissions=ProjectPermissions(),
+                    execute_action_safely_func=_unexpected_execute_action_safely,
+                )
+
+        self.assertIs(wrapped.observation, expected)
+        self.assertEqual(steps[0].status, "completed")
+        execute.assert_called_once()
+
     def test_executes_ask_user_action_through_special_tool_wrapper(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-special-") as base:
             workspace = create_run_workspace(Path(base))

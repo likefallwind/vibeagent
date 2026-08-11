@@ -8,6 +8,7 @@ from .agent_approval import build_approval_request
 from .background_delegate_runtime import send_background_delegate_message, start_background_delegate_task
 from .agent_delegate import execute_delegate_task_action
 from .agent_delegate_profile import resolve_profile_action
+from .deep_review_runtime import execute_deep_review_action
 from .agent_hooks import (
     ApplyUpdatedInput,
     ExecuteActionSafely,
@@ -25,6 +26,7 @@ from .types import (
     ApprovalPolicy,
     AskUserAction,
     ChatClient,
+    DeepReviewAction,
     DelegateTaskAction,
     Observation,
     PeerMessageObservation,
@@ -43,7 +45,7 @@ from .workspace_permissions import ProjectPermissions
 
 def execute_special_tool_action(
     workspace: RunWorkspace,
-    action: AskUserAction | DelegateTaskAction | SendMessageAction,
+    action: AskUserAction | DeepReviewAction | DelegateTaskAction | SendMessageAction,
     client: ChatClient,
     *,
     steps: list[TaskStep],
@@ -119,7 +121,7 @@ def execute_special_tool_action(
 
 def _execute_special_tool(
     workspace: RunWorkspace,
-    action: AskUserAction | DelegateTaskAction | SendMessageAction,
+    action: AskUserAction | DeepReviewAction | DelegateTaskAction | SendMessageAction,
     client: ChatClient,
     *,
     steps: list[TaskStep],
@@ -147,6 +149,29 @@ def _execute_special_tool(
             logger,
             user_input_handler,
         )
+    if isinstance(action, DeepReviewAction):
+        step = start_task_step(workspace, steps, iteration, action, logger)
+        log_action(logger, action)
+        observation = execute_deep_review_action(
+            workspace,
+            action,
+            client,
+            parent_iteration=iteration,
+            max_output_tokens=max_output_tokens,
+            model_retries=model_retries,
+            model_retry_delay_ms=model_retry_delay_ms,
+            model_timeout_ms=model_timeout_ms,
+            command_timeout_ms=command_timeout_ms,
+            logger=logger,
+            approval_handler=approval_handler,
+            approval_policy=approval_policy,
+            hooks=hooks,
+            permissions=permissions,
+            tool_ceiling_names=tool_ceiling_names,
+            review_id=f"{iteration}-{step.id}",
+        )
+        complete_task_step(workspace, step, observation, iteration, logger)
+        return observation
     if isinstance(action, SendMessageAction):
         step = start_task_step(workspace, steps, iteration, action, logger)
         log_action(logger, action)

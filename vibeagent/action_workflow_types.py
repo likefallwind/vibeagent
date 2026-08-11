@@ -5,6 +5,7 @@ from typing import Literal, TypeAlias
 
 
 PlanItemStatus: TypeAlias = Literal["pending", "in_progress", "completed"]
+DeepReviewPerspective: TypeAlias = Literal["correctness", "security", "tests"]
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,16 @@ class DelegateTaskAction:
     isolation: Literal["worktree"] | None = None
     teammate_name: str | None = None
     color: str | None = None
+
+
+@dataclass(frozen=True)
+class DeepReviewAction:
+    type: Literal["deep_review"]
+    perspectives: list[DeepReviewPerspective] = field(
+        default_factory=lambda: ["correctness", "security", "tests"]
+    )
+    max_iterations: int = 4
+    base_ref: str | None = None
 
 
 @dataclass(frozen=True)

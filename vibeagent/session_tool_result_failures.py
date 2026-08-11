@@ -112,6 +112,7 @@ OK_FIELD_FAILURE_KINDS = {
     "check_git_switch",
     "git_switch",
     "review_changes",
+    "deep_review",
     "final_review",
     "suggest_checks",
     "project_commands",

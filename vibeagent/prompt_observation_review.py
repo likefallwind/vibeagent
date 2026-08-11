@@ -4,11 +4,27 @@ from .prompt_observation_utils import truncate
 
 
 def format_review_observation(index: int, observation: object) -> str | None:
+    if getattr(observation, "kind", None) == "deep_review":
+        return _format_deep_review(index, observation)
     if observation.kind == "review_changes":
         return _format_review_changes(index, observation)
     if observation.kind == "final_review":
         return _format_final_review(index, observation)
     return None
+
+
+def _format_deep_review(index: int, observation: object) -> str:
+    parts = [
+        f"{index}. deep_review: {getattr(observation, 'message', '')}",
+        f"verified findings:\n{truncate(str(getattr(observation, 'summary', '')))}",
+    ]
+    for result in getattr(observation, "results", []):
+        parts.append(
+            f"[{getattr(result, 'perspective', '')}] ok={str(bool(getattr(result, 'ok', False))).lower()} "
+            f"iterations={getattr(result, 'iterations', 0)}\n"
+            f"{truncate(str(getattr(result, 'summary', '')))}"
+        )
+    return "\n".join(parts)
 
 
 def _format_review_changes(index: int, observation: object) -> str:

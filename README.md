@@ -2515,6 +2515,13 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
 - `project_overview` is a read-only orientation bundle for unfamiliar tasks:
   shallow repo map, git identity/status, manifests, project commands, project
   skill metadata, suggested checks, and runtime tool availability.
+- `deep_review` runs independent read-only correctness, security, and test-risk
+  reviewers in parallel over the current changes or an explicit base ref. Each
+  reviewer inspects surrounding code, requires evidence at real file and line
+  locations, and follows bounded root `REVIEW.md` guidance. A final read-only
+  verifier checks candidates against the code, removes false positives and
+  duplicates, and ranks the surviving findings. One failed reviewer is reported
+  without discarding the other reports.
 - `final_review` is a read-only handoff bundle for non-trivial code changes:
   blocking issues, warnings, running background processes, changed files, and
   suggested verification commands plus focused test commands inferred from

@@ -92,6 +92,7 @@ def execute_delegate_task_action(
     depth: int = 1,
     parent_subagent_id: str | None = None,
     tool_ceiling_names: frozenset[str] | None = None,
+    additional_system_prompt: str | None = None,
 ) -> DelegateTaskObservation:
     profile = load_delegate_profile_runtime(workspace, action)
     profile_error = profile.error
@@ -127,7 +128,7 @@ def execute_delegate_task_action(
         action = replace(action, max_iterations=profile.max_turns)
     if action.isolation is None and profile.isolation is not None:
         action = replace(action, isolation="worktree")
-    profile_prompt = profile.prompt
+    profile_prompt = _merge_system_prompts(profile.prompt, additional_system_prompt)
     allowed_tool_names = profile.allowed_tool_names
     disallowed_tool_names = (
         profile.disallowed_tool_names | globally_denied_tool_names(permissions)
@@ -432,6 +433,18 @@ def _attach_worktree_outcome(
         worktree_preserved=outcome.preserved,
         message=f"{result.message} {outcome.message}".strip(),
     )
+
+
+def _merge_system_prompts(
+    profile_prompt: str | None,
+    additional_system_prompt: str | None,
+) -> str | None:
+    sections = [
+        section.strip()
+        for section in (profile_prompt, additional_system_prompt)
+        if section and section.strip()
+    ]
+    return "\n\n".join(sections) or None
 
 
 def _delegate_policy_error(

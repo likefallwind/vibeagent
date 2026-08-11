@@ -37,6 +37,7 @@ EXTENDED_GIT_NEXT_ACTION_KINDS = {
     "git_show",
     "git_blame",
     "review_changes",
+    "deep_review",
 }
 
 
@@ -270,6 +271,21 @@ def _review_changes_next_action_instruction(base: str, latest: Observation) -> s
     return f"{base} Change review passed. Run any required verification, then use final_review before finishing."
 
 
+def _deep_review_next_action_instruction(base: str, latest: Observation) -> str:
+    if not getattr(latest, "ok", False):
+        return (
+            f"{base} Deep review was incomplete. Preserve successful reviewer evidence, inspect failed reviewer or "
+            "verification messages, then retry the missing analysis or review the diff directly."
+        )
+    summary = str(getattr(latest, "summary", "") or "").strip()
+    if summary == "No findings.":
+        return f"{base} Deep review verified no findings. Run required checks, then use final_review before finishing."
+    return (
+        f"{base} Deep review produced verified findings. Inspect each cited location, fix justified issues introduced "
+        "by the changes, run focused checks, and rerun deep_review when the fixes materially change reviewed behavior."
+    )
+
+
 def extended_git_next_action_instruction(base: str, latest: Observation) -> str:
     if latest.kind == "git_conflicts":
         return _git_conflicts_next_action_instruction(base, latest)
@@ -366,5 +382,7 @@ def extended_git_next_action_instruction(base: str, latest: Observation) -> str:
         return _git_history_next_action_instruction(base, latest)
     if latest.kind == "review_changes":
         return _review_changes_next_action_instruction(base, latest)
+    if latest.kind == "deep_review":
+        return _deep_review_next_action_instruction(base, latest)
 
     raise ValueError(f"Unsupported extended git next-action kind: {latest.kind}")

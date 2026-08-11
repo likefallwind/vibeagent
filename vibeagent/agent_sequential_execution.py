@@ -29,6 +29,7 @@ from .types import (
     AskUserAction,
     ChatClient,
     ContentBlock,
+    DeepReviewAction,
     DelegateTaskAction,
     Observation,
     PlanItem,
@@ -134,7 +135,7 @@ def execute_sequential_tool_call(
 
         raw_tool_input = tool_input if isinstance(tool_input, dict) else {}
         action = prepare_tool_input(raw_tool_input)
-        if isinstance(action, (AskUserAction, DelegateTaskAction, SendMessageAction)):
+        if isinstance(action, (AskUserAction, DeepReviewAction, DelegateTaskAction, SendMessageAction)):
             wrapped = execute_special_tool_action(
                 workspace,
                 action,

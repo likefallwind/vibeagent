@@ -251,6 +251,7 @@ def tool_category(name: str) -> str:
         "environment_info",
         "suggest_checks",
         "review_changes",
+        "deep_review",
         "final_review",
     }:
         return "project"
