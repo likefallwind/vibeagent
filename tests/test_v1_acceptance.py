@@ -207,6 +207,7 @@ EXPECTED_GATES = {
         "tools": set(),
         "tests": {
             "test_manifest_exposes_the_bounded_ide_commands",
+            "test_report_aggregates_bounded_session_evidence",
             "test_javascript_sources_parse_and_core_contract_passes",
             "test_vsix_build_is_deterministic_and_contains_only_declared_sources",
             "test_valid_private_context_is_injected_as_untrusted_metadata",

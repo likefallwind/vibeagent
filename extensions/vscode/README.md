@@ -19,6 +19,10 @@ terminal, preserving terminal permission prompts while adding editor context.
 - `VibeAgent: Resume Session` reads the bounded provider-free local session
   catalog, lets you choose a recent entry, and resumes its exact ID. Selecting
   an ID already open in this VS Code window reveals that terminal.
+- `VibeAgent: Inspect Session` selects a recent session and opens one bounded
+  overview, plan, verification, file, and timeline report as native Markdown.
+- `VibeAgent: Resume Inspected Session` resumes the exact session associated
+  with the active inspector document.
 - `VibeAgent: Review Session Plan` selects a recent session, reads its structured
   local plan, and opens it as editable Markdown.
 - `VibeAgent: Execute Reviewed Plan` resumes the exact session associated with
@@ -50,6 +54,14 @@ counts, and validates every ID and display field before opening Quick Pick or
 passing `--resume`. The discovery subprocess receives no live-context bridge
 credentials. File references go to the active managed VibeAgent terminal, then
 fall back to the primary workspace session.
+
+Session inspection uses one provider-free, credential-isolated
+`--json --session-inspect RUN_ID` request. The client validates identity,
+status, counts, truncation flags, and every bounded field before opening the
+document. At most 20 plan items, 50 checks per verification group, 100 files,
+and 80 timeline events are accepted. Workspace, session, and display-name
+metadata stay outside editable Markdown, so document edits cannot redirect the
+resume command.
 
 Plan review uses the same provider-free, credential-isolated process boundary
 with `--json --plan RUN_ID`. It validates bounded report and item fields before

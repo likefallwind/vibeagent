@@ -115,6 +115,12 @@ no shell or live-context credentials. A timeout, byte limits, item/field bounds,
 duplicate checks, and path/control rejection protect Quick Pick and `--resume`;
 already open IDs are focused instead of duplicated, and editor references route
 to the active managed terminal before the primary workspace session.
+Session Inspector adds a one-request, provider-free review surface over stored
+session evidence. It validates a bounded overview, up to 20 plan items, 50
+checks per verification group, 100 referenced files, and 80 timeline events
+before rendering native Markdown. Trusted workspace, session, and display-name
+metadata remain outside the document, and `Resume Inspected Session` uses the
+exact stored ID regardless of document edits.
 The extension also provides an Agent Panel over a temporary loopback Remote
 Control process. The extension host retains its bearer token while the
 CSP-restricted Webview receives only bounded state and logs. A validated message
@@ -173,6 +179,9 @@ The automated suite currently covers these 1.0 surfaces:
   packaging, token-isolated Agent Panel control, exact-ID interactions, bounded
   worktree review and virtual documents, exact-snapshot conflict-safe
   integration and rollback, process cleanup, and isolated VS Code Server installation.
+- Session inspector: real CLI aggregation from one event snapshot, fixed report
+  bounds, invalid or missing-session failure, deeply validated JavaScript
+  parsing, native Markdown review, close invalidation, and exact-ID resume.
 - IDE live context: atomic authenticated JavaScript payloads, Python protocol
   validation, sensitive and symlink rejection, untrusted diagnostic redaction,
   no source-buffer transfer, and bridge-secret stripping for child processes.

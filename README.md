@@ -241,6 +241,15 @@ an already open ID reveals its existing terminal, while file references prefer
 the active managed VibeAgent terminal and otherwise fall back to the primary
 workspace session.
 
+Session inspection uses one provider-free `--json --session-inspect RUN_ID`
+call to load a bounded overview, plan, verification report, file list, and
+timeline. The extension validates the returned identity, counts, statuses, and
+truncation flags before opening native Markdown for read-only review. Reports
+show at most 20 plan items, 50 checks per verification group, 100 files, and 80
+timeline events. Workspace, session, and display-name metadata remain in
+trusted extension memory, so editing the document cannot change the exact ID
+used by `Resume Inspected Session`.
+
 Plan review uses the provider-free `--json --plan RUN_ID` contract through the
 same bounded local client. The extension validates the returned session ID,
 status, task, item count, item statuses, and text limits before opening an
@@ -914,6 +923,10 @@ results, and the new branch session ID when conversation history is rewound.
 `--json --session-verification` includes a structured `sessionVerification`
 object with verified, pending, and failed check groups, truncation state, and
 machine-readable command/cwd entries for each shown check.
+`--json --session-inspect` includes a structured `sessionInspect` object with a
+bounded overview, plan, verification groups, referenced files, and safe
+timeline. Its fixed limits are suitable for one local IDE request without a
+provider call.
 `--json --run-session-verification` includes a structured
 `runSessionVerification` object with selected failed/pending commands, command
 results, stop-on-failure state, and aggregate duration.
@@ -1169,6 +1182,7 @@ python -m vibeagent --check-stop-all-processes --cwd ../my-project
 python -m vibeagent --stop-all-processes --cwd ../my-project
 python -m vibeagent --sessions --cwd ../my-project
 python -m vibeagent --session <run-id> --cwd ../my-project
+python -m vibeagent --session-inspect <run-id> --cwd ../my-project
 python -m vibeagent --plan <run-id> --cwd ../my-project
 python -m vibeagent --transcript <run-id> --session-transcript-event-max 80 --session-max-text 500 --cwd ../my-project
 python -m vibeagent --session-search "AssertionError" --session-search-run <run-id> --session-search-match-max 20 --session-search-case-sensitive --session-max-text 500 --cwd ../my-project

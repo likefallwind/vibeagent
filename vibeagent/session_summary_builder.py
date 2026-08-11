@@ -16,7 +16,7 @@ from .session_summary_details import (
 )
 from .session_summary_final_review import parse_final_review_summary
 from .session_summary_model import SessionModelUsageTotals, model_error_message, model_final_message
-from .session_types import SessionPlanItem, SessionProcessInfo, SessionSummary
+from .session_types import SessionEvent, SessionPlanItem, SessionProcessInfo, SessionSummary
 from .session_utils import (
     as_int,
     is_failed_tool_result,
@@ -26,8 +26,16 @@ from .session_verification_state import session_verification_from_events
 
 
 def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
-    session_path = session_dir(project_root, run_id)
     events = read_session_events(project_root, run_id)
+    return summarize_session_from_events(project_root, run_id, events)
+
+
+def summarize_session_from_events(
+    project_root: str | Path,
+    run_id: str,
+    events: list[SessionEvent],
+) -> SessionSummary:
+    session_path = session_dir(project_root, run_id)
     valid_events = [event for event in events if not event.malformed]
     malformed_count = len(events) - len(valid_events)
     iterations = max((as_int(event.payload.get("iteration")) or 0 for event in valid_events), default=0)
@@ -318,4 +326,5 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
 
 __all__ = [
     "summarize_session",
+    "summarize_session_from_events",
 ]

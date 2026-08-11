@@ -20,6 +20,8 @@ SOURCE_FILES = (
     "src/agentPanelView.js",
     "src/localCli.js",
     "src/sessionCatalog.js",
+    "src/sessionInspectorClient.js",
+    "src/sessionInspector.js",
     "src/sessionPlan.js",
     "src/sessionRewindClient.js",
     "src/sessionRewind.js",

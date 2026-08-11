@@ -17,6 +17,7 @@ const { SessionCatalog, sessionQuickPickItems } = require('./src/sessionCatalog'
 const { InteractiveTerminalManager } = require('./src/terminals');
 const { PlanReviewManager } = require('./src/sessionPlan');
 const { RewindReviewManager } = require('./src/sessionRewind');
+const { SessionInspectorManager } = require('./src/sessionInspector');
 
 class GitHeadContentProvider {
   constructor() {
@@ -65,18 +66,24 @@ function activate(context) {
     catalog: sessionCatalog,
     terminals,
   });
+  const sessionInspectors = new SessionInspectorManager(vscode, {
+    catalog: sessionCatalog,
+    terminals,
+  });
   context.subscriptions.push(
     diffProvider,
     agentChangeProvider,
     agentPanels,
     planReviews,
     rewindReviews,
+    sessionInspectors,
     terminals,
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-git', diffProvider),
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-change', agentChangeProvider),
     vscode.window.onDidCloseTerminal((terminal) => terminals.closed(terminal)),
     vscode.workspace.onDidCloseTextDocument((document) => planReviews.closed(document)),
     vscode.workspace.onDidCloseTextDocument((document) => rewindReviews.closed(document)),
+    vscode.workspace.onDidCloseTextDocument((document) => sessionInspectors.closed(document)),
     vscode.window.onDidChangeActiveTextEditor((editor) => refreshEditorContext(editor)),
     vscode.window.onDidChangeTextEditorSelection((event) => refreshEditorContext(event.textEditor)),
     vscode.languages.onDidChangeDiagnostics(() => refreshEditorContext(vscode.window.activeTextEditor)),
@@ -113,6 +120,15 @@ function activate(context) {
     });
     if (!selected) return;
     terminals.resume(launch, root, selected.session, selected.label);
+  });
+
+  register('vibeagent.inspectSession', async () => {
+    const root = activeWorkspaceRoot();
+    await sessionInspectors.open(launchConfig(), root);
+  });
+
+  register('vibeagent.resumeInspectedSession', async () => {
+    sessionInspectors.resumeActive(launchConfig());
   });
 
   register('vibeagent.reviewSessionPlan', async () => {
