@@ -106,6 +106,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         ),
         "max_budget_usd": args.max_budget_usd,
         "fallback_model": args.fallback_model,
+        "setup_trigger": args.setup_trigger,
         "tool_names": parse_cli_tool_names(args.tools),
         "permission_overrides": build_permission_overrides(args),
         "provider_args": args,

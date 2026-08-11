@@ -174,6 +174,7 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "status",
         "context",
         "init",
+        "init_only",
         "doctor",
         "check_git_fetch",
         "git_fetch",

@@ -105,6 +105,7 @@ def run_agent_loop(
     plugin_monitor_runtime: PluginMonitorRuntime | None = None,
     deferred_tool_state: DeferredToolState | None = None,
     defer_tool_calls: bool = False,
+    setup_trigger: str | None = None,
 ) -> AgentResult:
     observations: list[Observation] = []
     steps: list[TaskStep] = []
@@ -331,6 +332,7 @@ def run_agent_loop(
         messages,
         task,
         resumed=bool(prior_context),
+        setup_trigger=setup_trigger,
         prompt_expansion=prompt_expansion_from_task_metadata(setup.task_metadata),
     )
     if startup_block is not None:

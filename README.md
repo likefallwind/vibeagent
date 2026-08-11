@@ -740,6 +740,9 @@ python -m vibeagent --diff-hunks --staged src/app.py --cwd ../my-project
 python -m vibeagent --diff-contexts --staged src/app.py --cwd ../my-project
 python -m vibeagent --diff-contexts src/app.py --diff-context-lines 2 --diff-contexts-max-hunks 20 --diff-contexts-max-bytes 12000 --cwd ../my-project
 python -m vibeagent --init CLAUDE.md --cwd ../my-project
+python -m vibeagent --init-only --cwd ../my-project
+python -m vibeagent -p --init "Install dependencies, then inspect the project" --cwd ../my-project
+python -m vibeagent -p --maintenance "Refresh generated dependencies" --cwd ../my-project
 python -m vibeagent --model
 python -m vibeagent --config --cwd ../my-project
 python -m vibeagent --tools
@@ -1743,11 +1746,20 @@ These events cannot block compaction or termination. Session-end handlers share
 a 1.5-second default budget, configurable up to 60 seconds through an explicit
 hook timeout or `CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS`.
 
+`Setup` matches `init` or `maintenance`. `--init-only` runs `Setup(init)` and
+then `SessionStart(startup)` before exiting without creating a provider client.
+In print mode, `--init` and `--maintenance` run the matching Setup hooks before
+the normal session starts; the existing non-print `--init [AGENTS.md|CLAUDE.md]`
+command still creates a starter instruction file. Setup cannot block. Only
+structured `additionalContext` is added to the first model turn; plain stdout
+remains in hook diagnostics. Setup supports command and MCP tool handlers and,
+like SessionStart, receives `CLAUDE_ENV_FILE` for later Bash commands.
+
 `CwdChanged` ignores matchers and fires after a main-session shell command
 actually changes the effective directory. Its JSON input includes absolute
 `old_cwd` and `new_cwd` values, its common `cwd` field is the new directory,
 and the hook command runs there. It cannot block or alter the completed
-directory transition. `SessionStart` and `CwdChanged` hook processes also
+directory transition. `Setup`, `SessionStart`, and `CwdChanged` hook processes also
 receive `CLAUDE_ENV_FILE`; changes they write there apply to later Bash
 commands in the session.
 

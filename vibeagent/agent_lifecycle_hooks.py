@@ -28,6 +28,7 @@ CONTEXT_EVENTS = frozenset(
     {
         "PostToolBatch",
         "SessionStart",
+        "Setup",
         "SubagentStart",
         "UserPromptExpansion",
         "UserPromptSubmit",
@@ -125,7 +126,11 @@ def run_lifecycle_hooks(
         )
         results.append(result)
         output = parse_lifecycle_hook_output(result)
-        if event in CONTEXT_EVENTS and output.context:
+        if (
+            event in CONTEXT_EVENTS
+            and output.context
+            and not (event == "Setup" and output.plain_text)
+        ):
             contexts.append(output.context)
         if output.system_message:
             system_messages.append(output.system_message)

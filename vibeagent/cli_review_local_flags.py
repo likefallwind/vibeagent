@@ -30,13 +30,22 @@ def run_review_local_flag(
             commands["format_context_report_text"],
             lambda: commands["get_context_text"](root),
         )
+    if args.init_only:
+        report = commands["run_init_only_setup"](
+            root,
+            approval_policy=args.approval,
+            approval_handler=commands["build_approval_handler"](args.approval),
+            command_timeout_ms=args.command_timeout_ms or 30_000,
+        )
+        return commands["format_init_only_setup_report"](report), {"setup": report}
     if args.init is not None:
+        file_name = args.init or "AGENTS.md"
         return local_text_or_report(
             args,
             "init",
-            lambda: commands["get_init_report"](root, args.init),
+            lambda: commands["get_init_report"](root, file_name),
             commands["format_init_report_text"],
-            lambda: commands["init_project_instructions"](root, args.init),
+            lambda: commands["init_project_instructions"](root, file_name),
         )
     if args.doctor:
         return local_text_or_report(

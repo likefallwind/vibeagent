@@ -27,6 +27,7 @@ def build_one_shot_agent_kwargs(
     machine_output: bool,
     stream_json: bool,
     print_mode: bool = False,
+    setup_trigger: str | None = None,
     prior_context: str | None,
     system_prompt: str | None,
     append_system_prompt: str | None,
@@ -62,6 +63,8 @@ def build_one_shot_agent_kwargs(
         "defer_tool_calls": print_mode,
         "close_async_hooks_on_finish": print_mode,
     }
+    if setup_trigger is not None:
+        kwargs["setup_trigger"] = setup_trigger
     if additional_directories:
         kwargs["additional_directories"] = additional_directories
     if workspace is not None:

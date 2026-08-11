@@ -133,6 +133,7 @@ from .cli_parse_run import (
 from .cli_command_namespace import *  # re-export command helpers for local flag dispatch and tests
 from .cli_input_format import TaskInputFormatError
 from .providers import create_chat_client
+from .session_lifecycle_hooks import format_init_only_setup_report, run_init_only_setup
 from .worktree_hooks import WorktreeHookContext
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import ProjectPermissions

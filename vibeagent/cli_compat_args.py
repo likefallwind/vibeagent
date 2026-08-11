@@ -69,10 +69,27 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         metavar="MODEL",
         help="Use this model after a primary-model overload in print-mode coding tasks.",
     )
+    parser.add_argument(
+        "--maintenance",
+        action="store_true",
+        help="Run Setup hooks with the maintenance matcher before a print-mode task.",
+    )
 
 
 def normalize_compat_arguments(args: argparse.Namespace) -> argparse.Namespace:
     args.compat_error = None
+    args.setup_trigger = None
+    if args.print_mode and args.init is not None:
+        consumed_task = args.init
+        args.init = None
+        args.setup_trigger = "init"
+        if consumed_task:
+            args.task = [consumed_task, *args.task]
+    if args.maintenance:
+        if args.setup_trigger is not None:
+            args.compat_error = "--init and --maintenance cannot be combined."
+        else:
+            args.setup_trigger = "maintenance"
     permission_mode = normalize_permission_mode(args.permission_mode)
     if args.dangerously_skip_permissions and (args.approval is not None or args.permission_mode is not None):
         args.compat_error = "--dangerously-skip-permissions cannot be combined with --approval or --permission-mode."

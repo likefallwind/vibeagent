@@ -28,6 +28,8 @@ def parse_hook_handler(
     if not isinstance(payload, dict):
         raise ValueError(f"{source} hook handlers must be objects.")
     handler_type = payload.get("type")
+    if event == "Setup" and handler_type not in {"command", "mcp_tool"}:
+        raise ValueError(f"{source} Setup hooks support only command or mcp_tool handlers.")
     if event in {"WorktreeCreate", "WorktreeRemove"} and handler_type not in {"command", "http"}:
         raise ValueError(f"{source} {event} hooks support only command or http handlers.")
     if event == "DirectoryAdded" and handler_type not in {"command", "http", "mcp_tool"}:

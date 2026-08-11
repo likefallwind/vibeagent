@@ -41,12 +41,14 @@ class AgentLifecycleRuntime:
         task: str,
         *,
         resumed: bool,
+        setup_trigger: str | None = None,
         prompt_expansion: PromptExpansion | None = None,
     ) -> str | None:
         source = "resume" if resumed else "startup"
-        session_start = self._run(
-            workspace, "SessionStart", source, {"source": source}, iteration=0
-        )
+        if setup_trigger is not None:
+            setup = self.setup(workspace, setup_trigger)
+            _append_lifecycle_context(messages, "Setup hook context", setup.contexts)
+        session_start = self.session_start(workspace, source)
         _append_lifecycle_context(
             messages, "SessionStart hook context", session_start.contexts
         )
@@ -75,6 +77,28 @@ class AgentLifecycleRuntime:
             messages, "UserPromptSubmit hook context", prompt_submit.contexts
         )
         return None
+
+    def setup(self, workspace: RunWorkspace, trigger: str) -> LifecycleHookResult:
+        if trigger not in {"init", "maintenance"}:
+            raise ValueError(f"Unsupported Setup trigger: {trigger}.")
+        return self._run(
+            workspace,
+            "Setup",
+            trigger,
+            {"trigger": trigger},
+            iteration=0,
+        )
+
+    def session_start(self, workspace: RunWorkspace, source: str) -> LifecycleHookResult:
+        if source not in {"startup", "resume", "clear", "compact"}:
+            raise ValueError(f"Unsupported SessionStart source: {source}.")
+        return self._run(
+            workspace,
+            "SessionStart",
+            source,
+            {"source": source},
+            iteration=0,
+        )
 
     def stop_feedback_if_needed(
         self, workspace: RunWorkspace, message: str, iteration: int

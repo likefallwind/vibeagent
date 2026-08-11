@@ -32,6 +32,12 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
             normalize_fallback_model(args.fallback_model)
         except ValueError as error:
             return str(error)
+    if args.maintenance and (
+        not args.print_mode or not args.task or has_local_flag(args) or args.chat
+    ):
+        return "--maintenance requires a one-shot coding task with --print."
+    if args.setup_trigger == "init" and args.chat:
+        return "--init with --print is available for coding tasks only."
     if isinstance(args.tools, str):
         if not args.task or args.chat:
             return "--tools NAMES requires a one-shot coding task."

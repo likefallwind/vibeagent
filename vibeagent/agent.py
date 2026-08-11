@@ -100,6 +100,7 @@ def run_agent(
     deferred_tool_state: DeferredToolState | None = None,
     defer_tool_calls: bool = False,
     close_async_hooks_on_finish: bool = False,
+    setup_trigger: str | None = None,
 ) -> AgentResult:
     setup = prepare_agent_run(
         task,
@@ -168,6 +169,7 @@ def run_agent(
             plugin_monitor_runtime=plugin_monitors,
             deferred_tool_state=deferred_tool_state,
             defer_tool_calls=defer_tool_calls,
+            setup_trigger=setup_trigger,
         )
     finally:
         if close_async_hooks_on_finish:

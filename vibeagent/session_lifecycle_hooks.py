@@ -11,7 +11,7 @@ from .agent_lifecycle_runtime import AgentLifecycleRuntime
 from .file_changed_hooks import FileChangedHookRuntime
 from .config_change_hooks import ConfigChangeHookRuntime
 from .types import AgentLogger, ApprovalHandler, ApprovalPolicy
-from .workspace_core import RunWorkspace, create_local_workspace
+from .workspace_core import RunWorkspace, create_local_workspace, create_run_workspace
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import read_project_permissions
 
@@ -26,6 +26,47 @@ SESSION_END_REASONS = frozenset(
         "other",
     }
 )
+
+
+def run_init_only_setup(
+    project_root: str | Path,
+    *,
+    command_timeout_ms: int,
+    approval_handler: ApprovalHandler | None,
+    approval_policy: ApprovalPolicy,
+) -> dict[str, object]:
+    workspace = create_run_workspace(project_root)
+    runtime = _runtime(
+        workspace,
+        command_timeout_ms=command_timeout_ms,
+        approval_handler=approval_handler,
+        approval_policy=approval_policy,
+        logger=None,
+    )
+    setup = runtime.setup(workspace, "init")
+    session_start = runtime.session_start(workspace, "startup")
+    results = (*setup.results, *session_start.results)
+    return {
+        "projectRoot": str(workspace.root),
+        "sessionId": workspace.run_id,
+        "trigger": "init",
+        "setupHooks": len(setup.results),
+        "sessionStartHooks": len(session_start.results),
+        "failedHooks": sum(not result.ok for result in results),
+        "configError": runtime.hooks.error or "",
+    }
+
+
+def format_init_only_setup_report(report: dict[str, object]) -> str:
+    summary = (
+        "Setup hooks completed: "
+        f"setup={report['setupHooks']}, "
+        f"sessionStart={report['sessionStartHooks']}, "
+        f"failed={report['failedHooks']}, "
+        f"session={report['sessionId']}."
+    )
+    config_error = report.get("configError")
+    return f"{summary}\nHook configuration error: {config_error}" if config_error else summary
 
 
 def run_session_end_hooks(
@@ -246,8 +287,10 @@ __all__ = [
     "SESSION_END_REASONS",
     "create_interactive_file_changed_runtime",
     "create_interactive_config_change_runtime",
+    "format_init_only_setup_report",
     "run_compact_hooks",
     "run_interactive_notification_hooks",
     "run_interactive_session_hook",
+    "run_init_only_setup",
     "run_session_end_hooks",
 ]

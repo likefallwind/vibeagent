@@ -67,6 +67,7 @@ def run_one_shot_code(
     structured_output_schema: dict[str, object] | None = None,
     max_budget_usd: Decimal | None = None,
     fallback_model: str | None = None,
+    setup_trigger: str | None = None,
     tool_names: frozenset[str] | None = None,
     elapsed_ms: int,
     stream: JsonEventStream | None,
@@ -186,6 +187,7 @@ def run_one_shot_code(
         append_system_prompt=append_system_prompt,
         additional_directories=additional_directories,
         task_metadata=task_metadata,
+        setup_trigger=setup_trigger,
         workspace=stream_scope.workspace,
         peer_runtime=peer_runtime,
     )
@@ -287,6 +289,7 @@ def run_one_shot_code(
                     result.run_id,
                     additional_roots=additional_directories,
                 )
+                run_kwargs.pop("setup_trigger", None)
                 run_kwargs.pop("task_source_run_id", None)
             if structured_output_schema is not None and result.success and result.completion_ready:
                 structured_output = generate_structured_output_func(

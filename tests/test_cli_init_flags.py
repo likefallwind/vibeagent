@@ -10,6 +10,27 @@ from vibeagent.cli import main
 
 
 class CliInitFlagTests(unittest.TestCase):
+    def test_main_keeps_default_instruction_init_behavior(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch(
+                    "vibeagent.cli.init_project_instructions",
+                    return_value="Created AGENTS.md.",
+                ) as init_project_instructions,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, "--init"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue(), "Created AGENTS.md.\n")
+        init_project_instructions.assert_called_once_with(
+            Path(base).resolve(), "AGENTS.md"
+        )
+        create_chat_client.assert_not_called()
+
     def test_main_runs_init_local_flag_with_selected_instruction_file(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
