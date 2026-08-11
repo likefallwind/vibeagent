@@ -41,12 +41,17 @@ conversation continues in a new target-local session branch.
 Top-level `--background` / `--bg` launches a persistent one-shot coding session
 in a detached process group and returns its project-local ID. Provider-free CLI
 flags and interactive slash commands list sessions, read bounded logs, stop a
-running agent, and remove its private supervisor files without deleting the
-resumable transcript. The worker consumes an owner-only launch payload before
-running, records a durable exit status, validates PID start times, closes stdin,
-retains the selected approval policy, and requires credentials from the
-environment instead of persisted `--api-key` arguments. This release does not
-claim interactive attachment to detached agents.
+running agent, queue follow-up turns, respawn a running or stopped worker under the
+same agent ID, and remove its private supervisor files without deleting the
+resumable transcript. An atomic FIFO inbox and transition lock prevent send/exit
+races, the effective worktree root and API-key-free launch options survive later
+turns, and a private random worker token rejects nested CLI processes that only
+inherit the supervisor environment. The worker consumes an owner-only launch
+payload before running, records a durable exit status, validates PID start
+times, closes stdin, retains the selected approval policy, and requires
+credentials from the environment instead of persisted `--api-key` arguments.
+This release does not claim interactive attachment or approval takeover for
+detached agents.
 
 That release gate expands to:
 

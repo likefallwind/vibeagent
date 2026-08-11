@@ -171,6 +171,8 @@ EXPECTED_GATES = {
         "tests": {
             "test_detached_worker_survives_launcher_and_records_cli_failure",
             "test_main_routes_background_task_before_one_shot_execution",
+            "test_worker_drains_followup_in_same_process_before_recording_exit",
+            "test_send_queues_running_agent_and_respawns_completed_agent",
         },
     },
     "VA1-GOAL": {

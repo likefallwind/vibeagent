@@ -193,6 +193,8 @@ HELP_SNIPPETS = [
     "/background-agents",
     "/background-agent-log <id> [max-chars]",
     "/stop-background-agent <id>",
+    "/send-background-agent <id> <message>",
+    "/respawn-background-agent <id>",
     "/remove-background-agent <id>",
     "/processes",
     "/process <id> [chars]",

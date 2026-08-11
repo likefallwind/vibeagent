@@ -175,6 +175,8 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "background_agents",
         "background_agent_log",
         "stop_background_agent",
+        "send_background_agent",
+        "respawn_background_agent",
         "remove_background_agent",
         "status",
         "context",

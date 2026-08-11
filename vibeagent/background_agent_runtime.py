@@ -1,28 +1,38 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
-import json
-import os
 from pathlib import Path
-import subprocess
-import sys
-import threading
 import uuid
 
+from .background_agent_config import (
+    background_agent_config_path,
+    create_background_agent_config,
+    read_background_agent_config,
+)
+from .background_agent_inbox import (
+    enqueue_background_agent_message,
+    pending_background_agent_message_count,
+    remove_background_agent_inbox,
+)
+from .background_agent_lock import background_agent_transition_lock
+from .background_agent_process import (
+    spawn_background_agent_worker,
+    start_background_process_reaper,
+)
 from .background_agent_store import (
     as_process_record,
     background_agent_record_path,
     background_agent_runtime_root,
     background_agent_view,
-    background_agent_view_payload,
+    background_agent_view_payload as _background_agent_view_payload,
     ensure_background_agent_runtime_root,
     ensure_private_directory,
     get_background_agent,
     list_background_agents,
-    open_private_log,
     write_background_agent_record,
-    write_private_json,
     write_private_text,
+    write_private_text_atomic,
 )
 from .background_agent_types import (
     DEFAULT_BACKGROUND_AGENT_LOG_CHARS,
@@ -41,66 +51,53 @@ def launch_background_agent(
     *,
     task_summary: str,
     session_name: str | None,
+    resume_reference: str | None = None,
 ) -> BackgroundAgentView:
     root = project_root.resolve()
     invocation = invocation_root.resolve()
     agent_id = uuid.uuid4().hex[:12]
     runtime_root = ensure_background_agent_runtime_root(root)
     logs_root = ensure_private_directory(runtime_root / "logs")
-    launch_root = ensure_private_directory(runtime_root / "launch")
     stdout_path = logs_root / f"{agent_id}.stdout.log"
     stderr_path = logs_root / f"{agent_id}.stderr.log"
     exit_code_path = logs_root / f"{agent_id}.exitcode"
     stopped_path = logs_root / f"{agent_id}.stopped"
-    payload_path = launch_root / f"{agent_id}.json"
 
     child_argv = _without_background_flag(argv)
     if not _contains_option(child_argv, {"-p", "--print"}):
         child_argv.insert(0, "--print")
     effective_session_name = session_name
-    if effective_session_name is None and not _resumes_existing_session(child_argv):
+    if effective_session_name is None and resume_reference is None:
         effective_session_name = f"background-{agent_id}"
         child_argv[0:0] = ["--name", effective_session_name]
-
-    write_private_json(
-        payload_path,
-        {
-            "schemaVersion": 1,
-            "argv": child_argv,
-            "exitCodePath": exit_code_path.as_posix(),
-        },
-        exclusive=True,
+    effective_resume_reference = (
+        (resume_reference.strip() if isinstance(resume_reference, str) else "")
+        or effective_session_name
     )
-    write_private_text(exit_code_path, "", exclusive=True)
-    stdout_handle = open_private_log(stdout_path)
-    stderr_handle = open_private_log(stderr_path)
-    environment = dict(os.environ)
-    environment["PYTHONUNBUFFERED"] = "1"
-    environment["VIBEAGENT_BACKGROUND_AGENT_ID"] = agent_id
+    if not effective_resume_reference:
+        raise ValueError("Background resume could not resolve its source session.")
     try:
-        process = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "vibeagent.background_agent_worker",
-                payload_path.as_posix(),
-            ],
-            cwd=invocation,
-            stdin=subprocess.DEVNULL,
-            stdout=stdout_handle,
-            stderr=stderr_handle,
-            text=True,
-            start_new_session=os.name != "nt",
-            env=environment,
+        config = create_background_agent_config(
+            root,
+            agent_id,
+            session_root=root,
+            resume_reference=effective_resume_reference,
+            base_argv=child_argv,
+        )
+        write_private_text(exit_code_path, "", exclusive=True)
+        process = spawn_background_agent_worker(
+            config,
+            invocation_root=invocation,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            exit_code_path=exit_code_path,
+            initial_argv=child_argv,
+            append_logs=False,
         )
     except Exception:
-        stdout_handle.close()
-        stderr_handle.close()
-        _remove_paths(payload_path, stdout_path, stderr_path, exit_code_path)
+        _remove_background_agent_metadata(root, agent_id)
+        _remove_paths(stdout_path, stderr_path, exit_code_path)
         raise
-    else:
-        stdout_handle.close()
-        stderr_handle.close()
 
     record = BackgroundAgentRecord(
         id=agent_id,
@@ -110,7 +107,7 @@ def launch_background_agent(
         start_ticks=read_process_start_ticks(process.pid),
         started_at=datetime.now(UTC).isoformat(timespec="seconds"),
         task_summary=_task_summary(task_summary),
-        session_name=effective_session_name,
+        session_name=effective_session_name or effective_resume_reference,
         stdout_path=stdout_path,
         stderr_path=stderr_path,
         exit_code_path=exit_code_path,
@@ -120,37 +117,80 @@ def launch_background_agent(
         write_background_agent_record(record)
     except Exception:
         terminate_persistent_process(as_process_record(record))
-        _start_process_reaper(process)
-        _remove_paths(payload_path, stdout_path, stderr_path, exit_code_path)
+        start_background_process_reaper(process)
+        _remove_background_agent_metadata(root, agent_id)
+        _remove_paths(stdout_path, stderr_path, exit_code_path)
         raise
-    _start_process_reaper(process)
+    start_background_process_reaper(process)
     return background_agent_view(record)
 
 
+def send_background_agent_message(
+    project_root: Path,
+    agent_id: str,
+    message: str,
+) -> tuple[BackgroundAgentView | None, str]:
+    root = project_root.resolve()
+    with background_agent_transition_lock(root, agent_id):
+        view = get_background_agent(root, agent_id)
+        if view is None:
+            return None, "not-found"
+        config = read_background_agent_config(root, agent_id)
+        enqueue_background_agent_message(config, message)
+        if view.status == "running":
+            return background_agent_view(view.record), "queued"
+        return _respawn_background_agent_locked(view, config, task_summary=message), "respawned"
+
+
+def respawn_background_agent(
+    project_root: Path,
+    agent_id: str,
+) -> tuple[BackgroundAgentView | None, str]:
+    root = project_root.resolve()
+    with background_agent_transition_lock(root, agent_id):
+        view = get_background_agent(root, agent_id)
+        if view is None:
+            return None, "not-found"
+        if view.status == "running":
+            terminate_persistent_process(as_process_record(view.record))
+        config = read_background_agent_config(root, agent_id)
+        if pending_background_agent_message_count(root, agent_id) == 0:
+            message = "Continue the interrupted background task from the recorded session context."
+            enqueue_background_agent_message(config, message)
+        else:
+            message = "Continue with the queued background messages from the recorded session context."
+        return _respawn_background_agent_locked(view, config, task_summary=message), "respawned"
+
+
 def stop_background_agent(project_root: Path, agent_id: str) -> BackgroundAgentView | None:
-    view = get_background_agent(project_root, agent_id)
-    if view is None:
-        return None
-    if view.status == "running":
-        terminate_persistent_process(as_process_record(view.record))
-        write_private_text(view.record.stopped_path, "stopped\n", exclusive=False)
-    return background_agent_view(view.record)
+    root = project_root.resolve()
+    with background_agent_transition_lock(root, agent_id):
+        view = get_background_agent(root, agent_id)
+        if view is None:
+            return None
+        if view.status == "running":
+            terminate_persistent_process(as_process_record(view.record))
+            write_private_text(view.record.stopped_path, "stopped\n", exclusive=False)
+        return background_agent_view(view.record)
 
 
 def remove_background_agent(project_root: Path, agent_id: str) -> tuple[bool, str]:
-    view = get_background_agent(project_root, agent_id)
-    if view is None:
-        return False, f"Background agent not found: {agent_id}"
-    if view.status == "running":
-        return False, f"Background agent is still running: {agent_id}"
-    record_path = background_agent_record_path(project_root.resolve(), agent_id)
-    _remove_paths(
-        view.record.stdout_path,
-        view.record.stderr_path,
-        view.record.exit_code_path,
-        view.record.stopped_path,
-        record_path,
-    )
+    root = project_root.resolve()
+    with background_agent_transition_lock(root, agent_id):
+        view = get_background_agent(root, agent_id)
+        if view is None:
+            return False, f"Background agent not found: {agent_id}"
+        if view.status == "running":
+            return False, f"Background agent is still running: {agent_id}"
+        record_path = background_agent_record_path(root, agent_id)
+        _remove_background_agent_metadata(root, agent_id)
+        _remove_paths(
+            view.record.stdout_path,
+            view.record.stderr_path,
+            view.record.exit_code_path,
+            view.record.stopped_path,
+            record_path,
+        )
     return True, f"Removed background agent {agent_id}. Session transcript was preserved."
 
 
@@ -169,6 +209,15 @@ def read_background_agent_logs(
         _read_text_tail(view.record.stdout_path, bounded),
         _read_text_tail(view.record.stderr_path, bounded),
     )
+
+
+def background_agent_view_payload(view: BackgroundAgentView) -> dict[str, object]:
+    payload = _background_agent_view_payload(view)
+    payload["pendingMessages"] = pending_background_agent_message_count(
+        view.record.project_root,
+        view.record.id,
+    )
+    return payload
 
 
 def _task_summary(task: str) -> str:
@@ -200,13 +249,6 @@ def _contains_option(argv: list[str], names: set[str]) -> bool:
     return False
 
 
-def _resumes_existing_session(argv: list[str]) -> bool:
-    return _contains_option(
-        argv,
-        {"-c", "--continue", "-r", "--resume", "--session-id", "--compact"},
-    )
-
-
 def _read_text_tail(path: Path, max_chars: int) -> str:
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -223,12 +265,69 @@ def _remove_paths(*paths: Path | None) -> None:
             path.unlink(missing_ok=True)
 
 
-def _start_process_reaper(process: subprocess.Popen[str]) -> None:
-    threading.Thread(
-        target=process.wait,
-        name=f"vibeagent-background-agent-{process.pid}",
-        daemon=True,
-    ).start()
+def _respawn_background_agent_locked(
+    view: BackgroundAgentView,
+    config,
+    *,
+    task_summary: str,
+) -> BackgroundAgentView:
+    record = view.record
+    was_stopped = record.stopped_path.is_file()
+    try:
+        write_private_text_atomic(record.exit_code_path, "")
+        record.stopped_path.unlink(missing_ok=True)
+        process = spawn_background_agent_worker(
+            config,
+            invocation_root=record.invocation_root,
+            stdout_path=record.stdout_path,
+            stderr_path=record.stderr_path,
+            exit_code_path=record.exit_code_path,
+            initial_argv=None,
+            append_logs=True,
+        )
+    except Exception:
+        _restore_background_agent_terminal_state(view, was_stopped=was_stopped)
+        raise
+    updated = replace(
+        record,
+        pid=process.pid,
+        start_ticks=read_process_start_ticks(process.pid),
+        started_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        task_summary=_task_summary(task_summary),
+    )
+    try:
+        write_background_agent_record(updated, exclusive=False)
+    except Exception:
+        terminate_persistent_process(as_process_record(updated))
+        start_background_process_reaper(process)
+        _restore_background_agent_terminal_state(view, was_stopped=was_stopped)
+        raise
+    start_background_process_reaper(process)
+    return background_agent_view(updated)
+
+
+def _remove_background_agent_metadata(project_root: Path, agent_id: str) -> None:
+    background_agent_config_path(project_root, agent_id).unlink(missing_ok=True)
+    remove_background_agent_inbox(project_root, agent_id)
+    launch_root = background_agent_runtime_root(project_root) / "launch"
+    if launch_root.is_dir() and not launch_root.is_symlink():
+        for path in launch_root.glob(f"{agent_id}-*.json"):
+            if path.parent == launch_root and not path.is_symlink():
+                path.unlink(missing_ok=True)
+        legacy = launch_root / f"{agent_id}.json"
+        if not legacy.is_symlink():
+            legacy.unlink(missing_ok=True)
+
+
+def _restore_background_agent_terminal_state(
+    view: BackgroundAgentView,
+    *,
+    was_stopped: bool,
+) -> None:
+    text = f"{view.exit_code}\n" if view.exit_code is not None else ""
+    write_private_text_atomic(view.record.exit_code_path, text)
+    if was_stopped:
+        write_private_text(view.record.stopped_path, "stopped\n", exclusive=False)
 
 
 __all__ = [
@@ -242,5 +341,7 @@ __all__ = [
     "list_background_agents",
     "read_background_agent_logs",
     "remove_background_agent",
+    "respawn_background_agent",
+    "send_background_agent_message",
     "stop_background_agent",
 ]

@@ -12,6 +12,10 @@ def parse_process_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("background_agent_log", trimmed[21:].strip() or None)
     if trimmed == "/stop-background-agent" or trimmed.startswith("/stop-background-agent "):
         return make_local_command("stop_background_agent", trimmed[22:].strip() or None)
+    if trimmed == "/send-background-agent" or trimmed.startswith("/send-background-agent "):
+        return make_local_command("send_background_agent", trimmed[23:].strip() or None)
+    if trimmed == "/respawn-background-agent" or trimmed.startswith("/respawn-background-agent "):
+        return make_local_command("respawn_background_agent", trimmed[26:].strip() or None)
     if trimmed == "/remove-background-agent" or trimmed.startswith("/remove-background-agent "):
         return make_local_command("remove_background_agent", trimmed[24:].strip() or None)
     if trimmed == "/processes":

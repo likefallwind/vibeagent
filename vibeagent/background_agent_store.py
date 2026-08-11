@@ -97,7 +97,11 @@ def ensure_private_directory(path: Path) -> Path:
     return path
 
 
-def write_background_agent_record(record: BackgroundAgentRecord) -> None:
+def write_background_agent_record(
+    record: BackgroundAgentRecord,
+    *,
+    exclusive: bool = True,
+) -> None:
     path = background_agent_record_path(record.project_root, record.id)
     if path is None:
         raise ValueError(f"Invalid background agent id: {record.id}")
@@ -111,7 +115,10 @@ def write_background_agent_record(record: BackgroundAgentRecord) -> None:
         "exit_code_path": record.exit_code_path.relative_to(record.project_root).as_posix(),
         "stopped_path": record.stopped_path.relative_to(record.project_root).as_posix(),
     }
-    write_private_json(path, payload, exclusive=True)
+    if exclusive:
+        write_private_json(path, payload, exclusive=True)
+    else:
+        write_private_json_atomic(path, payload)
 
 
 def read_background_agent_record(
@@ -206,11 +213,28 @@ def open_private_log(path: Path):
     return os.fdopen(descriptor, "w", encoding="utf-8")
 
 
+def open_private_log_append(path: Path):
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f"Background agent log is not a regular file: {path}")
+    flags = os.O_WRONLY | os.O_APPEND
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags)
+    return os.fdopen(descriptor, "a", encoding="utf-8")
+
+
 def write_private_json(path: Path, payload: object, *, exclusive: bool) -> None:
     write_private_text(
         path,
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         exclusive=exclusive,
+    )
+
+
+def write_private_json_atomic(path: Path, payload: object) -> None:
+    write_private_text_atomic(
+        path,
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
     )
 
 
@@ -257,9 +281,11 @@ __all__ = [
     "get_background_agent",
     "list_background_agents",
     "open_private_log",
+    "open_private_log_append",
     "read_background_agent_exit_code",
     "write_background_agent_record",
     "write_private_json",
+    "write_private_json_atomic",
     "write_private_text",
     "write_private_text_atomic",
 ]

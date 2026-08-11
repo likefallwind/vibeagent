@@ -51,6 +51,28 @@ class CliBackgroundAgentTests(unittest.TestCase):
         launch.assert_called_once()
         self.assertEqual(launch.call_args.args[0], ["--bg", "fix", "tests"])
 
+    def test_internal_followup_arguments_fail_outside_registered_worker(self) -> None:
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            followup_exit = main(
+                [
+                    "--_background-agent-followup",
+                    "/tmp/not-a-worker-message.json",
+                    "task",
+                ]
+            )
+            token_exit = main(
+                [
+                    "--_background-agent-worker-token",
+                    "0" * 32,
+                    "task",
+                ]
+            )
+
+        self.assertEqual(followup_exit, 2)
+        self.assertEqual(token_exit, 2)
+        self.assertIn("outside its worker", stdout.getvalue())
+
     def test_launch_formats_management_commands_and_json_payload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
             root = Path(base).resolve()
@@ -69,6 +91,28 @@ class CliBackgroundAgentTests(unittest.TestCase):
         self.assertIn("--background-agent-log 0123456789ab", stdout.getvalue())
         self.assertIn("approvals", stdout.getvalue())
 
+    def test_background_resume_pins_followups_to_resolved_run_id(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
+            root = Path(base).resolve()
+            view = _view(root)
+            argv = ["--bg", "--cwd", root.as_posix(), "--resume", "latest", "continue"]
+            args = parse_args(argv)
+            with (
+                patch(
+                    "vibeagent.cli_background_agent_launch.get_resume_context",
+                    return_value=("resolved-run-id", "context", "resumed"),
+                ),
+                patch(
+                    "vibeagent.cli_background_agent_launch.launch_background_agent",
+                    return_value=view,
+                ) as launch,
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = launch_background_agent_from_cli(argv, args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(launch.call_args.kwargs["resume_reference"], "resolved-run-id")
+
     def test_local_list_log_stop_and_remove_reports(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
             root = Path(base).resolve()
@@ -79,6 +123,8 @@ class CliBackgroundAgentTests(unittest.TestCase):
                 "background_agent_log_max_chars": 20_000,
                 "stop_background_agent": None,
                 "remove_background_agent": None,
+                "send_background_agent": None,
+                "respawn_background_agent": None,
             }
             with patch(
                 "vibeagent.cli_background_agent_local_flags.list_background_agents",
@@ -126,6 +172,55 @@ class CliBackgroundAgentTests(unittest.TestCase):
                 )
             self.assertIn("ok: yes", text)
             self.assertTrue(payload["backgroundAgentRemoval"]["ok"])
+
+    def test_local_and_interactive_followup_commands_report_delivery(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
+            root = Path(base).resolve()
+            view = _view(root)
+            base_args = {
+                "background_agents": False,
+                "background_agent_log": None,
+                "background_agent_log_max_chars": 20_000,
+                "stop_background_agent": None,
+                "remove_background_agent": None,
+                "send_background_agent": [view.record.id, "continue"],
+                "respawn_background_agent": None,
+            }
+            with (
+                patch(
+                    "vibeagent.cli_background_agent_local_flags.send_background_agent_message",
+                    return_value=(view, "queued"),
+                ),
+                patch(
+                    "vibeagent.cli_background_agent_local_flags.pending_background_agent_message_count",
+                    return_value=1,
+                ),
+            ):
+                text, payload = run_background_agent_local_flag(
+                    argparse.Namespace(**base_args),
+                    root,
+                    {},
+                )
+            self.assertIn("delivery: queued", text)
+            self.assertEqual(payload["backgroundAgentDelivery"]["status"], "queued")
+
+            with (
+                patch(
+                    "vibeagent.cli_background_agent_local_flags.respawn_background_agent",
+                    return_value=(view, "respawned"),
+                ),
+                patch(
+                    "vibeagent.cli_background_agent_local_flags.pending_background_agent_message_count",
+                    return_value=0,
+                ),
+            ):
+                text = run_interactive_background_agent_command(
+                    LocalCommand(
+                        type="respawn_background_agent",
+                        argument=view.record.id,
+                    )
+                )
+            self.assertIn("delivery: respawned", text or "")
 
     def test_interactive_commands_validate_arguments_and_delegate(self) -> None:
         self.assertEqual(

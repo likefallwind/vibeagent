@@ -11,6 +11,8 @@ class CommandProcessParsingTests(unittest.TestCase):
             "/background-agents": LocalCommand(type="background_agents"),
             "/background-agent-log abc123": LocalCommand(type="background_agent_log", argument="abc123"),
             "/stop-background-agent abc123": LocalCommand(type="stop_background_agent", argument="abc123"),
+            "/send-background-agent abc123 continue": LocalCommand(type="send_background_agent", argument="abc123 continue"),
+            "/respawn-background-agent abc123": LocalCommand(type="respawn_background_agent", argument="abc123"),
             "/remove-background-agent abc123": LocalCommand(type="remove_background_agent", argument="abc123"),
             "/processes": LocalCommand(type="processes"),
             "/process bg-1": LocalCommand(type="process", argument="bg-1"),

@@ -173,6 +173,8 @@ def get_help_text() -> str:
             "  /background-agents  List project-local background coding agents.",
             "  /background-agent-log <id> [max-chars]  Show bounded output from one background coding agent.",
             "  /stop-background-agent <id>  Stop one running background coding agent.",
+            "  /send-background-agent <id> <message>  Queue a follow-up and respawn the agent if needed.",
+            "  /respawn-background-agent <id>  Restart an agent from its recorded session.",
             "  /remove-background-agent <id>  Remove one non-running agent entry and logs while preserving its session.",
             "  /processes Show VibeAgent-started background processes.",
             "  /process <id> [chars] Show captured stdout and stderr for one background process.",

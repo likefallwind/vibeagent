@@ -12,8 +12,10 @@ from contextlib import redirect_stdout
 from unittest.mock import Mock, patch
 
 from vibeagent import background_agent_runtime as runtime
+from vibeagent import background_agent_process as process_runtime
 from vibeagent import background_agent_store as store
 from vibeagent.background_agent_worker import run_worker
+from vibeagent.background_agent_inbox import pending_background_agent_message_count
 
 
 class BackgroundAgentRuntimeTests(unittest.TestCase):
@@ -35,37 +37,53 @@ class BackgroundAgentRuntimeTests(unittest.TestCase):
                     task_summary="inspect",
                     session_name=None,
                 )
+                self._wait_for_exit(root, view)
+                first_failed, first_stdout, _ = runtime.read_background_agent_logs(
+                    root,
+                    view.record.id,
+                )
+                respawned, disposition = runtime.send_background_agent_message(
+                    root,
+                    view.record.id,
+                    "continue after the provider configuration is repaired",
+                )
+                assert respawned is not None
+                self._wait_for_exit(root, respawned)
 
-            deadline = time.monotonic() + 5.0
-            while (
-                store.read_background_agent_exit_code(view.record.exit_code_path) is None
-                and time.monotonic() < deadline
-            ):
-                time.sleep(0.02)
-
-            if store.read_background_agent_exit_code(view.record.exit_code_path) is None:
-                runtime.stop_background_agent(root, view.record.id)
-                self.fail("Detached worker did not record an exit status")
-
-            failed, stdout, stderr = runtime.read_background_agent_logs(
-                root,
-                view.record.id,
-            )
+            failed, stdout, stderr = runtime.read_background_agent_logs(root, view.record.id)
+            pending_messages = pending_background_agent_message_count(root, view.record.id)
             removed, _ = runtime.remove_background_agent(root, view.record.id)
 
+        assert first_failed is not None
         assert failed is not None
+        self.assertEqual(first_failed.status, "failed")
+        self.assertIn("Missing MiniMax API key", first_stdout)
+        self.assertEqual(disposition, "respawned")
+        self.assertEqual(respawned.record.id, view.record.id)
         self.assertEqual(failed.status, "failed")
         self.assertEqual(failed.exit_code, 1)
         self.assertIn("Missing MiniMax API key", stdout)
         self.assertEqual(stderr, "")
+        self.assertEqual(pending_messages, 0)
         self.assertTrue(removed)
+
+    def _wait_for_exit(self, root: Path, view) -> None:
+        deadline = time.monotonic() + 5.0
+        while (
+            store.read_background_agent_exit_code(view.record.exit_code_path) is None
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.02)
+        if store.read_background_agent_exit_code(view.record.exit_code_path) is None:
+            runtime.stop_background_agent(root, view.record.id)
+            self.fail("Detached worker did not record an exit status")
 
     def test_launch_persists_private_record_and_consumable_payload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-background-agent-") as base:
             root = Path(base).resolve()
             process = Mock(pid=os.getpid())
             with (
-                patch.object(runtime.subprocess, "Popen", return_value=process) as popen,
+                patch.object(process_runtime.subprocess, "Popen", return_value=process) as popen,
                 patch.object(runtime, "read_process_start_ticks", return_value=77),
                 patch.object(store, "persistent_process_running", return_value=True),
             ):
@@ -84,12 +102,15 @@ class BackgroundAgentRuntimeTests(unittest.TestCase):
             self.assertEqual(view.record.start_ticks, 77)
             self.assertEqual(view.record.session_name, f"background-{view.record.id}")
             command = popen.call_args.args[0]
-            self.assertEqual(command[0:3], [runtime.sys.executable, "-m", "vibeagent.background_agent_worker"])
+            self.assertEqual(
+                command[0:3],
+                [process_runtime.sys.executable, "-m", "vibeagent.background_agent_worker"],
+            )
             payload_path = Path(command[3])
             payload = json.loads(payload_path.read_text(encoding="utf-8"))
-            self.assertNotIn("--bg", payload["argv"])
-            self.assertIn("--print", payload["argv"])
-            self.assertIn("--name", payload["argv"])
+            self.assertNotIn("--bg", payload["initialArgv"])
+            self.assertIn("--print", payload["initialArgv"])
+            self.assertIn("--name", payload["initialArgv"])
             for path in (
                 payload_path,
                 view.record.stdout_path,
@@ -105,7 +126,7 @@ class BackgroundAgentRuntimeTests(unittest.TestCase):
             root = Path(base).resolve()
             process = Mock(pid=12345)
             with (
-                patch.object(runtime.subprocess, "Popen", return_value=process),
+                patch.object(process_runtime.subprocess, "Popen", return_value=process),
                 patch.object(runtime, "read_process_start_ticks", return_value=77),
                 patch.object(store, "persistent_process_running", return_value=True),
             ):
@@ -141,7 +162,7 @@ class BackgroundAgentRuntimeTests(unittest.TestCase):
             process = Mock(pid=12345)
             running = [True, True, False]
             with (
-                patch.object(runtime.subprocess, "Popen", return_value=process),
+                patch.object(process_runtime.subprocess, "Popen", return_value=process),
                 patch.object(runtime, "read_process_start_ticks", return_value=77),
                 patch.object(store, "persistent_process_running", side_effect=lambda _record: running.pop(0)),
                 patch.object(runtime, "terminate_persistent_process") as terminate,

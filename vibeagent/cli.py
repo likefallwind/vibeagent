@@ -39,6 +39,10 @@ from .cli_output import (
 from .cli_checkpoint_local_flags import run_checkpoint_local_flag
 from .cli_background_agent_local_flags import run_background_agent_local_flag
 from .cli_background_agent_launch import launch_background_agent_from_cli
+from .cli_background_agent_followup import (
+    prepare_background_agent_followup,
+    record_background_agent_session_root,
+)
 from .cli_code_intel_local_flags import run_code_intel_local_flag, run_python_local_flag
 from .cli_command_local_flags import run_command_local_flag
 from .cli_edit_local_flags import run_edit_local_flag
@@ -148,6 +152,15 @@ from .model_effort import resolve_model_effort_setting
 def main(argv: Sequence[str] | None = None) -> int:
     if argv is not None:
         args = parse_args(argv)
+        try:
+            prepare_background_agent_followup(args)
+        except (OSError, ValueError) as error:
+            return print_error_result(
+                format_error(error),
+                args.json,
+                exit_code=2,
+                output_format=args.output_format,
+            )
         validation_error = validate_cli_args(args)
         if validation_error is not None:
             return print_error_result(validation_error, args.json, exit_code=2, output_format=args.output_format)
@@ -185,6 +198,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             except ValueError as error:
                 return print_error_result(str(error), args.json, exit_code=2, output_format=args.output_format)
             args.cwd = str(worktree.root)
+        if getattr(args, "_background_agent_worker_token", None) is not None:
+            try:
+                record_background_agent_session_root(
+                    args,
+                    resolve_project_root(args.cwd) or Path.cwd(),
+                )
+            except (OSError, ValueError) as error:
+                return print_error_result(
+                    format_error(error),
+                    args.json,
+                    exit_code=2,
+                    output_format=args.output_format,
+                )
         if has_local_flag(args):
             if args.task:
                 return print_error_result(

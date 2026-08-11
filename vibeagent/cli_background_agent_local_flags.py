@@ -5,11 +5,14 @@ from pathlib import Path
 import shlex
 from typing import Any
 
+from .background_agent_inbox import pending_background_agent_message_count
 from .background_agent_runtime import (
     background_agent_view_payload,
     list_background_agents,
     read_background_agent_logs,
     remove_background_agent,
+    respawn_background_agent,
+    send_background_agent_message,
     stop_background_agent,
 )
 
@@ -50,6 +53,23 @@ def run_background_agent_local_flag(
             f"  exitCode: {view.exit_code if view.exit_code is not None else '.'}"
         )
         return text, {"backgroundAgent": background_agent_view_payload(view)}
+    if getattr(args, "send_background_agent", None) is not None:
+        agent_id, message = args.send_background_agent
+        view, disposition = send_background_agent_message(root, agent_id, message)
+        if view is None:
+            return _not_found(agent_id)
+        return _format_background_agent_delivery(view, disposition), {
+            "backgroundAgent": background_agent_view_payload(view),
+            "backgroundAgentDelivery": {"status": disposition},
+        }
+    if getattr(args, "respawn_background_agent", None) is not None:
+        view, disposition = respawn_background_agent(root, args.respawn_background_agent)
+        if view is None:
+            return _not_found(args.respawn_background_agent)
+        return _format_background_agent_delivery(view, disposition), {
+            "backgroundAgent": background_agent_view_payload(view),
+            "backgroundAgentRespawn": {"status": disposition},
+        }
     if args.remove_background_agent is not None:
         removed, message = remove_background_agent(root, args.remove_background_agent)
         return (
@@ -93,6 +113,44 @@ def run_interactive_background_agent_command(command: Any) -> str | None:
             f"  status: {view.status}\n"
             f"  exitCode: {view.exit_code if view.exit_code is not None else '.'}"
         )
+    if command.type == "send_background_agent":
+        parts, error = _parse_argument(
+            command.argument,
+            "Usage: /send-background-agent <id> <message>",
+            minimum=2,
+            maximum=None,
+        )
+        if error:
+            return error
+        try:
+            view, disposition = send_background_agent_message(
+                root,
+                parts[0],
+                " ".join(parts[1:]),
+            )
+        except (OSError, ValueError) as operation_error:
+            return f"Background agent message failed: {operation_error}"
+        return (
+            _not_found(parts[0])[0]
+            if view is None
+            else _format_background_agent_delivery(view, disposition)
+        )
+    if command.type == "respawn_background_agent":
+        parts, error = _parse_argument(
+            command.argument,
+            "Usage: /respawn-background-agent <id>",
+        )
+        if error:
+            return error
+        try:
+            view, disposition = respawn_background_agent(root, parts[0])
+        except (OSError, ValueError) as operation_error:
+            return f"Background agent respawn failed: {operation_error}"
+        return (
+            _not_found(parts[0])[0]
+            if view is None
+            else _format_background_agent_delivery(view, disposition)
+        )
     if command.type == "remove_background_agent":
         parts, error = _parse_argument(
             command.argument,
@@ -109,9 +167,11 @@ def _format_background_agents(views) -> str:
     lines = ["Background agents:", f"  count: {len(views)}"]
     for view in views:
         record = view.record
+        pending = pending_background_agent_message_count(record.project_root, record.id)
         lines.append(
             f"  - {record.id}: status={view.status}; pid={record.pid}; "
-            f"session={record.session_name or '.'}; task={record.task_summary or '.'}"
+            f"pending={pending}; session={record.session_name or '.'}; "
+            f"task={record.task_summary or '.'}"
         )
     return "\n".join(lines)
 
@@ -124,10 +184,24 @@ def _format_background_agent_log(view, stdout: str, stderr: str) -> str:
             f"  status: {view.status}",
             f"  exitCode: {view.exit_code if view.exit_code is not None else '.'}",
             f"  session: {record.session_name or '.'}",
+            "  pendingMessages: "
+            f"{pending_background_agent_message_count(record.project_root, record.id)}",
             "  stdout:",
             stdout.rstrip() or "    (empty)",
             "  stderr:",
             stderr.rstrip() or "    (empty)",
+        ]
+    )
+
+
+def _format_background_agent_delivery(view, disposition: str) -> str:
+    return "\n".join(
+        [
+            f"Background agent {view.record.id}:",
+            f"  delivery: {disposition}",
+            f"  status: {view.status}",
+            "  pendingMessages: "
+            f"{pending_background_agent_message_count(view.record.project_root, view.record.id)}",
         ]
     )
 
@@ -141,7 +215,8 @@ def _parse_argument(
     argument: str | None,
     usage: str,
     *,
-    maximum: int = 1,
+    minimum: int = 1,
+    maximum: int | None = 1,
 ) -> tuple[list[str], str | None]:
     if not argument:
         return [], usage
@@ -149,7 +224,7 @@ def _parse_argument(
         parts = shlex.split(argument)
     except ValueError:
         return [], usage
-    if not 1 <= len(parts) <= maximum:
+    if len(parts) < minimum or (maximum is not None and len(parts) > maximum):
         return [], usage
     return parts, None
 

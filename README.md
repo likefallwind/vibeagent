@@ -221,6 +221,8 @@ python -m vibeagent --bg --approval auto --cwd ../my-project "run the tests and 
 python -m vibeagent --background-agents --cwd ../my-project
 python -m vibeagent --background-agent-log <agent-id> --cwd ../my-project
 python -m vibeagent --stop-background-agent <agent-id> --cwd ../my-project
+python -m vibeagent --send-background-agent <agent-id> "continue with the focused tests" --cwd ../my-project
+python -m vibeagent --respawn-background-agent <agent-id> --cwd ../my-project
 python -m vibeagent --remove-background-agent <agent-id> --cwd ../my-project
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib "update both codebases"
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib --add-dir ../schemas
@@ -245,10 +247,14 @@ printf "summarize the project risks\n" | python -m vibeagent -
 `--background` / `--bg` detaches one persistent, one-shot coding session and
 returns a project-local agent ID immediately. Management commands and the
 matching interactive slash commands list agents, read bounded stdout/stderr,
-stop a running process group, or remove its supervisor record and logs. Removal
-preserves the normal session transcript, so a generated name such as
-`background-<agent-id>` remains resumable. This is autonomous background
-execution, not an interactive terminal attachment.
+queue a follow-up message, respawn a running or stopped worker, stop a running process
+group, or remove its supervisor record and logs. Follow-ups retain the same
+agent ID and resume the same transcript; a message sent while the worker is
+active runs as the next turn, while a message sent after exit respawns the
+worker automatically. Removal preserves the normal session transcript, so a
+generated name such as `background-<agent-id>` remains resumable. This is
+autonomous background execution with reply/respawn support, not an interactive
+terminal attachment or approval UI.
 
 Background sessions cannot answer approval prompts because their stdin is
 closed; use an explicit non-interactive approval policy or trusted project
@@ -257,8 +263,11 @@ background launch; provide credentials through the provider environment
 instead. Launch records and logs live under
 `.vibeagent/background-agents/`: directories use owner-only permissions, files
 use owner read/write permissions, and the private launch payload is deleted by
-the worker before the task runs. Status uses both the PID start time and a
-durable exit marker to avoid mistaking PID reuse or a reaped process for a
+the worker before the task runs. A private bounded config preserves the original
+API-key-free CLI options for later turns, an atomic FIFO inbox stores pending
+messages, and a per-agent worker token prevents inherited environment variables
+from authorizing nested CLI processes. Status uses both the PID start time and
+a durable exit marker to avoid mistaking PID reuse or a reaped process for a
 running agent.
 
 Coding prompts accept Claude-style `@path` file references. Unquoted paths end
@@ -1201,6 +1210,8 @@ source snippets, `/find-files [--path PATH] [--max-matches N] [--regex] [--case-
 `/background-agents` to list project-local background coding sessions,
 `/background-agent-log <id> [max-chars]` to read bounded output from one session,
 `/stop-background-agent <id>` to stop one running background coding session,
+`/send-background-agent <id> <message>` to queue a same-session follow-up and respawn the worker if needed,
+`/respawn-background-agent <id>` to restart a running or stopped worker from its recorded session,
 `/remove-background-agent <id>` to remove one non-running supervisor entry and its logs while preserving the resumable session,
 `/processes` to inspect VibeAgent-started background processes,
 `/process <id> [chars]` to inspect captured stdout and stderr for one background process,
@@ -2297,15 +2308,19 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   plugin-update, workflow, monitor, async-hook, and optional LSP cleanup for the
   interactive loop. It provides one idempotent shutdown boundary for exit and
   `/cd` project transitions.
-- `vibeagent/background_agent_types.py` and
-  `vibeagent/background_agent_store.py`: define the detached coding-session
-  records and validate their private project-local registry, logs, exit
-  markers, process identity, and bounded status views.
+- `vibeagent/background_agent_types.py`,
+  `vibeagent/background_agent_store.py`, and
+  `vibeagent/background_agent_config.py`: define detached coding-session
+  records and validate their private project-local registry, continuation
+  config, logs, exit markers, process identity, and bounded status views.
+- `vibeagent/background_agent_inbox.py` and
+  `vibeagent/background_agent_lock.py`: provide ordered atomic follow-up
+  messages and serialize worker exit against concurrent send/respawn requests.
 - `vibeagent/background_agent_runtime.py` and
-  `vibeagent/background_agent_worker.py`: launch a detached copy of the normal
-  one-shot CLI, consume its private payload, record completion, and implement
-  list, log, stop, and remove lifecycle operations without duplicating the
-  coding loop.
+  `vibeagent/background_agent_worker.py`: launch or respawn a detached copy of
+  the normal one-shot CLI, consume private payloads, continue the same session
+  for queued turns, record completion, and implement the management lifecycle
+  without duplicating the coding loop.
 - `vibeagent/btw.py`: renders a bounded read-only view of the current coding or
   chat conversation, omits binary payloads, and asks one provider question
   without tools or any history/session persistence.
