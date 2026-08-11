@@ -6,6 +6,8 @@ from uuid import uuid4
 
 from .workspace_core import RunWorkspace
 from .workspace_git_utils import combine_git_output, run_git_mutation, run_readonly_git
+from .worktree_cleanup import remove_created_worktree
+from .worktree_include import copy_worktree_includes
 
 
 WORKTREE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$")
@@ -79,7 +81,16 @@ def enter_git_worktree(
         return _enter_failure(workspace, combine_git_output(result) or "git worktree add failed.")
     project_root = (target / relative_root).resolve()
     if not project_root.is_dir():
+        remove_created_worktree(main_top, target, branch)
         return _enter_failure(workspace, f"Created worktree is missing project subdirectory: {project_root}")
+    try:
+        copy_worktree_includes(workspace.root, project_root)
+    except ValueError as error:
+        remove_created_worktree(main_top, target, branch)
+        return _enter_failure(
+            workspace,
+            f"Could not apply .worktreeinclude: {error}",
+        )
     return {
         "ok": True,
         "path": str(project_root),

@@ -1204,7 +1204,10 @@ For tasks that explicitly need an isolated checkout, the model can call the
 Claude-compatible `EnterWorktree` tool after approval. VibeAgent creates a
 linked checkout under `.vibeagent/worktrees/<name>/` on a new
 `vibeagent/<name>` branch, or switches to an existing registered worktree from
-the same repository. Every subsequent file, command, and Git tool uses that
+the same repository. Newly created Git worktrees use the same bounded,
+symlink-safe `.worktreeinclude` setup as CLI and isolated-subagent worktrees;
+setup failures remove the new worktree and branch before the tool returns.
+Every subsequent file, command, and Git tool uses that
 worktree as its project root while the original session log remains intact.
 `ExitWorktree` returns execution to the main checkout but preserves the linked
 worktree, branch, commits, and uncommitted changes for explicit review or

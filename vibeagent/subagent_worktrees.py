@@ -10,7 +10,6 @@ from .workspace_git_utils import combine_git_output, run_git_mutation, run_reado
 from .workspace_git_worktree_ops import enter_git_worktree
 from .worktree_hooks import WorktreeHookContext, run_worktree_create_hook, run_worktree_remove_hooks
 from .worktree_cleanup import remove_created_worktree
-from .worktree_include import copy_worktree_includes
 
 
 class SubagentWorktreeError(ValueError):
@@ -82,13 +81,6 @@ def prepare_subagent_worktree(
         if not worktree_top.is_relative_to(storage_root):
             _remove_created_worktree(main_top, worktree_top, str(entered["branch"]))
             raise SubagentWorktreeError("Created subagent worktree is outside managed worktree storage.")
-        try:
-            copy_worktree_includes(workspace.root, project_path)
-        except ValueError as error:
-            _remove_created_worktree(main_top, worktree_top, str(entered["branch"]))
-            raise SubagentWorktreeError(
-                f"Could not apply .worktreeinclude: {error}"
-            ) from error
         record = SubagentWorktreeRecord(
             project_path=str(project_path),
             worktree_path=str(worktree_top),

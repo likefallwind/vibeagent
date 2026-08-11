@@ -10,7 +10,6 @@ from .workspace_core import RunWorkspace
 from .workspace_git_utils import run_readonly_git
 from .workspace_git_worktree_ops import enter_git_worktree
 from .worktree_cleanup import remove_created_worktree
-from .worktree_include import copy_worktree_includes
 from .worktree_hooks import WorktreeHookContext, run_worktree_create_hook
 
 
@@ -53,8 +52,6 @@ def create_cli_worktree(
         raise ValueError(str(result["message"]))
     root = Path(str(result["path"])).resolve()
     try:
-        if not hooked.configured:
-            copy_worktree_includes(source_root, root)
         _write_safe_project_config(root, safe_config)
     except (OSError, ValueError) as error:
         if not hooked.configured and bool(result.get("created")):

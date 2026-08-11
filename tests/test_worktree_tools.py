@@ -89,6 +89,63 @@ class WorktreeToolTests(unittest.TestCase):
             self.assertEqual(Path(exited.preserved_worktree), linked_root)
             self.assertTrue(linked_root.is_dir())
 
+    def test_create_copies_gitignored_worktree_include_files(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-worktree-") as base:
+            root = Path(base)
+            init_git_repo(root)
+            root.joinpath(".gitignore").write_text(".env\n.vibeagent/\n", encoding="utf-8")
+            root.joinpath(".worktreeinclude").write_text(".env\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "add", ".gitignore", ".worktreeinclude"],
+                cwd=root,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-qm", "configure worktree include"],
+                cwd=root,
+                check=True,
+            )
+            root.joinpath(".env").write_text("TOOL_LOCAL=1\n", encoding="utf-8")
+            workspace = create_run_workspace(root, "run-1")
+
+            entered = execute_action(
+                workspace,
+                parse_tool_action("EnterWorktree", {"name": "with-env"}),
+            )
+
+            self.assertTrue(entered.ok)
+            self.assertEqual(
+                Path(entered.path).joinpath(".env").read_text(encoding="utf-8"),
+                "TOOL_LOCAL=1\n",
+            )
+
+    def test_invalid_worktree_include_fails_without_leaving_worktree_or_branch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-worktree-") as base:
+            root = Path(base)
+            init_git_repo(root)
+            root.joinpath("include.txt").write_text(".env\n", encoding="utf-8")
+            root.joinpath(".worktreeinclude").symlink_to("include.txt")
+            workspace = create_run_workspace(root, "run-1")
+
+            entered = execute_action(
+                workspace,
+                parse_tool_action("EnterWorktree", {"name": "bad-include"}),
+            )
+            branches = subprocess.run(
+                ["git", "branch", "--format=%(refname:short)"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.splitlines()
+
+            self.assertFalse(entered.ok)
+            self.assertIn("regular non-symlink", entered.message)
+            self.assertFalse(
+                root.joinpath(".vibeagent", "worktrees", "bad-include").exists()
+            )
+            self.assertNotIn("vibeagent/bad-include", branches)
+
     def test_enter_existing_registered_worktree_and_reject_unregistered_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-worktree-") as base:
             root = Path(base)
