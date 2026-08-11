@@ -48,8 +48,14 @@ def _write_agent(
     return path
 
 
-def _write_skill(root: Path, name: str, body: str) -> Path:
-    path = root / ".claude/skills" / name / "SKILL.md"
+def _write_skill(
+    root: Path,
+    name: str,
+    body: str,
+    *,
+    base: str = ".claude/skills",
+) -> Path:
+    path = root / base / name / "SKILL.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         f"---\nname: {name}\ndescription: {name} instructions\n---\n\n{body}\n",
@@ -72,6 +78,31 @@ class ProfileClient:
 
 
 class ProjectAgentProfileTests(IsolatedUserHomeTestCase):
+    def test_profile_accepts_directory_qualified_nested_skill(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            _write_skill(
+                root,
+                "web-guidance",
+                "NESTED_WEB_GUIDANCE",
+                base="apps/web/.claude/skills",
+            )
+            _write_agent(
+                root,
+                ".claude/agents",
+                "web-reviewer",
+                "Reviews the web package",
+                "REVIEW_WEB",
+                skills="apps/web:web-guidance",
+            )
+            workspace = create_run_workspace(root, "nested-profile-skill")
+
+            catalog = read_project_agents(workspace)
+            loaded = read_project_agent(workspace, "web-reviewer")
+
+        self.assertTrue(catalog["agents"][0]["available"])
+        self.assertEqual(loaded["skills"], ["apps/web:web-guidance"])
+
     def test_catalog_exposes_metadata_but_loads_prompt_only_on_demand(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
             root = Path(base)

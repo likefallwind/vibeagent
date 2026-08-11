@@ -26,8 +26,8 @@ class BuiltinRunSkillGeneratorTests(unittest.TestCase):
         self.assertIn('Application or package hint: "web app"', workflow.task)
         self.assertIn("call ask_user", workflow.task)
         self.assertIn(".claude/skills/<name>/SKILL.md", workflow.task)
-        self.assertIn("at the repository root", workflow.task)
-        self.assertIn("encode a monorepo package", workflow.task)
+        self.assertIn("<package>/.claude/skills/<name>/SKILL.md", workflow.task)
+        self.assertIn("<package>:<name>", workflow.task)
         self.assertIn("do not reuse a pre-existing app process", workflow.task)
         self.assertIn("Every build, launch, readiness, drive, and cleanup command", workflow.task)
         self.assertIn("check_stop_process before stop_process", workflow.task)
@@ -75,7 +75,7 @@ class BuiltinRunSkillGeneratorTests(unittest.TestCase):
                 blocking_message=None,
             )
             runtime = ConfigChangeHookRuntime(workspace, lifecycle)
-            skill_path = root / ".claude/skills/run-api/SKILL.md"
+            skill_path = root / "apps/api/.claude/skills/run-api/SKILL.md"
             skill_path.parent.mkdir(parents=True)
             skill_path.write_text(
                 "---\n"
@@ -89,11 +89,11 @@ class BuiltinRunSkillGeneratorTests(unittest.TestCase):
             self.assertEqual(read_project_skills(workspace)["skills"], [])
             changed = runtime.poll(iteration=1)
             catalog = read_project_skills(workspace)
-            loaded = read_project_skill(workspace, "run-api")
+            loaded = read_project_skill(workspace, "apps/api:run-api")
 
         self.assertEqual(len(changed.events), 1)
         self.assertFalse(changed.events[0].blocked)
-        self.assertEqual([item["name"] for item in catalog["skills"]], ["run-api"])
+        self.assertEqual([item["name"] for item in catalog["skills"]], ["apps/api:run-api"])
         self.assertIn("Run the validated API recipe.", loaded["content"])
         lifecycle.config_change.assert_called_once()
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from .nested_skill_discovery import discover_nested_skill_locations
 from .plugin_runtime import (
     PluginComponentFile,
     enabled_plugin_component_files,
@@ -18,12 +19,14 @@ from .workspace_metadata_files import (
     parse_scalar_frontmatter,
     read_regular_file_bytes,
 )
-from .session_config_state import effective_skill_root
+from .session_config_state import effective_nested_skill_root, effective_skill_root
 
 
 SKILL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+SKILL_SCOPE_SEGMENT = r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
 SKILL_REFERENCE_PATTERN = re.compile(
-    r"^(?:[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9]):)?[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    rf"^(?:(?:{SKILL_SCOPE_SEGMENT})(?:/{SKILL_SCOPE_SEGMENT}){{0,7}}:)?"
+    rf"{SKILL_SCOPE_SEGMENT}$"
 )
 MAX_SKILL_FILE_BYTES = 256_000
 MAX_SKILL_SCAN = 1_000
@@ -47,11 +50,14 @@ def read_project_skills(workspace: RunWorkspace, max_skills: int = 100) -> dict[
 def read_project_skill(workspace: RunWorkspace, name: str, max_bytes: int = 20_000) -> dict[str, object]:
     normalized = name.strip()
     if not SKILL_REFERENCE_PATTERN.fullmatch(normalized):
-        raise ValueError("skill name must use a valid optional plugin namespace and 1-64 character name.")
+        raise ValueError(
+            "skill name must use a valid optional plugin or directory namespace and 1-64 character name."
+        )
     if max_bytes < 200 or max_bytes > 50_000:
         raise ValueError("max_bytes must be between 200 and 50000.")
 
-    matches = [skill for skill in _discover_project_skills(workspace) if skill["name"] == normalized]
+    discovered = _discover_project_skills(workspace)
+    matches = [skill for skill in discovered if skill["name"] == normalized]
     if not matches:
         raise ValueError(f"Custom skill not found: {normalized}.")
     available = [skill for skill in matches if skill["available"]]
@@ -68,6 +74,7 @@ def read_project_skill(workspace: RunWorkspace, name: str, max_bytes: int = 20_0
         enforce_directory_name=not str(skill["source"]).startswith("plugin:"),
     )
     content = raw[:max_bytes].decode("utf-8", errors="ignore")
+    appended_truncated = False
     if str(skill["source"]).startswith("plugin:"):
         plugin = str(skill["source"]).removeprefix("plugin:")
         manifest = read_installed_plugin_manifest(
@@ -79,7 +86,24 @@ def read_project_skill(workspace: RunWorkspace, name: str, max_bytes: int = 20_0
             PluginComponentFile(plugin, "skill", path, manifest.root),
             workspace,
         )
-    truncated = len(raw) > max_bytes
+    elif ":" not in normalized:
+        variants = [
+            item
+            for item in discovered
+            if str(item.get("name", "")).rsplit(":", 1)[-1] == normalized
+            and item.get("source") == "nested_claude"
+            and item.get("available")
+        ]
+        if variants:
+            names = ", ".join(str(item["name"]) for item in variants)
+            combined = content + (
+                "\n\nDirectory-qualified variants are available: "
+                f"{names}. Load each variant whose scope contains the files being worked on."
+            )
+            encoded = combined.encode("utf-8")
+            appended_truncated = len(encoded) > max_bytes
+            content = encoded[:max_bytes].decode("utf-8", errors="ignore")
+    truncated = len(raw) > max_bytes or appended_truncated
     return {
         **skill,
         "description": description,
@@ -146,6 +170,32 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
                 }
             )
 
+    nested_root = effective_nested_skill_root(workspace)
+    nested_boundary = workspace.session_dir if nested_root != workspace.root else workspace.root
+    locations, _ = discover_nested_skill_locations(nested_root, max_skills=MAX_SKILL_SCAN)
+    for location in locations:
+        local_name = location.path.parent.name
+        if not SKILL_NAME_PATTERN.fullmatch(local_name):
+            continue
+        qualified_name = f"{location.scope.as_posix()}:{local_name}"
+        relative_path = location.path.relative_to(nested_root).as_posix()
+        if not SKILL_REFERENCE_PATTERN.fullmatch(qualified_name):
+            available = False
+            description = ""
+            message = "Nested skill scope is invalid or exceeds the supported depth."
+        else:
+            available, description, message = _inspect_skill_file(nested_boundary, location.path)
+        discovered.append(
+            {
+                "name": qualified_name,
+                "description": description,
+                "path": relative_path,
+                "source": "nested_claude",
+                "available": available,
+                "message": message,
+            }
+        )
+
     for component in enabled_plugin_component_files(workspace, "skill"):
         path = component.path
         relative_path = plugin_component_path_reference(workspace.root, path)
@@ -193,6 +243,8 @@ def _effective_skill_path(workspace: RunWorkspace, skill: dict[str, object]) -> 
         return effective_skill_root(workspace, user=True) / str(skill["name"]) / "SKILL.md"
     if source == "claude":
         return effective_skill_root(workspace, user=False) / str(skill["name"]) / "SKILL.md"
+    if source == "nested_claude":
+        return effective_nested_skill_root(workspace) / str(skill["path"])
     return workspace.root / str(skill["path"])
 
 
@@ -202,12 +254,13 @@ def _skill_boundary(
     root: Path,
     source: str,
 ) -> Path:
-    physical_root = (
-        home / ".claude/skills"
-        if source == "user"
-        else workspace.root / f".{source}/skills"
-    )
-    if source in {"user", "claude"} and root != physical_root:
+    if source == "user":
+        physical_root = home / ".claude/skills"
+    elif source == "nested_claude":
+        physical_root = workspace.root
+    else:
+        physical_root = workspace.root / f".{source}/skills"
+    if source in {"user", "claude", "nested_claude"} and root != physical_root:
         return workspace.session_dir
     return home if source == "user" else workspace.root
 
@@ -215,7 +268,7 @@ def _skill_boundary(
 def _skill_source_priority(source: str) -> int:
     if source == "user":
         return 1
-    if source in {"claude", "agents"}:
+    if source in {"claude", "agents", "nested_claude"}:
         return 2
     return 3
 

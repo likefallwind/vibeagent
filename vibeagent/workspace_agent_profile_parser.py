@@ -24,7 +24,7 @@ from .workspace_agent_profile_extended_fields import (
     parse_permission_mode,
 )
 from .workspace_metadata_files import unquote_scalar
-from .workspace_skills import SKILL_NAME_PATTERN
+from .workspace_skills import SKILL_REFERENCE_PATTERN
 
 
 AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -194,7 +194,7 @@ def _parse_skill_names(value: object) -> tuple[str, ...]:
     normalized: list[str] = []
     for name in names:
         skill_name = name.strip()
-        if not SKILL_NAME_PATTERN.fullmatch(skill_name):
+        if not SKILL_REFERENCE_PATTERN.fullmatch(skill_name):
             raise ValueError(f"Agent profile skill name is invalid: {name}")
         if skill_name not in normalized:
             normalized.append(skill_name)

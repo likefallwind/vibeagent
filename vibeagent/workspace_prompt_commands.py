@@ -21,7 +21,12 @@ from .workspace_skills import discover_project_skill_metadata, read_project_skil
 
 COMMAND_ROOTS = ((".claude/commands", "claude"), (".agents/commands", "agents"))
 COMMAND_SEGMENT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
-COMMAND_INVOCATION_PATTERN = re.compile(r"^/([A-Za-z0-9][A-Za-z0-9._-]*(?::[A-Za-z0-9][A-Za-z0-9._-]*){0,3})(?:\s+(.*))?$")
+COMMAND_SEGMENT = r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
+COMMAND_INVOCATION_PATTERN = re.compile(
+    rf"^/((?:{COMMAND_SEGMENT})(?::(?:{COMMAND_SEGMENT})){{0,3}}|"
+    rf"(?:{COMMAND_SEGMENT})(?:/(?:{COMMAND_SEGMENT})){{1,7}}:(?:{COMMAND_SEGMENT}))"
+    rf"(?:\s+(.*))?$"
+)
 POSITIONAL_ARGUMENT_PATTERN = re.compile(r"\$(?:\{([1-9])\}|([1-9])(?![0-9]))")
 MAX_COMMAND_FILE_BYTES = 64_000
 MAX_COMMAND_SCAN = 1_000

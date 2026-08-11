@@ -8,6 +8,7 @@ from vibeagent.agent_tool_registry import initial_agent_tool_names
 from vibeagent.prompts import build_messages, format_observations
 from vibeagent.types import ProjectOverviewAction, ProjectSkillsAction, SkillAction, ToolSearchAction
 from vibeagent.workspace import create_run_workspace, format_project_skill_catalog, read_project_skill, read_project_skills
+from vibeagent.workspace_prompt_commands import expand_project_prompt_command
 
 
 def _write_skill(root: Path, base: str, name: str, description: str, body: str) -> Path:
@@ -49,6 +50,78 @@ class ProjectSkillWorkspaceTests(IsolatedUserHomeTestCase):
         self.assertEqual(catalog["total"], 2)
         self.assertEqual(catalog["invalid"], 2)
         self.assertTrue(all(not item["available"] for item in catalog["skills"]))
+
+    def test_discovers_and_loads_directory_qualified_nested_skills(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-skills-") as base:
+            root = Path(base)
+            _write_skill(root, ".claude/skills", "deploy", "Deploy all apps", "ROOT_DEPLOY")
+            _write_skill(
+                root,
+                "apps/web/.claude/skills",
+                "deploy",
+                "Deploy the web app",
+                "WEB_DEPLOY",
+            )
+            _write_skill(
+                root,
+                "packages/api/.claude/skills",
+                "deploy",
+                "Deploy the API",
+                "API_DEPLOY",
+            )
+            workspace = create_run_workspace(root, "nested-skills")
+
+            catalog = read_project_skills(workspace)
+            root_skill = read_project_skill(workspace, "deploy")
+            bounded_root_skill = read_project_skill(workspace, "deploy", max_bytes=200)
+            web_skill = read_project_skill(workspace, "apps/web:deploy")
+            api_skill = read_project_skill(workspace, "packages/api:deploy")
+            invoked = expand_project_prompt_command(root, "/apps/web:deploy production")
+
+        self.assertEqual(
+            [item["name"] for item in catalog["skills"]],
+            ["apps/web:deploy", "deploy", "packages/api:deploy"],
+        )
+        self.assertEqual(web_skill["source"], "nested_claude")
+        self.assertEqual(web_skill["path"], "apps/web/.claude/skills/deploy/SKILL.md")
+        self.assertIn("WEB_DEPLOY", web_skill["content"])
+        self.assertIn("API_DEPLOY", api_skill["content"])
+        self.assertIn("apps/web:deploy", root_skill["content"])
+        self.assertIn("packages/api:deploy", root_skill["content"])
+        self.assertLessEqual(len(bounded_root_skill["content"].encode("utf-8")), 200)
+        self.assertTrue(bounded_root_skill["truncated"])
+        self.assertEqual(invoked["name"], "apps/web:deploy")
+        self.assertEqual(invoked["arguments"], "production")
+        self.assertIn("WEB_DEPLOY", invoked["prompt"])
+
+    def test_nested_skill_names_and_paths_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-skills-") as base:
+            root = Path(base) / "project"
+            outside = Path(base) / "outside"
+            root.mkdir()
+            outside.mkdir()
+            _write_skill(outside, ".claude/skills", "escaped", "External", "EXTERNAL_BODY")
+            nested_link = root / "apps/web/.claude"
+            nested_link.parent.mkdir(parents=True)
+            nested_link.symlink_to(outside / ".claude", target_is_directory=True)
+            _write_skill(
+                root,
+                "apps:invalid/.claude/skills",
+                "deploy",
+                "Invalid scope",
+                "INVALID_SCOPE_BODY",
+            )
+            workspace = create_run_workspace(root, "nested-symlink")
+
+            catalog = read_project_skills(workspace)
+
+            for name in ("../apps:deploy", "apps//web:deploy", "apps/web/:deploy"):
+                with self.subTest(name=name), self.assertRaisesRegex(ValueError, "directory namespace"):
+                    read_project_skill(workspace, name)
+
+        self.assertEqual(len(catalog["skills"]), 1)
+        self.assertFalse(catalog["skills"][0]["available"])
+        self.assertIn("scope is invalid", catalog["skills"][0]["message"])
 
     def test_rejects_symlinked_skill_and_invalid_metadata(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-skills-") as base:
@@ -151,6 +224,26 @@ class ProjectSkillActionTests(IsolatedUserHomeTestCase):
         formatted = format_observations([loaded])
         self.assertIn("arguments: Validate version 1.1", formatted)
         self.assertIn("Run the release gate.", formatted)
+
+    def test_skill_tool_loads_directory_qualified_nested_skill(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-skills-") as base:
+            root = Path(base)
+            _write_skill(
+                root,
+                "apps/web/.claude/skills",
+                "testing",
+                "Test the web app",
+                "Run web integration tests.",
+            )
+            workspace = create_run_workspace(root, "nested-skill-action")
+
+            action = parse_tool_action("skill", {"name": "apps/web:testing"})
+            loaded = execute_action(workspace, action)
+
+        self.assertIsInstance(action, SkillAction)
+        self.assertTrue(loaded.ok)
+        self.assertEqual(loaded.name, "apps/web:testing")
+        self.assertIn("Run web integration tests.", loaded.content)
 
     def test_project_overview_includes_skill_metadata_without_body(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-skills-") as base:

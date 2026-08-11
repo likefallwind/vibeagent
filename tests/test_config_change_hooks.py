@@ -10,7 +10,12 @@ from vibeagent.agent_execution_support import execute_action_safely
 from vibeagent.agent_lifecycle_hooks import LifecycleHookResult
 from vibeagent.agent_lifecycle_runtime import AgentLifecycleRuntime
 from vibeagent.config_change_hooks import ConfigChangeHookRuntime
-from vibeagent.session_config_state import effective_settings_path
+from vibeagent.session_config_state import (
+    effective_settings_path,
+    initialize_config_state,
+    read_config_state,
+    write_config_state,
+)
 from vibeagent.plugin_scope_settings import effective_plugin_enabled
 from vibeagent.types import ApprovalDecision, ApprovalRequest
 from vibeagent.workspace_core import create_run_workspace
@@ -44,6 +49,28 @@ class RecordingLifecycle:
 
 
 class ConfigChangeRuntimeTests(unittest.TestCase):
+    def test_old_config_state_captures_nested_skills_without_change_event(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-config-change-") as base:
+            root = Path(base)
+            home = root / "home"
+            home.mkdir()
+            skill = root / "apps/web/.claude/skills/demo/SKILL.md"
+            skill.parent.mkdir(parents=True)
+            skill.write_text(self._skill("nested instructions"), encoding="utf-8")
+            workspace = create_run_workspace(root, run_id="old-config-run")
+            lifecycle = RecordingLifecycle(blocked=False)
+            with self._home(home):
+                state = initialize_config_state(workspace)
+                state.pop("nested_project_skills")
+                write_config_state(workspace, state)
+                ConfigChangeHookRuntime(workspace, lifecycle)  # type: ignore[arg-type]
+                loaded = read_project_skill(workspace, "apps/web:demo")
+                migrated = read_config_state(workspace)
+
+            self.assertIn("nested instructions", loaded["content"])
+            self.assertIn("nested_project_skills", migrated or {})
+            self.assertEqual(lifecycle.calls, [])
+
     def test_blocked_settings_change_keeps_session_snapshot(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-config-change-") as base:
             root = Path(base)
@@ -133,6 +160,28 @@ class ConfigChangeRuntimeTests(unittest.TestCase):
             self.assertTrue(result.events[0].blocked)
             self.assertIn("old instructions", loaded["content"])
             self.assertNotIn("new instructions", loaded["content"])
+
+    def test_blocked_nested_skill_change_keeps_old_skill_content(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-config-change-") as base:
+            root = Path(base)
+            home = root / "home"
+            home.mkdir()
+            skill = root / "apps/web/.claude/skills/demo/SKILL.md"
+            skill.parent.mkdir(parents=True)
+            skill.write_text(self._skill("old nested instructions"), encoding="utf-8")
+            workspace = create_run_workspace(root, run_id="nested-config-run")
+            lifecycle = RecordingLifecycle(blocked=True)
+            with self._home(home):
+                runtime = ConfigChangeHookRuntime(workspace, lifecycle)  # type: ignore[arg-type]
+                skill.write_text(self._skill("new nested instructions"), encoding="utf-8")
+                result = runtime.poll()
+                loaded = read_project_skill(workspace, "apps/web:demo")
+
+            self.assertEqual(len(result.events), 1)
+            self.assertEqual(result.events[0].source, "skills")
+            self.assertTrue(result.events[0].blocked)
+            self.assertIn("old nested instructions", loaded["content"])
+            self.assertNotIn("new nested instructions", loaded["content"])
 
     def test_real_hook_receives_source_and_blocks_change(self) -> None:
         script = """import json, pathlib, sys

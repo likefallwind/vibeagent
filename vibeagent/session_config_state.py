@@ -5,8 +5,10 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 from tempfile import NamedTemporaryFile
 
+from .nested_skill_discovery import discover_nested_skill_locations
 from .user_paths import user_home
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
@@ -27,6 +29,7 @@ class ConfigTarget:
     boundary: Path
     snapshot: Path
     directory: bool = False
+    nested_skills: bool = False
 
 
 def config_targets(workspace: RunWorkspace) -> tuple[ConfigTarget, ...]:
@@ -38,6 +41,15 @@ def config_targets(workspace: RunWorkspace) -> tuple[ConfigTarget, ...]:
         ConfigTarget("local_settings", "local_settings", workspace.root / ".claude/settings.local.json", workspace.root, root / "local-settings.json"),
         ConfigTarget("user_skills", "skills", home / ".claude/skills", home, root / "user-skills", True),
         ConfigTarget("project_skills", "skills", workspace.root / ".claude/skills", workspace.root, root / "project-skills", True),
+        ConfigTarget(
+            "nested_project_skills",
+            "skills",
+            workspace.root,
+            workspace.root,
+            root / "nested-project-skills",
+            directory=True,
+            nested_skills=True,
+        ),
     )
 
 
@@ -66,9 +78,28 @@ def effective_skill_root(workspace: RunWorkspace, *, user: bool) -> Path:
     return next(target.snapshot for target in config_targets(workspace) if target.key == key)
 
 
+def effective_nested_skill_root(workspace: RunWorkspace) -> Path:
+    if not has_config_state(workspace):
+        return workspace.root
+    return next(
+        target.snapshot
+        for target in config_targets(workspace)
+        if target.key == "nested_project_skills"
+    )
+
+
 def initialize_config_state(workspace: RunWorkspace) -> dict[str, dict[str, object]]:
     existing = read_config_state(workspace)
     if existing is not None:
+        dirty = False
+        for target in config_targets(workspace):
+            if target.key in existing:
+                continue
+            digest = capture_config_target(target)
+            existing[target.key] = {"accepted": digest, "observed": digest}
+            dirty = True
+        if dirty:
+            write_config_state(workspace, existing)
         return existing
     state: dict[str, dict[str, object]] = {}
     for target in config_targets(workspace):
@@ -142,19 +173,26 @@ def _skill_files(target: ConfigTarget) -> list[tuple[Path, bytes]]:
         return []
     if has_symlink_component(target.boundary, root) or not root.is_dir():
         raise ValueError(f"{root} must be a regular non-symlink directory.")
+    if target.nested_skills:
+        locations, truncated = discover_nested_skill_locations(root, max_skills=MAX_SKILL_FILES + 1)
+        if truncated or len(locations) > MAX_SKILL_FILES:
+            raise ValueError(f"Skill configuration exceeds {MAX_SKILL_FILES} files.")
+        paths = [location.path for location in locations]
+    else:
+        paths = [child / "SKILL.md" for child in sorted(root.iterdir(), key=lambda item: item.name)]
+
     files: list[tuple[Path, bytes]] = []
     total = 0
-    for child in sorted(root.iterdir(), key=lambda item: item.name):
+    for path in paths:
         if len(files) >= MAX_SKILL_FILES:
             raise ValueError(f"Skill configuration exceeds {MAX_SKILL_FILES} files.")
-        path = child / "SKILL.md"
-        if child.is_symlink() or not child.is_dir() or path.is_symlink() or not path.is_file():
+        if path.parent.is_symlink() or not path.parent.is_dir() or path.is_symlink() or not path.is_file():
             continue
         content = read_regular_file_bytes(path, max_bytes=MAX_SKILL_FILE_BYTES, label="SKILL.md")
         total += len(content)
         if total > MAX_SKILL_TOTAL_BYTES:
             raise ValueError(f"Skill configuration exceeds {MAX_SKILL_TOTAL_BYTES} bytes.")
-        files.append((Path(child.name) / "SKILL.md", content))
+        files.append((path.relative_to(root), content))
     return files
 
 
@@ -172,11 +210,7 @@ def _replace_skill_snapshot(root: Path, files: list[tuple[Path, bytes]]) -> None
     if root.is_symlink():
         raise ValueError("Skill snapshot must not be a symbolic link.")
     if root.exists():
-        for path in sorted(root.glob("*/SKILL.md")):
-            path.unlink()
-        for child in sorted(root.iterdir()):
-            if child.is_dir() and not child.is_symlink():
-                child.rmdir()
+        shutil.rmtree(root)
     root.mkdir(parents=True, exist_ok=True)
     for relative, content in files:
         path = root / relative
@@ -203,6 +237,7 @@ __all__ = [
     "capture_config_target",
     "config_targets",
     "effective_settings_path",
+    "effective_nested_skill_root",
     "effective_skill_root",
     "fingerprint_config_target",
     "has_config_state",

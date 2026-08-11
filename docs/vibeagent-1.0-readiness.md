@@ -79,8 +79,13 @@ The automated suite currently covers these 1.0 surfaces:
 - Built-in `/verify` and `/run-skill-generator` expansion in interactive and
   print modes: bounded goals and app hints, observable runtime evidence,
   process ownership and cleanup, fail-closed UI claims, ambiguity handling,
-  secret-free `.claude/skills/run-<name>/SKILL.md` generation, and exact skill
-  discovery/reload before completion.
+  secret-free root or package-level `.claude/skills/run-<name>/SKILL.md`
+  generation, directory-qualified discovery, and exact skill reload before
+  completion.
+- Nested monorepo skills: bounded package discovery, names such as
+  `apps/web:deploy`, direct slash-command and `skill` tool invocation,
+  same-name root variant guidance, agent-profile preloading, ConfigChange-safe
+  snapshots, blocked-change rollback, and old-session snapshot migration.
 - Interactive `/batch` expansion: bounded required instructions, clean
   Git/origin preflight contract, 5-30 disjoint work units, explicit plan approval,
   background worktree isolation, per-unit checks/commit/push/PR requirements, and
