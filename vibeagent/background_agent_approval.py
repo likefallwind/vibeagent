@@ -14,6 +14,7 @@ from .background_agent_store import (
     background_agent_runtime_root,
     ensure_background_agent_runtime_root,
     ensure_private_directory,
+    write_private_json,
     write_private_json_atomic,
 )
 from .background_agent_types import BACKGROUND_AGENT_ID_PATTERN
@@ -95,17 +96,21 @@ def decide_background_approval(
         approval = read_background_approval(root, agent_id)
         if approval is None:
             raise ValueError(f"Background agent is not waiting for approval: {agent_id}")
-        write_private_json_atomic(
-            background_approval_response_path(root, agent_id),
-            {
-                "schemaVersion": APPROVAL_VERSION,
-                "agentId": agent_id,
-                "requestId": approval.request_id,
-                "approved": approved,
-                "scope": scope,
-                "message": "Approved from Agent View." if approved else "Denied from Agent View.",
-            },
-        )
+        try:
+            write_private_json(
+                background_approval_response_path(root, agent_id),
+                {
+                    "schemaVersion": APPROVAL_VERSION,
+                    "agentId": agent_id,
+                    "requestId": approval.request_id,
+                    "approved": approved,
+                    "scope": scope,
+                    "message": "Approved from Agent View." if approved else "Denied from Agent View.",
+                },
+                exclusive=True,
+            )
+        except FileExistsError as error:
+            raise ValueError(f"Background approval was already decided: {agent_id}") from error
     return approval
 
 

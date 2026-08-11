@@ -37,7 +37,7 @@ def launch_background_agent_from_cli(
             f"  session: {session_line}",
             f"  logs: vibeagent --background-agent-log {record.id}",
             f"  stop: vibeagent --stop-background-agent {record.id}",
-            "  note: approvals that require terminal input are denied in background mode.",
+            "  input: open `vibeagent agents` to handle approvals and questions.",
         ]
     )
     return emit_local_result(

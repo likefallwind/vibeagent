@@ -267,14 +267,20 @@ autonomous background execution with reply, respawn, and safe terminal attach;
 dependency. It auto-refreshes grouped `Needs attention`, `Working`, `Stopped`,
 and `Completed` sessions; arrow keys select a row, Space peeks at bounded recent
 output, Enter attaches, and single-key actions dispatch, reply, stop, respawn,
-or confirm removal. The dashboard uses an alternate screen and restores the
+approve or deny a pending side effect, answer a blocking `AskUserQuestion`, or
+confirm removal. Waiting interactions show bounded action risk or described
+question options under `Needs attention`; exact request IDs prevent stale
+answers from releasing a later request. The dashboard uses an alternate screen and restores the
 original terminal on normal exit, interruption, prompts, and attach. It is
 project-scoped; machine-global aggregation across unrelated repositories is not
 part of the 1.0 dashboard.
 
-Background sessions cannot answer approval prompts because their stdin is
-closed; use an explicit non-interactive approval policy or trusted project
-rules for intended mutations. Explicit `--api-key` values are rejected for
+Background stdin remains closed. Ask-mode permission requests and model
+questions pause through private owner-only request/response files until they are
+resolved from Agent View; session-scoped approvals retain their normal matching
+semantics. Stop, respawn, removal, and attach treat unresolved input as a live
+worker state and cannot accidentally create a second worker or discard it.
+Explicit `--api-key` values are rejected for
 background launch; provide credentials through the provider environment
 instead. Launch records and logs live under
 `.vibeagent/background-agents/`: directories use owner-only permissions, files
@@ -2341,9 +2347,15 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   leases, coordinate safe worker handoff at a turn boundary, and resume the
   recorded session/worktree through the normal interactive CLI.
 - `vibeagent/agent_view_render.py`, `vibeagent/agent_view_terminal.py`,
-  `vibeagent/agent_view.py`, and `vibeagent/cli_agent_view.py`: implement the
+  `vibeagent/agent_view_backend.py`, `vibeagent/agent_view.py`, and
+  `vibeagent/cli_agent_view.py`: implement the
   dependency-free full-screen project dashboard, responsive bounded layout,
-  Unix/Windows key input, dispatch/reply/lifecycle actions, and attach handoff.
+  Unix/Windows key input, approval/question responses,
+  dispatch/reply/lifecycle actions, and attach handoff.
+- `vibeagent/background_agent_approval.py` and
+  `vibeagent/background_agent_input.py`: persist exact private blocking
+  interactions so a detached worker can safely resume its original tool call
+  after Agent View supplies a permission decision or validated user answer.
 - `vibeagent/background_agent_runtime.py` and
   `vibeagent/background_agent_worker.py`: launch or respawn a detached copy of
   the normal one-shot CLI, consume private payloads, continue the same session

@@ -8,6 +8,7 @@ from unittest.mock import patch
 from vibeagent.cli_one_shot_agent_kwargs import build_one_shot_agent_kwargs
 from vibeagent.config import ExecutionConfig
 from vibeagent.background_agent_approval import BackgroundApprovalPrompt
+from vibeagent.background_agent_input import BackgroundUserInputPrompt
 from vibeagent.background_agent_config import create_background_agent_config
 from vibeagent.session_approval import SessionApprovalHandler
 from vibeagent.types import ApprovalRequest
@@ -46,6 +47,7 @@ class CliOneShotAgentKwargsTests(unittest.TestCase):
         handler = kwargs["approval_handler"]
         self.assertIsInstance(handler, SessionApprovalHandler)
         self.assertIsInstance(handler.prompt, BackgroundApprovalPrompt)
+        self.assertIsInstance(kwargs["user_input_handler"], BackgroundUserInputPrompt)
 
     def test_stream_json_ask_disables_interactive_handlers(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-kwargs-") as base:

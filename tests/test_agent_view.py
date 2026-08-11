@@ -15,6 +15,8 @@ from vibeagent.agent_view_render import render_agent_view
 from vibeagent.agent_view_terminal import StandardAgentViewTerminal
 from vibeagent.background_agent_types import BackgroundAgentRecord, BackgroundAgentView
 from vibeagent.background_agent_approval import BackgroundApproval
+from vibeagent.background_agent_input import BackgroundUserInput
+from vibeagent.types import UserInputRequest
 from vibeagent.cli import main
 from vibeagent.cli_agent_view import run_agent_view_from_cli
 from vibeagent.cli_args import has_local_flag, parse_args
@@ -81,6 +83,7 @@ class FakeBackend:
     def __init__(self, views: list[BackgroundAgentView]) -> None:
         self.views = views
         self.calls: list[tuple[str, ...]] = []
+        self.question_waiting = False
 
     def list(self) -> tuple[BackgroundAgentView, ...]:
         return tuple(self.views)
@@ -93,7 +96,12 @@ class FakeBackend:
         return "running focused tests\nall passed\n", ""
 
     def approval(self, agent_id: str) -> BackgroundApproval | None:
-        if self.views and self.views[0].record.id == agent_id and self.views[0].status == "needs-input":
+        if (
+            not self.question_waiting
+            and self.views
+            and self.views[0].record.id == agent_id
+            and self.views[0].status == "needs-input"
+        ):
             return BackgroundApproval(
                 agent_id,
                 "1" * 32,
@@ -104,6 +112,27 @@ class FakeBackend:
                 "2026-08-11T00:00:00+00:00",
             )
         return None
+
+    def user_input(self, agent_id: str) -> BackgroundUserInput | None:
+        if self.question_waiting and self.views[0].record.id == agent_id:
+            return BackgroundUserInput(
+                agent_id,
+                "2" * 32,
+                UserInputRequest(
+                    question="Which database?",
+                    options=["SQLite", "PostgreSQL"],
+                    allow_free_text=False,
+                    header="Database",
+                    option_descriptions={"SQLite": "Local", "PostgreSQL": "Shared"},
+                ),
+                "2026-08-11T00:00:00+00:00",
+            )
+        return None
+
+    def answer_user_input(self, agent_id: str, answer: str) -> str:
+        self.calls.append(("answer", agent_id, answer))
+        self.question_waiting = False
+        return "answered"
 
     def decide_approval(self, agent_id: str, approved: bool, scope: str) -> str:
         self.calls.append(("approval", agent_id, str(approved), scope))
@@ -221,7 +250,21 @@ class AgentViewTests(unittest.TestCase):
 
         self.assertIsNone(outcome.attach_id)
         self.assertIn(("approval", waiting.record.id, "True", "once"), backend.calls)
-        self.assertTrue(any("Resolve the pending approval" in "\n".join(frame) for frame in terminal.frames))
+        self.assertTrue(any("Resolve the pending input" in "\n".join(frame) for frame in terminal.frames))
+
+    def test_controller_answers_pending_user_question(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-view-") as base:
+            root = Path(base).resolve()
+            waiting = _view(root, "aaaaaaaaaaaa", status="needs-input", task="configure")
+            backend = FakeBackend([waiting])
+            backend.question_waiting = True
+            terminal = FakeTerminal(["r", "q"], ["2"])
+
+            outcome = run_agent_view(root, backend=backend, terminal=terminal)
+
+        self.assertIsNone(outcome.attach_id)
+        self.assertIn(("answer", waiting.record.id, "2"), backend.calls)
+        self.assertTrue(any("Which database?" in "\n".join(frame) for frame in terminal.frames))
 
     def test_project_backend_dispatch_separates_task_from_cli_options(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-view-") as base:
@@ -229,7 +272,7 @@ class AgentViewTests(unittest.TestCase):
             backend = ProjectAgentViewBackend(root, root)
             launched = _view(root, "aaaaaaaaaaaa", status="running", task="task")
             with patch(
-                "vibeagent.agent_view.launch_background_agent",
+                "vibeagent.agent_view_backend.launch_background_agent",
                 return_value=launched,
             ) as launch:
                 result = backend.dispatch("--model should remain task text")

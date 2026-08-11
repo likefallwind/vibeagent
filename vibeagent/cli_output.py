@@ -16,6 +16,7 @@ from .types import (
     UserInputAnswer,
     UserInputRequest,
 )
+from .user_input_runtime import normalize_user_input_answer, parse_user_input_text
 from .workspace_permissions import read_project_permissions_from_root, safe_permission_rule_text
 
 
@@ -147,30 +148,12 @@ def prompt_user_input(request: UserInputRequest) -> UserInputAnswer | None:
             return None
         if not answer:
             return None
-        selections = _numbered_user_input_selections(answer, request)
-        if selections is not None:
-            return selections if request.multi_select else selections[0]
-        if answer in request.options or request.allow_free_text:
-            return answer
+        parsed = parse_user_input_text(answer, request)
+        normalized, _error = normalize_user_input_answer(request, parsed)
+        if normalized is not None:
+            return parsed
         suffix = " separated by commas" if request.multi_select else ""
         print(f"Enter valid numbers from 1 to {len(request.options)}{suffix}.")
-
-
-def _numbered_user_input_selections(
-    answer: str,
-    request: UserInputRequest,
-) -> list[str] | None:
-    parts = [part.strip() for part in answer.split(",")]
-    if not parts or any(not part.isdigit() for part in parts):
-        return None
-    indexes = [int(part) for part in parts]
-    if (
-        any(index < 1 or index > len(request.options) for index in indexes)
-        or len(set(indexes)) != len(indexes)
-        or (not request.multi_select and len(indexes) != 1)
-    ):
-        return None
-    return [request.options[index - 1] for index in indexes]
 
 
 def prompt_project_permission_trust(root: str | Path) -> bool:

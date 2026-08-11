@@ -46,7 +46,11 @@ same agent ID, and remove its private supervisor files without deleting the
 resumable transcript. `agents` opens a dependency-free full-screen project
 dashboard with grouped auto-refresh, stable keyboard selection, bounded log
 peek, option-safe dispatch, reply, stop, respawn, confirmed removal, and attach
-handoff after restoring the alternate screen. `attach ID` (also
+handoff after restoring the alternate screen. Ask-mode permission requests and
+structured `AskUserQuestion` calls publish private exact-ID interactions,
+appear as `Needs attention`, and resume the blocked tool call after the dashboard
+approves, denies, or validates a numbered, multi-select, or free-text answer.
+`attach ID` (also
 `--attach-background-agent ID`) acquires a private
 process-bound lease, lets an active worker finish its current turn at a safe
 handoff boundary, and restores the same transcript and effective worktree in the

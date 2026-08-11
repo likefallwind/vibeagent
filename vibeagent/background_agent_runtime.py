@@ -12,6 +12,7 @@ from .background_agent_config import (
 )
 from .background_agent_attachment import background_agent_attachment_path
 from .background_agent_approval import remove_background_approval
+from .background_agent_input import remove_background_user_input
 from .background_agent_inbox import (
     enqueue_background_agent_message,
     pending_background_agent_message_count,
@@ -155,9 +156,10 @@ def respawn_background_agent(
         if view is None:
             return None, "not-found"
         _reject_attached_background_agent(view)
-        if view.status in {"running", "needs-input", "approval-error"}:
+        if view.status in {"running", "needs-input", "approval-error", "input-error"}:
             terminate_persistent_process(as_process_record(view.record))
             remove_background_approval(root, agent_id)
+            remove_background_user_input(root, agent_id)
         config = read_background_agent_config(root, agent_id)
         if pending_background_agent_message_count(root, agent_id) == 0:
             message = "Continue the interrupted background task from the recorded session context."
@@ -174,9 +176,10 @@ def stop_background_agent(project_root: Path, agent_id: str) -> BackgroundAgentV
         if view is None:
             return None
         _reject_attached_background_agent(view)
-        if view.status in {"running", "needs-input", "approval-error"}:
+        if view.status in {"running", "needs-input", "approval-error", "input-error"}:
             terminate_persistent_process(as_process_record(view.record))
             remove_background_approval(root, agent_id)
+            remove_background_user_input(root, agent_id)
             write_private_text(view.record.stopped_path, "stopped\n", exclusive=False)
         return background_agent_view(view.record)
 
@@ -188,7 +191,7 @@ def remove_background_agent(project_root: Path, agent_id: str) -> tuple[bool, st
         if view is None:
             return False, f"Background agent not found: {agent_id}"
         _reject_attached_background_agent(view)
-        if view.status in {"running", "needs-input", "approval-error"}:
+        if view.status in {"running", "needs-input", "approval-error", "input-error"}:
             return False, f"Background agent is still running: {agent_id}"
         record_path = background_agent_record_path(root, agent_id)
         _remove_background_agent_metadata(root, agent_id)
@@ -283,6 +286,7 @@ def _respawn_background_agent_locked(
     was_stopped = record.stopped_path.is_file()
     try:
         remove_background_approval(record.project_root, record.id)
+        remove_background_user_input(record.project_root, record.id)
         write_private_text_atomic(record.exit_code_path, "")
         record.stopped_path.unlink(missing_ok=True)
         process = spawn_background_agent_worker(
@@ -320,6 +324,7 @@ def _remove_background_agent_metadata(project_root: Path, agent_id: str) -> None
     background_agent_config_path(project_root, agent_id).unlink(missing_ok=True)
     remove_background_agent_inbox(project_root, agent_id)
     remove_background_approval(project_root, agent_id)
+    remove_background_user_input(project_root, agent_id)
     launch_root = background_agent_runtime_root(project_root) / "launch"
     if launch_root.is_dir() and not launch_root.is_symlink():
         for path in launch_root.glob(f"{agent_id}-*.json"):

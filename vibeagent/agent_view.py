@@ -2,135 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol
 
+from .agent_view_backend import AgentViewBackend, ProjectAgentViewBackend
 from .agent_view_render import ordered_agent_views, render_agent_view
 from .agent_view_terminal import AgentViewTerminal, StandardAgentViewTerminal
-from .background_agent_inbox import pending_background_agent_message_count
-from .background_agent_runtime import (
-    launch_background_agent,
-    list_background_agents,
-    read_background_agent_logs,
-    remove_background_agent,
-    respawn_background_agent,
-    send_background_agent_message,
-    stop_background_agent,
-)
 from .background_agent_types import BackgroundAgentView
-from .background_agent_approval import (
-    BackgroundApproval,
-    decide_background_approval,
-    read_background_approval,
-)
 
 
 @dataclass(frozen=True)
 class AgentViewOutcome:
     attach_id: str | None = None
-
-
-class AgentViewBackend(Protocol):
-    def list(self) -> tuple[BackgroundAgentView, ...]: ...
-
-    def pending(self, agent_id: str) -> int: ...
-
-    def logs(self, agent_id: str) -> tuple[str, str]: ...
-
-    def approval(self, agent_id: str) -> BackgroundApproval | None: ...
-
-    def decide_approval(
-        self,
-        agent_id: str,
-        approved: bool,
-        scope: Literal["once", "session"],
-    ) -> str: ...
-
-    def dispatch(self, task: str) -> BackgroundAgentView: ...
-
-    def reply(self, agent_id: str, message: str) -> str: ...
-
-    def stop(self, agent_id: str) -> str: ...
-
-    def respawn(self, agent_id: str) -> str: ...
-
-    def remove(self, agent_id: str) -> str: ...
-
-
-class ProjectAgentViewBackend:
-    def __init__(self, project_root: Path, invocation_root: Path) -> None:
-        self.project_root = project_root.resolve()
-        self.invocation_root = invocation_root.resolve()
-
-    def list(self) -> tuple[BackgroundAgentView, ...]:
-        return list_background_agents(self.project_root)
-
-    def pending(self, agent_id: str) -> int:
-        return pending_background_agent_message_count(self.project_root, agent_id)
-
-    def logs(self, agent_id: str) -> tuple[str, str]:
-        view, stdout, stderr = read_background_agent_logs(
-            self.project_root,
-            agent_id,
-            max_chars=6_000,
-        )
-        if view is None:
-            raise ValueError(f"Background agent not found: {agent_id}")
-        return stdout, stderr
-
-    def approval(self, agent_id: str) -> BackgroundApproval | None:
-        return read_background_approval(self.project_root, agent_id)
-
-    def decide_approval(
-        self,
-        agent_id: str,
-        approved: bool,
-        scope: Literal["once", "session"],
-    ) -> str:
-        approval = decide_background_approval(
-            self.project_root,
-            agent_id,
-            approved=approved,
-            scope=scope,
-        )
-        verb = "Approved" if approved else "Denied"
-        return f"{verb} {approval.action_type} for {agent_id}."
-
-    def dispatch(self, task: str) -> BackgroundAgentView:
-        return launch_background_agent(
-            self.project_root,
-            self.invocation_root,
-            ["--background", "--", task],
-            task_summary=task,
-            session_name=None,
-        )
-
-    def reply(self, agent_id: str, message: str) -> str:
-        view, disposition = send_background_agent_message(
-            self.project_root,
-            agent_id,
-            message,
-        )
-        if view is None:
-            raise ValueError(f"Background agent not found: {agent_id}")
-        return f"Message {disposition} for {agent_id}."
-
-    def stop(self, agent_id: str) -> str:
-        view = stop_background_agent(self.project_root, agent_id)
-        if view is None:
-            raise ValueError(f"Background agent not found: {agent_id}")
-        return f"Agent {agent_id} status: {view.status}."
-
-    def respawn(self, agent_id: str) -> str:
-        view, disposition = respawn_background_agent(self.project_root, agent_id)
-        if view is None:
-            raise ValueError(f"Background agent not found: {agent_id}")
-        return f"Agent {agent_id} {disposition}."
-
-    def remove(self, agent_id: str) -> str:
-        removed, message = remove_background_agent(self.project_root, agent_id)
-        if not removed:
-            raise ValueError(message)
-        return message
 
 
 def run_agent_view(
@@ -166,6 +47,11 @@ def run_agent_view(
                     if selected is not None and selected.status == "needs-input"
                     else None
                 )
+                user_input = (
+                    active_backend.user_input(selected_id)
+                    if selected is not None and selected.status == "needs-input" and approval is None
+                    else None
+                )
                 if peek and selected_id is not None:
                     stdout, stderr = active_backend.logs(selected_id)
             except (OSError, ValueError) as error:
@@ -174,6 +60,7 @@ def run_agent_view(
                 stdout = ""
                 stderr = ""
                 approval = None
+                user_input = None
                 message = f"Refresh failed: {error}"
 
             width, height = active_terminal.size()
@@ -185,6 +72,7 @@ def run_agent_view(
                 peek_stdout=stdout,
                 peek_stderr=stderr,
                 approval=approval,
+                user_input=user_input,
                 message=message,
                 show_help=show_help,
                 width=width,
@@ -213,8 +101,12 @@ def run_agent_view(
             if key in {"enter", "right"}:
                 if selected_id is not None:
                     selected = next((view for view in views if view.record.id == selected_id), None)
-                    if selected is not None and selected.status in {"needs-input", "approval-error"}:
-                        message = "Resolve the pending approval before attaching."
+                    if selected is not None and selected.status in {
+                        "needs-input",
+                        "approval-error",
+                        "input-error",
+                    }:
+                        message = "Resolve the pending input before attaching."
                     else:
                         return AgentViewOutcome(attach_id=selected_id)
                 else:
@@ -243,6 +135,15 @@ def run_agent_view(
                             key in {"y", "A"},
                             "session" if key == "A" else "once",
                         )
+                elif key == "r":
+                    if selected_id is None:
+                        message = "No background agent is selected."
+                    elif user_input is None:
+                        message = "Selected agent is not waiting for a question response."
+                    else:
+                        answer = _prompt_nonempty(active_terminal, "Answer: ")
+                        if answer is not None:
+                            message = active_backend.answer_user_input(selected_id, answer)
                 elif key == "s":
                     message = _selected_action(active_backend.stop, selected_id)
                 elif key == "R":

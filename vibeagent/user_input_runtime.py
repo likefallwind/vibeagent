@@ -69,8 +69,28 @@ def normalize_user_input_answer(
     return None, "User response did not match the allowed options."
 
 
+def parse_user_input_text(text: str, request: UserInputRequest) -> UserInputAnswer | None:
+    answer = text.strip()
+    if not answer:
+        return None
+    parts = [part.strip() for part in answer.split(",")]
+    if parts and all(part.isdigit() for part in parts):
+        indexes = [int(part) for part in parts]
+        if (
+            all(1 <= index <= len(request.options) for index in indexes)
+            and len(set(indexes)) == len(indexes)
+            and (request.multi_select or len(indexes) == 1)
+        ):
+            selections = [request.options[index - 1] for index in indexes]
+            return selections if request.multi_select else selections[0]
+    if request.multi_select and len(parts) > 1 and all(part in request.options for part in parts):
+        return parts
+    return answer
+
+
 __all__ = [
     "normalize_user_input_answer",
+    "parse_user_input_text",
     "serialize_user_input_request",
     "user_input_requests",
 ]

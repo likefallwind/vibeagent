@@ -13,6 +13,7 @@ from .dynamic_agent_profiles import DynamicAgentProfile
 from .model_streaming import AgentModelStreamHandler
 from .background_agent_approval import BackgroundApprovalPrompt
 from .background_agent_config import BackgroundAgentConfig
+from .background_agent_input import BackgroundUserInputPrompt
 from .session_approval import SessionApprovalHandler
 
 
@@ -74,7 +75,11 @@ def build_one_shot_agent_kwargs(
         "permission_overrides": permission_overrides,
         "mcp_config_paths": mcp_config_paths,
         "strict_mcp_config": strict_mcp_config,
-        "user_input_handler": None if machine_output else prompt_user_input,
+        "user_input_handler": (
+            BackgroundUserInputPrompt(background_agent_config)
+            if background_agent_config is not None
+            else (None if machine_output else prompt_user_input)
+        ),
         "prior_context": prior_context,
         "system_prompt": system_prompt,
         "append_system_prompt": append_system_prompt,

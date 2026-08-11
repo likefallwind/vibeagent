@@ -41,6 +41,7 @@ def get_background_agent(project_root: Path, agent_id: str) -> BackgroundAgentVi
 def background_agent_view(record: BackgroundAgentRecord) -> BackgroundAgentView:
     from .background_agent_attachment import read_background_agent_attachment
     from .background_agent_approval import read_background_approval
+    from .background_agent_input import read_background_user_input
 
     try:
         attachment = read_background_agent_attachment(record.project_root, record.id)
@@ -64,6 +65,12 @@ def background_agent_view(record: BackgroundAgentRecord) -> BackgroundAgentView:
         except (OSError, ValueError):
             return BackgroundAgentView(record=record, status="approval-error", exit_code=exit_code)
         if approval is not None:
+            return BackgroundAgentView(record=record, status="needs-input", exit_code=exit_code)
+        try:
+            user_input = read_background_user_input(record.project_root, record.id)
+        except (OSError, ValueError):
+            return BackgroundAgentView(record=record, status="input-error", exit_code=exit_code)
+        if user_input is not None:
             return BackgroundAgentView(record=record, status="needs-input", exit_code=exit_code)
     if record.stopped_path.is_file():
         status = "stopped"

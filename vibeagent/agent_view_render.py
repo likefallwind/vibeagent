@@ -5,13 +5,21 @@ from typing import Iterable
 
 from .background_agent_types import BackgroundAgentView
 from .background_agent_approval import BackgroundApproval
+from .background_agent_input import BackgroundUserInput
 
 
 STATUS_GROUPS = (
     (
         "Needs attention",
         frozenset(
-            {"needs-input", "approval-error", "attaching", "attached", "attachment-error"}
+            {
+                "needs-input",
+                "approval-error",
+                "input-error",
+                "attaching",
+                "attached",
+                "attachment-error",
+            }
         ),
     ),
     ("Working", frozenset({"running"})),
@@ -46,6 +54,7 @@ def render_agent_view(
     peek_stdout: str = "",
     peek_stderr: str = "",
     approval: BackgroundApproval | None = None,
+    user_input: BackgroundUserInput | None = None,
     message: str = "",
     show_help: bool = False,
     width: int = 100,
@@ -100,7 +109,7 @@ def render_agent_view(
         if bounded_width < 60
         else (
             "Up/Down select  Space peek  Enter attach  n dispatch  m reply  "
-            "y approve  A always  N deny  s stop  R respawn  x remove  ? help  q quit"
+            "y approve  A always  N deny  r answer  s stop  R respawn  x remove  ? help  q quit"
         )
     )
     footer = [
@@ -112,12 +121,16 @@ def render_agent_view(
     if (
         not show_help
         and selected_id is not None
-        and (approval is not None or peek_stdout or peek_stderr)
+        and (approval is not None or user_input is not None or peek_stdout or peek_stderr)
     ):
         peek_lines = (
             _render_approval(approval, bounded_width)
             if approval is not None
-            else _render_peek(peek_stdout, peek_stderr, bounded_width)
+            else (
+                _render_user_input(user_input, bounded_width)
+                if user_input is not None
+                else _render_peek(peek_stdout, peek_stderr, bounded_width)
+            )
         )
         peek_slots = min(8, len(peek_lines), max(0, available - 3))
         body_limit = available - peek_slots
@@ -171,6 +184,19 @@ def _render_approval(approval: BackgroundApproval, width: int) -> list[str]:
     return lines
 
 
+def _render_user_input(interaction: BackgroundUserInput, width: int) -> list[str]:
+    request = interaction.request
+    title = request.header or "Question"
+    lines = ["", f"{title}: {_fit(request.question, max(1, width - len(title) - 2))}"]
+    for index, option in enumerate(request.options, start=1):
+        description = (request.option_descriptions or {}).get(option)
+        suffix = f" - {description}" if description else ""
+        lines.append(f"  {index}. {_fit(option + suffix, max(1, width - 5))}")
+    choice = "numbers separated by commas" if request.multi_select else "a number"
+    lines.append(f"  Press r to answer with {choice}{' or text' if request.allow_free_text else ''}.")
+    return lines
+
+
 def _help_lines() -> list[str]:
     return [
         "",
@@ -179,6 +205,7 @@ def _help_lines() -> list[str]:
         "  Space            Toggle recent stdout/stderr",
         "  Enter or Right   Attach selected session",
         "  y / A / N        Approve once / session / deny pending action",
+        "  r                 Answer a pending user question",
         "  n                 Dispatch a new background task",
         "  m                 Send a follow-up message",
         "  s / R             Stop / respawn selected session",
