@@ -16,6 +16,7 @@ const { AgentChangeContentProvider } = require('./src/agentChanges');
 const { SessionCatalog, sessionQuickPickItems } = require('./src/sessionCatalog');
 const { InteractiveTerminalManager } = require('./src/terminals');
 const { PlanReviewManager } = require('./src/sessionPlan');
+const { RewindReviewManager } = require('./src/sessionRewind');
 
 class GitHeadContentProvider {
   constructor() {
@@ -60,16 +61,22 @@ function activate(context) {
       return bridge.environment();
     },
   });
+  const rewindReviews = new RewindReviewManager(vscode, {
+    catalog: sessionCatalog,
+    terminals,
+  });
   context.subscriptions.push(
     diffProvider,
     agentChangeProvider,
     agentPanels,
     planReviews,
+    rewindReviews,
     terminals,
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-git', diffProvider),
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-change', agentChangeProvider),
     vscode.window.onDidCloseTerminal((terminal) => terminals.closed(terminal)),
     vscode.workspace.onDidCloseTextDocument((document) => planReviews.closed(document)),
+    vscode.workspace.onDidCloseTextDocument((document) => rewindReviews.closed(document)),
     vscode.window.onDidChangeActiveTextEditor((editor) => refreshEditorContext(editor)),
     vscode.window.onDidChangeTextEditorSelection((event) => refreshEditorContext(event.textEditor)),
     vscode.languages.onDidChangeDiagnostics(() => refreshEditorContext(vscode.window.activeTextEditor)),
@@ -138,6 +145,15 @@ function activate(context) {
       review.name,
       review.prompt,
     );
+  });
+
+  register('vibeagent.reviewSessionRewind', async () => {
+    const root = activeWorkspaceRoot();
+    await rewindReviews.open(launchConfig(), root);
+  });
+
+  register('vibeagent.executeReviewedRewind', async () => {
+    await rewindReviews.executeActive(launchConfig());
   });
 
   register('vibeagent.openAgentPanel', async () => {

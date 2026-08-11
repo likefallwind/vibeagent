@@ -101,6 +101,39 @@ def run_checkpoint_local_flag(
             commands["format_checkpoint_prune_report_text"],
             lambda: commands["get_checkpoint_prune_text"](args.checkpoint_prune, root),
         )
+    if args.session_rewind_points is not None:
+        run_id = args.session_rewind_points
+        return local_text_or_report(
+            args,
+            "sessionRewindPoints",
+            lambda: commands["get_session_rewind_points_report"](root, run_id),
+            commands["format_session_rewind_points_report_text"],
+            lambda: commands["format_session_rewind_points_report_text"](
+                commands["get_session_rewind_points_report"](root, run_id)
+            ),
+        )
+    if args.check_session_rewind is not None:
+        run_id, checkpoint_id, mode = args.check_session_rewind
+        return local_text_or_report(
+            args,
+            "checkSessionRewind",
+            lambda: commands["get_check_session_rewind_report"](root, run_id, checkpoint_id, mode),
+            commands["format_check_session_rewind_report_text"],
+            lambda: commands["format_check_session_rewind_report_text"](
+                commands["get_check_session_rewind_report"](root, run_id, checkpoint_id, mode)
+            ),
+        )
+    if args.session_rewind is not None:
+        run_id, checkpoint_id, mode = args.session_rewind
+        return local_text_or_report(
+            args,
+            "sessionRewind",
+            lambda: commands["get_session_rewind_report"](root, run_id, checkpoint_id, mode),
+            commands["format_session_rewind_report_text"],
+            lambda: commands["format_session_rewind_report_text"](
+                commands["get_session_rewind_report"](root, run_id, checkpoint_id, mode)
+            ),
+        )
     return None
 
 

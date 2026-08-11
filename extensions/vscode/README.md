@@ -24,6 +24,13 @@ terminal, preserving terminal permission prompts while adding editor context.
 - `VibeAgent: Execute Reviewed Plan` resumes the exact session associated with
   the active plan document and runs the reviewed text as a bounded one-shot
   task. Session identity is retained outside the editable document.
+- `VibeAgent: Review Session Rewind` selects an exact session checkpoint and
+  `both`, `code`, or `conversation` mode, runs a provider-free preflight, and
+  opens bounded staged and unstaged checkpoint patches as Markdown.
+- `VibeAgent: Execute Reviewed Rewind` rechecks the active review, requires an
+  explicit modal confirmation, and performs the stored operation. Conversation
+  rewinds open the exact newly created branch session; edited review text cannot
+  change the target identity or mode.
 - `VibeAgent: Ask About Selection` starts an approved one-shot coding task with
   the current file or selected line range as an `@path` reference.
 - `VibeAgent: Insert File Reference` inserts that reference into an active
@@ -49,6 +56,14 @@ with `--json --plan RUN_ID`. It validates bounded report and item fields before
 opening an untitled editor. Reviewed-plan execution keeps `--resume RUN_ID`
 ahead of the task argument and does not route file references into the one-shot
 terminal.
+
+Session rewind uses three provider-free structured CLI calls: checkpoint
+discovery, shared preflight, and execution. Review additionally loads the exact
+checkpoint diff, with bounded process output and patch sizes. The extension
+keeps workspace, session, checkpoint, and mode metadata out of the editable
+document, repeats preflight before execution, and shows a modal warning before
+mutation. `code` restores the checkpoint worktree, `conversation` creates a new
+branch without changing files, and `both` performs both operations.
 
 Every terminal receives a private live-context file and random token through
 its process environment. The extension refreshes only the active workspace file

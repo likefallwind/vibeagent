@@ -249,6 +249,16 @@ trusted extension memory rather than being parsed from editable text. Executing
 the review places `--resume RUN_ID` before the bounded task argument and keeps
 that one-shot terminal outside interactive file-reference routing.
 
+Session rewind is a separate two-step workflow. `Review Session Rewind` selects
+an exact session checkpoint and one of `both`, `code`, or `conversation`, then
+opens the checkpoint's bounded staged and unstaged patches as Markdown after a
+provider-free preflight. The trusted session, checkpoint, mode, and workspace
+identity stay in extension memory rather than editable text. `Execute Reviewed
+Rewind` repeats the preflight, requires an explicit modal confirmation, and then
+restores code, creates a new conversation branch, or performs both operations.
+A conversation branch opens by resuming the exact new session ID returned by the
+CLI.
+
 The Agent Panel launches the existing Remote Control service on `127.0.0.1`
 without shell interpolation. Its generated bearer token remains in the trusted
 extension host and is never sent to the Webview. Webview messages use an action
@@ -897,6 +907,10 @@ when enough pricing data is configured.
 preflight/execution flags include structured checkpoint payloads with saved
 metadata, patch sizes, match/preflight state, mutation results, and recovery
 messages.
+`--json --session-rewind-points`, `--json --check-session-rewind`, and
+`--json --session-rewind` include structured session-scoped checkpoint choices,
+shared code/conversation preflight state, resolved checkpoint identity, mutation
+results, and the new branch session ID when conversation history is rewound.
 `--json --session-verification` includes a structured `sessionVerification`
 object with verified, pending, and failed check groups, truncation state, and
 machine-readable command/cwd entries for each shown check.
@@ -1175,6 +1189,9 @@ python -m vibeagent --check-checkpoint-delete <checkpoint-id> --cwd ../my-projec
 python -m vibeagent --checkpoint-delete <checkpoint-id> --cwd ../my-project
 python -m vibeagent --check-checkpoint-prune 10 --cwd ../my-project
 python -m vibeagent --checkpoint-prune 10 --cwd ../my-project
+python -m vibeagent --session-rewind-points <run-id> --cwd ../my-project
+python -m vibeagent --check-session-rewind <run-id> <checkpoint-id> both --cwd ../my-project
+python -m vibeagent --session-rewind <run-id> <checkpoint-id> both --cwd ../my-project
 python -m vibeagent --usage --cwd ../my-project
 python -m vibeagent --cost --cwd ../my-project
 python -m vibeagent --save-config --cwd ../my-project --provider deepseek --model-name deepseek-reasoner --max-iterations 12 --max-output-tokens 8192 --model-retries 2 --model-retry-delay-ms 500 --model-timeout-ms 120000

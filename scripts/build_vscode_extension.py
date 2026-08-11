@@ -21,6 +21,8 @@ SOURCE_FILES = (
     "src/localCli.js",
     "src/sessionCatalog.js",
     "src/sessionPlan.js",
+    "src/sessionRewindClient.js",
+    "src/sessionRewind.js",
     "src/terminals.js",
 )
 ZIP_TIMESTAMP = (2024, 1, 1, 0, 0, 0)

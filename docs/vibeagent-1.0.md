@@ -67,11 +67,14 @@ local changes when asked, and resume from recorded session context.
   references, bounded diagnostic sanitization, bounded provider-free session
   discovery, exact-ID resume, bounded provider-free plan loading, editable
   plan-review documents with trusted out-of-band session metadata, exact-session
-  reviewed-plan execution, parallel/primary terminal routing, command registration, native
-  diff routing, token-isolated Agent Panel routing and lifecycle, exact request
-  IDs, same-repository worktree validation, bounded in-memory base/current
-  review, exact-snapshot integration routing, explicit worktree opening,
-  deterministic VSIX contents, and JavaScript syntax. A release-
+  reviewed-plan execution, structured session rewind point discovery, shared rewind
+  preflight and execution reports, bounded checkpoint-patch review, trusted
+  out-of-band rewind targets, repeated preflight, modal confirmation, exact new-
+  session resume, parallel/primary terminal routing, command registration, native
+  diff routing, token-isolated Agent Panel routing and lifecycle, exact request IDs,
+  same-repository worktree validation, bounded in-memory base/current review,
+  exact-snapshot integration routing, explicit worktree opening, deterministic
+  VSIX contents, and JavaScript syntax. A release-
   stage install uses isolated `/tmp` user, server, and extension directories and
   confirms VS Code reports `vibeagent.vibeagent-vscode@1.0.0`.
 - `tests.test_background_agent_integration.BackgroundAgentIntegrationTests`

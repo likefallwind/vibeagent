@@ -23,6 +23,8 @@
     "onCommand:vibeagent.resumeSession",
     "onCommand:vibeagent.reviewSessionPlan",
     "onCommand:vibeagent.executeReviewedPlan",
+    "onCommand:vibeagent.reviewSessionRewind",
+    "onCommand:vibeagent.executeReviewedRewind",
     "onCommand:vibeagent.openAgentPanel",
     "onCommand:vibeagent.askSelection",
     "onCommand:vibeagent.insertReference",
@@ -50,6 +52,14 @@
       {
         "command": "vibeagent.executeReviewedPlan",
         "title": "VibeAgent: Execute Reviewed Plan"
+      },
+      {
+        "command": "vibeagent.reviewSessionRewind",
+        "title": "VibeAgent: Review Session Rewind"
+      },
+      {
+        "command": "vibeagent.executeReviewedRewind",
+        "title": "VibeAgent: Execute Reviewed Rewind"
       },
       {
         "command": "vibeagent.openAgentPanel",
@@ -106,6 +116,6 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "check": "node --check extension.js && node --check src/core.js && node --check src/context.js && node --check src/remote.js && node --check src/agentChanges.js && node --check src/agentPanel.js && node --check src/agentPanelView.js && node --check src/localCli.js && node --check src/sessionCatalog.js && node --check src/sessionPlan.js && node --check src/terminals.js"
+    "check": "node --check extension.js && node --check src/core.js && node --check src/context.js && node --check src/remote.js && node --check src/agentChanges.js && node --check src/agentPanel.js && node --check src/agentPanelView.js && node --check src/localCli.js && node --check src/sessionCatalog.js && node --check src/sessionPlan.js && node --check src/sessionRewindClient.js && node --check src/sessionRewind.js && node --check src/terminals.js"
   }
 }

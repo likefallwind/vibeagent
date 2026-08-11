@@ -29,3 +29,20 @@ def add_checkpoint_local_arguments(local: argparse._MutuallyExclusiveGroup) -> N
     local.add_argument("--checkpoint-delete", metavar="ID", help="Delete one saved local checkpoint and exit.")
     local.add_argument("--check-checkpoint-prune", metavar="N", help="Preview deleting older checkpoints while keeping the newest N and exit.")
     local.add_argument("--checkpoint-prune", metavar="N", help="Delete older checkpoints while keeping the newest N and exit.")
+    local.add_argument(
+        "--session-rewind-points",
+        metavar="RUN_ID",
+        help="List checkpoint rewind points belonging to one session and exit.",
+    )
+    local.add_argument(
+        "--check-session-rewind",
+        nargs=3,
+        metavar=("RUN_ID", "CHECKPOINT", "MODE"),
+        help="Preview rewinding one session in both, code, or conversation mode and exit.",
+    )
+    local.add_argument(
+        "--session-rewind",
+        nargs=3,
+        metavar=("RUN_ID", "CHECKPOINT", "MODE"),
+        help="Rewind one session in both, code, or conversation mode and exit.",
+    )
