@@ -63,7 +63,7 @@ def build_delegate_messages(
     parts.append(f"Workspace snapshot:\n{snapshot}")
     system_prompt = CODE_DELEGATE_SYSTEM_PROMPT if action.mode == "code" else DELEGATE_SYSTEM_PROMPT
     if profile_prompt:
-        system_prompt = f"{system_prompt}\n\nProject agent profile instructions:\n{profile_prompt}"
+        system_prompt = f"{system_prompt}\n\nAdditional subagent system instructions:\n{profile_prompt}"
     return [
         ChatMessage(
             role="system",
@@ -71,6 +71,38 @@ def build_delegate_messages(
         ),
         ChatMessage(role="user", content="\n\n".join(parts)),
     ]
+
+
+def append_resumed_subagent_prompt(
+    messages: list[ChatMessage],
+    prompt: str | None,
+) -> list[ChatMessage]:
+    normalized = prompt.strip() if prompt else ""
+    if not normalized or not messages:
+        return messages
+    first = messages[0]
+    content = first.content
+    if isinstance(content, str):
+        if normalized in content:
+            return messages
+        updated_content: str | list[dict[str, object]] = (
+            f"{content}\n\nInvocation-scoped subagent instructions:\n{normalized}"
+        )
+    else:
+        if any(
+            block.get("type") == "text" and normalized in str(block.get("text", ""))
+            for block in content
+        ):
+            return messages
+        updated_content = [
+            *content,
+            {
+                "type": "text",
+                "text": f"Invocation-scoped subagent instructions:\n{normalized}",
+            },
+        ]
+    messages[0] = ChatMessage(role=first.role, content=updated_content)
+    return messages
 
 
 def compact_delegate_message_history(

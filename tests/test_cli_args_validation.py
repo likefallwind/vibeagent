@@ -147,6 +147,31 @@ class CliArgsValidationTests(unittest.TestCase):
                 "--json-schema requires a one-shot coding task with --print.",
             )
 
+    def test_subagent_system_prompt_requires_print_mode_coding_task(self) -> None:
+        valid = cli_module.parse_args(
+            ["-p", "--append-subagent-system-prompt", "Cite exact paths.", "inspect"]
+        )
+        invalid = (
+            cli_module.parse_args(["--append-subagent-system-prompt", "Cite paths.", "inspect"]),
+            cli_module.parse_args(["-p", "--chat", "--append-subagent-system-prompt", "Cite paths.", "hello"]),
+            cli_module.parse_args(["-p", "--append-subagent-system-prompt", "Cite paths.", "--status"]),
+        )
+        empty = cli_module.parse_args(
+            ["-p", "--append-subagent-system-prompt", "  ", "inspect"]
+        )
+
+        self.assertIsNone(cli_module.validate_cli_args(valid))
+        for args in invalid:
+            with self.subTest(args=args):
+                self.assertEqual(
+                    cli_module.validate_cli_args(args),
+                    "--append-subagent-system-prompt requires a one-shot coding task with --print.",
+                )
+        self.assertEqual(
+            cli_module.validate_cli_args(empty),
+            "--append-subagent-system-prompt cannot be empty.",
+        )
+
     def test_cli_name_is_forwarded_and_rejects_non_session_modes(self) -> None:
         one_shot = cli_module.parse_args(["-n", "auth-refactor", "inspect"])
         interactive = cli_module.parse_args(["--name", "auth-refactor"])

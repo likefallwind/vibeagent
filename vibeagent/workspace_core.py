@@ -30,6 +30,7 @@ class RunWorkspace:
     profile_mcp_server_configs: tuple[McpServerConfig, ...] = ()
     maintain_shell_cwd: bool = True
     autocompact_tokens: int | None = None
+    append_subagent_system_prompt: str | None = None
 
 
 @dataclass(frozen=True)

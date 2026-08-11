@@ -62,9 +62,13 @@ class SubagentTranscriptTests(unittest.TestCase):
             )
 
             transcript = read_subagent_transcript(workspace, "delegate-1-1")
+            resumed_workspace = replace(
+                workspace,
+                append_subagent_system_prompt="Cite exact middleware paths.",
+            )
             second_client = TranscriptClient("Follow-up finding from middleware.py")
             second = execute_delegate_task_action(
-                workspace,
+                resumed_workspace,
                 transcript.action,
                 second_client,
                 parent_iteration=2,
@@ -88,6 +92,9 @@ class SubagentTranscriptTests(unittest.TestCase):
         resumed_text = str(second_client.messages[0])
         self.assertIn("Initial finding from auth.py", resumed_text)
         self.assertIn("Check middleware too", resumed_text)
+        self.assertIn("Cite exact middleware paths.", resumed_text)
+        self.assertEqual(resumed_text.count("Cite exact middleware paths."), 1)
+        self.assertIn("Cite exact middleware paths.", str(resumed.messages[0].content))
 
     def test_transcript_redacts_secrets_and_rejects_running_resume(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-subagent-transcript-") as base:

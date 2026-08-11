@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from vibeagent.action_parsing import ActionParseError, parse_tool_action
@@ -341,6 +342,10 @@ class DelegationTests(unittest.TestCase):
         self.assertIs(
             agent_delegate.build_compacted_delegate_context,
             agent_delegate_context.build_compacted_delegate_context,
+        )
+        self.assertIs(
+            agent_delegate.append_resumed_subagent_prompt,
+            agent_delegate_context.append_resumed_subagent_prompt,
         )
 
     def test_delegate_messages_expand_project_instruction_imports(self) -> None:
@@ -861,7 +866,10 @@ class DelegationTests(unittest.TestCase):
         )
 
         with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
-            workspace = create_run_workspace(Path(base))
+            workspace = replace(
+                create_run_workspace(Path(base)),
+                append_subagent_system_prompt="Cite exact file paths.",
+            )
             action = parse_tool_action("delegate_task", {"task": "Do focused work", "mode": "code"})
             observation = execute_delegate_task_action(
                 workspace,
@@ -885,6 +893,8 @@ class DelegationTests(unittest.TestCase):
         self.assertTrue(observation.ok)
         self.assertEqual(nested_result["kind"], "delegate_task")
         self.assertEqual(nested_result["depth"], 2)
+        self.assertIn("Cite exact file paths.", str(client.messages[0][0].content))
+        self.assertIn("Cite exact file paths.", str(client.messages[1][0].content))
         starts = [event for event in events if event["type"] == "subagent_started"]
         self.assertEqual(len(starts), 2)
         self.assertEqual(starts[1]["depth"], 2)

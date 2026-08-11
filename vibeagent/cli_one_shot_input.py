@@ -101,6 +101,11 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "strict_mcp_config": args.strict_mcp_config,
         "system_prompt": system_prompt,
         "append_system_prompt": append_system_prompt,
+        "append_subagent_system_prompt": (
+            args.append_subagent_system_prompt.strip()
+            if args.append_subagent_system_prompt is not None
+            else None
+        ),
         "input_prior_context": format_stream_assistant_context(task_input.assistant_context),
         "output_json": args.json,
         "output_format": args.output_format,

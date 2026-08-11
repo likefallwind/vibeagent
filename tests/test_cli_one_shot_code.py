@@ -235,6 +235,7 @@ class CliOneShotCodeTests(unittest.TestCase):
                 input_prior_context="input context",
                 system_prompt="system",
                 append_system_prompt="append",
+                append_subagent_system_prompt="Cite exact paths.",
                 task_metadata={"source": "project_command"},
                 resume_arg="run-0",
                 compact_arg=None,
@@ -254,6 +255,10 @@ class CliOneShotCodeTests(unittest.TestCase):
         self.assertEqual(agent_calls[0][1]["prior_context"], "previous context\n\ninput context")
         self.assertEqual(agent_calls[0][1]["system_prompt"], "system")
         self.assertEqual(agent_calls[0][1]["append_system_prompt"], "append")
+        self.assertEqual(
+            agent_calls[0][1]["append_subagent_system_prompt"],
+            "Cite exact paths.",
+        )
         self.assertEqual(agent_calls[0][1]["task_metadata"], {"source": "project_command"})
         self.assertEqual(agent_calls[0][1]["mcp_config_paths"], (project_root / ".mcp.json",))
         self.assertTrue(agent_calls[0][1]["strict_mcp_config"])

@@ -740,8 +740,11 @@ class V1CliSmokeTests(unittest.TestCase):
             exit_code, payload = _run_json_cli(
                 client,
                 [
+                    "--print",
                     "--output-format",
                     "json",
+                    "--append-subagent-system-prompt",
+                    "CITE_EXACT_PATHS_WITH_EVIDENCE",
                     "--approval",
                     "allow",
                     "--cwd",
@@ -753,10 +756,14 @@ class V1CliSmokeTests(unittest.TestCase):
             )
             events = _session_events(root, payload["runId"])
             events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            first_subagent_prompt = str(client.messages[1][0].content)
             commit_state = _calculator_commit_state(root)
 
         self.assertEqual(exit_code, 0)
         _assert_completed_code_result(self, payload)
+        self.assertIn("CITE_EXACT_PATHS_WITH_EVIDENCE", first_subagent_prompt)
+        self.assertNotIn("CITE_EXACT_PATHS_WITH_EVIDENCE", events_text)
+        self.assertIn('"subagent_system_prompt_appended": true', events_text)
         self.assertIn('"name": "Task"', events_text)
         self.assertIn('"kind": "delegate_task"', events_text)
         self.assertIn('"type": "subagent_tool_call"', events_text)

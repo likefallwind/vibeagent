@@ -56,6 +56,29 @@ class AgentRunSetupTests(unittest.TestCase):
         self.assertEqual(configured.workspace.autocompact_tokens, 100_000)
         self.assertEqual(events[0]["autocompact_tokens"], 100_000)
 
+    def test_prepare_agent_run_keeps_subagent_prompt_in_runtime_state_only(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-run-subagent-prompt-") as base:
+            setup = prepare_agent_run(
+                "Inspect setup",
+                base_dir=Path(base),
+                workspace=None,
+                prior_context=None,
+                approval_policy="ask",
+                task_metadata=None,
+                trust_project_permissions=False,
+                permission_overrides=None,
+                mcp_config_paths=(),
+                strict_mcp_config=False,
+                system_prompt=None,
+                append_system_prompt=None,
+                append_subagent_system_prompt="Cite exact file paths.",
+            )
+            events_text = setup.workspace.session_dir.joinpath("events.jsonl").read_text(encoding="utf-8")
+
+        self.assertEqual(setup.workspace.append_subagent_system_prompt, "Cite exact file paths.")
+        self.assertIn('"subagent_system_prompt_appended": true', events_text)
+        self.assertNotIn("Cite exact file paths.", events_text)
+
     def test_prepare_agent_run_initializes_workspace_events_and_core_tools(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-run-setup-") as base:
             root = Path(base)

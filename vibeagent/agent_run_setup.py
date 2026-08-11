@@ -83,6 +83,7 @@ def prepare_agent_run(
     strict_mcp_config: bool,
     system_prompt: str | None,
     append_system_prompt: str | None,
+    append_subagent_system_prompt: str | None = None,
     agent: str | None = None,
     tool_names: frozenset[str] | None = None,
     additional_directories: tuple[Path, ...] = (),
@@ -98,6 +99,7 @@ def prepare_agent_run(
         additional_directories,
         dynamic_agent_profiles,
         autocompact_tokens,
+        append_subagent_system_prompt,
     )
     main_selection = resolve_main_agent_selection(current_workspace, agent)
     main_profile = load_main_agent_profile(
@@ -329,6 +331,7 @@ def _prepare_workspace(
     additional_directories: tuple[Path, ...],
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...],
     autocompact_tokens: int | None,
+    append_subagent_system_prompt: str | None,
 ) -> RunWorkspace:
     current_workspace = workspace or create_run_workspace(
         base_dir,
@@ -356,6 +359,14 @@ def _prepare_workspace(
         )
     if autocompact_tokens is not None and autocompact_tokens != current_workspace.autocompact_tokens:
         current_workspace = replace(current_workspace, autocompact_tokens=autocompact_tokens)
+    if (
+        append_subagent_system_prompt is not None
+        and append_subagent_system_prompt != current_workspace.append_subagent_system_prompt
+    ):
+        current_workspace = replace(
+            current_workspace,
+            append_subagent_system_prompt=append_subagent_system_prompt,
+        )
     return current_workspace
 
 
@@ -382,6 +393,7 @@ def _append_task_event(
         "approval_policy": approval_policy,
         "prior_context": compact_session_context(prior_context) if prior_context else None,
         "additional_directories": [str(root) for root in workspace.additional_roots],
+        "subagent_system_prompt_appended": bool(workspace.append_subagent_system_prompt),
     }
     if workspace.autocompact_tokens is not None:
         task_event["autocompact_tokens"] = workspace.autocompact_tokens

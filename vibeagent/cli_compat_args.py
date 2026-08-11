@@ -91,6 +91,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Replay normalized stream-json user input records on stdout before agent events.",
     )
     parser.add_argument(
+        "--append-subagent-system-prompt",
+        metavar="PROMPT",
+        help="Append invocation-scoped instructions to every direct and nested subagent (print mode only).",
+    )
+    parser.add_argument(
         "--maintenance",
         action="store_true",
         help="Run Setup hooks with the maintenance matcher before a print-mode task.",

@@ -276,8 +276,9 @@ The automated suite currently covers these 1.0 surfaces:
   user-message replay with matching run/session identity and non-user/raw-field
   filtering, resume, compact, permission overrides, `acceptEdits`, non-interactive `dontAsk`
   with trusted pre-approval and default denial, bounded invocation-scoped
-  `--agents` definitions inherited by delegated runtimes, safe structured agent
-  YAML, profile permission modes, scoped command hooks and stdio/HTTP MCP,
+  `--agents` definitions inherited by delegated runtimes, invocation-scoped
+  `--append-subagent-system-prompt` constraints inherited by direct, nested, and resumed
+  delegates, safe structured agent YAML, profile permission modes, scoped command hooks and stdio/HTTP MCP,
   initial prompts, forced background execution, task color, disallowed tools, one-shot
   `--tools` visibility and execution ceilings inherited by subagents, global
   deny alias-family removal across schemas, tool search, MCP wildcards, and

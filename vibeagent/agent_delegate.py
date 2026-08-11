@@ -9,6 +9,7 @@ from .agent_delegate_context import (
     CODE_DELEGATE_SYSTEM_PROMPT,
     DELEGATE_MESSAGE_COMPACT_THRESHOLD,
     DELEGATE_SYSTEM_PROMPT,
+    append_resumed_subagent_prompt,
     build_compacted_delegate_context,
     build_delegate_messages,
     compact_delegate_message_history,
@@ -128,7 +129,11 @@ def execute_delegate_task_action(
         action = replace(action, max_iterations=profile.max_turns)
     if action.isolation is None and profile.isolation is not None:
         action = replace(action, isolation="worktree")
-    profile_prompt = _merge_system_prompts(profile.prompt, additional_system_prompt)
+    profile_prompt = _merge_system_prompts(
+        profile.prompt,
+        additional_system_prompt,
+        workspace.append_subagent_system_prompt,
+    )
     allowed_tool_names = profile.allowed_tool_names
     disallowed_tool_names = (
         profile.disallowed_tool_names | globally_denied_tool_names(permissions)
@@ -209,7 +214,10 @@ def execute_delegate_task_action(
         if resume_transcript is None:
             messages = build_delegate_messages(delegate_workspace, action, profile_prompt=profile_prompt)
         else:
-            messages = list(resume_transcript.messages)
+            messages = append_resumed_subagent_prompt(
+                list(resume_transcript.messages),
+                workspace.append_subagent_system_prompt,
+            )
             messages.append(ChatMessage(role="user", content=f"Follow-up from the parent agent:\n{followup_message or ''}"))
 
         if resume_transcript is None:
@@ -435,13 +443,10 @@ def _attach_worktree_outcome(
     )
 
 
-def _merge_system_prompts(
-    profile_prompt: str | None,
-    additional_system_prompt: str | None,
-) -> str | None:
+def _merge_system_prompts(*prompts: str | None) -> str | None:
     sections = [
         section.strip()
-        for section in (profile_prompt, additional_system_prompt)
+        for section in prompts
         if section and section.strip()
     ]
     return "\n\n".join(sections) or None
