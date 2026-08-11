@@ -76,6 +76,11 @@ The automated suite currently covers these 1.0 surfaces:
   `origin/HEAD` preflight, four isolated security domains, exploitability-aware
   verification, security severity levels, strict read-only behavior, and
   argument rejection before provider creation.
+- Built-in `/verify` and `/run-skill-generator` expansion in interactive and
+  print modes: bounded goals and app hints, observable runtime evidence,
+  process ownership and cleanup, fail-closed UI claims, ambiguity handling,
+  secret-free `.claude/skills/run-<name>/SKILL.md` generation, and exact skill
+  discovery/reload before completion.
 - Interactive `/batch` expansion: bounded required instructions, clean
   Git/origin preflight contract, 5-30 disjoint work units, explicit plan approval,
   background worktree isolation, per-unit checks/commit/push/PR requirements, and

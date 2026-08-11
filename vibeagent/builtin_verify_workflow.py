@@ -14,7 +14,7 @@ def build_verify_workflow(argument: str | None) -> BuiltinModelWorkflow:
             [
                 "Run the built-in application verification workflow.",
                 f"Verification goal: {json.dumps(goal_text)}",
-                "Inspect git status and changes, project instructions, manifests, commands, and available project skills before choosing how to verify. If a relevant run or verify skill exists, load and follow it without weakening this evidence contract.",
+                "Inspect git status and changes, project instructions, manifests, commands, and project_skills before choosing how to verify. Prefer an available verify skill or the most specific run-* skill for the affected app or monorepo package, load it with skill, and follow its validated recipe without weakening this evidence contract. If several recipes match, resolve them from touched paths and descriptions instead of combining commands speculatively.",
                 "Translate the goal into a short list of concrete, externally observable acceptance criteria. Identify whether each criterion requires a finite CLI command, a background process, an HTTP/API interaction, or browser/UI interaction.",
                 "Build or run the narrowest relevant static checks first. Preflight every finite or long-running command with its matching check tool before requesting approval to execute it.",
                 "For CLI behavior, run the real entry point with representative inputs and inspect its bounded output and exit status. Do not treat unit tests alone as proof that the application behavior works.",

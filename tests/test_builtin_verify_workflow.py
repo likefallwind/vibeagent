@@ -20,6 +20,7 @@ class BuiltinVerifyWorkflowTests(unittest.TestCase):
 
         self.assertIn('Verification goal: "login flow"', workflow.task)
         self.assertIn("externally observable acceptance criteria", workflow.task)
+        self.assertIn("most specific run-* skill", workflow.task)
         self.assertIn("start_command", workflow.task)
         self.assertIn("port_check", workflow.task)
         self.assertIn("http_check or http_fetch", workflow.task)

@@ -222,6 +222,7 @@ ReviewCommandType: TypeAlias = Literal[
     "batch",
     "security_review",
     "verify",
+    "run_skill_generator",
     "handoff",
     "changes",
     "diff",

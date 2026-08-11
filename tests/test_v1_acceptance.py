@@ -136,7 +136,13 @@ EXPECTED_GATES = {
     },
     "VA1-RUN": {
         "tools": {"command_check", "check_run_commands", "run_command", "run_commands", "focused_test_commands", "run_suggested_checks"},
-        "tests": {"test_run_agent_continues_after_pending_suggested_check_is_run"},
+        "tests": {
+            "test_run_agent_continues_after_pending_suggested_check_is_run",
+            "test_builds_evidence_driven_application_workflow",
+            "test_builds_interactive_validated_recipe_workflow",
+            "test_generated_project_skill_is_discoverable_after_config_reload",
+            "test_one_shot_expands_with_noninteractive_contract",
+        },
     },
     "VA1-REPAIR": {
         "tools": {"write_file", "run_command"},

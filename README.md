@@ -2559,6 +2559,16 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   HTTP success alone is reported separately and never presented as visual or
   interaction proof. The workflow stops only processes it started and reports
   each criterion as `PASS`, `FAIL`, or `UNVERIFIED`.
+  `/run-skill-generator [app]` first proves a selected app's build, launch,
+  readiness, driven behavior, observation, and cleanup steps, then records the
+  evidence-backed recipe in `.claude/skills/run-<name>/SKILL.md`. It refuses to
+  guess between ambiguous apps in print mode, does not persist secrets or
+  machine-specific paths, preserves still-valid existing recipe steps, and
+  reloads the generated skill through `project_skills` and `skill` before
+  reporting success. Monorepo packages use distinct root skill names and an
+  explicit package `Scope`, matching the currently supported skill discovery
+  boundary. Later `/verify` runs prefer the most specific matching
+  `verify` or `run-*` project skill instead of rediscovering launch commands.
 - `final_review` is a read-only handoff bundle for non-trivial code changes:
   blocking issues, warnings, running background processes, changed files, and
   suggested verification commands plus focused test commands inferred from

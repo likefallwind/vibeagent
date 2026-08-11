@@ -24,6 +24,8 @@ def parse_review_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("security_review", trimmed[16:].strip() or None)
     if trimmed == "/verify" or trimmed.startswith("/verify "):
         return make_local_command("verify", trimmed[8:].strip() or None)
+    if trimmed == "/run-skill-generator" or trimmed.startswith("/run-skill-generator "):
+        return make_local_command("run_skill_generator", trimmed[21:].strip() or None)
     if trimmed == "/handoff" or trimmed.startswith("/handoff "):
         return make_local_command("handoff", trimmed[9:].strip() or None)
     if trimmed == "/changes" or trimmed.startswith("/changes "):

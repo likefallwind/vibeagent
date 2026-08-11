@@ -68,6 +68,7 @@ HELP_SNIPPETS = [
     "/http <url> [contains] [--timeout-ms N]",
     "/http-fetch <url> [--timeout-ms N]",
     "/verify [goal]",
+    "/run-skill-generator [app]",
     "/overview [--max-files N]",
     "/repo-map [path] [--max-depth N]",
     "/search [--path PATH]",

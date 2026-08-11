@@ -27,6 +27,8 @@ class CommandReviewParsingTests(unittest.TestCase):
             "/security-review extra": LocalCommand(type="security_review", argument="extra"),
             "/verify": LocalCommand(type="verify"),
             "/verify login flow": LocalCommand(type="verify", argument="login flow"),
+            "/run-skill-generator": LocalCommand(type="run_skill_generator"),
+            "/run-skill-generator web app": LocalCommand(type="run_skill_generator", argument="web app"),
             "/handoff": LocalCommand(type="handoff"),
             "/handoff --max-files 1 --max-checks 2": LocalCommand(type="handoff", argument="--max-files 1 --max-checks 2"),
             "/changes": LocalCommand(type="changes"),

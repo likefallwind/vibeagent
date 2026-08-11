@@ -4,6 +4,10 @@ import json
 import shlex
 
 from .builtin_batch_workflow import build_batch_workflow, parse_batch_instruction
+from .builtin_run_skill_generator import (
+    build_run_skill_generator_workflow,
+    parse_run_skill_generator_hint,
+)
 from .builtin_security_review import build_security_review_workflow, parse_security_review_arguments
 from .builtin_verify_workflow import build_verify_workflow, parse_verify_goal
 from .builtin_workflow_types import BuiltinModelWorkflow
@@ -39,6 +43,8 @@ def resolve_builtin_model_workflow(
         return build_security_review_workflow(command.argument)
     if command.type == "verify":
         return build_verify_workflow(command.argument)
+    if command.type == "run_skill_generator":
+        return build_run_skill_generator_workflow(command.argument, interactive=interactive)
     return None
 
 
@@ -174,11 +180,13 @@ __all__ = [
     "build_code_review_workflow",
     "build_simplify_workflow",
     "build_security_review_workflow",
+    "build_run_skill_generator_workflow",
     "build_verify_workflow",
     "parse_code_review_arguments",
     "parse_batch_instruction",
     "parse_simplify_arguments",
     "parse_security_review_arguments",
+    "parse_run_skill_generator_hint",
     "parse_verify_goal",
     "resolve_builtin_model_workflow",
 ]
