@@ -41,6 +41,7 @@ from .cli_output import (
     prompt_project_permission_trust,
     prompt_user_input,
 )
+from .cli_model_stream import terminal_model_stream_scope
 from .cli_patch_local_flags import run_interactive_patch_command
 from .cli_project_command_expansion import (
     expand_code_task_project_command,
@@ -229,45 +230,62 @@ def run_interactive_loop(
         source_run_id = resume_run_id
         active_workspace = pending_workspace
         try:
-            result = run_agent_func(
-                task,
-                client=client,
-                max_iterations=execution_config.max_iterations,
-                command_timeout_ms=execution_config.command_timeout_ms,
-                max_output_tokens=execution_config.max_output_tokens,
-                model_retries=execution_config.model_retries,
-                model_retry_delay_ms=execution_config.model_retry_delay_ms,
-                model_timeout_ms=execution_config.model_timeout_ms,
-                approval_handler=selected_approval_handler,
-                approval_policy=approval_policy,
-                trust_project_permissions=project_permissions_trusted,
-                user_input_handler=selected_user_input_handler,
-                prior_context=resume_context,
-                prior_messages=conversation_messages or None,
-                system_prompt=system_prompt,
-                append_system_prompt=turn_append_system_prompt,
-                task_metadata=task_metadata,
-                task_source_run_id=(
-                    pending_branch_source_run_id
-                    or (
-                        resume_run_id
-                        if active_workspace is None and resume_context is not None
-                        else None
-                    )
-                ),
-                workspace=active_workspace,
-                peer_runtime=peer_runtime,
-                agent=initial_agent,
-                dynamic_agent_profiles=initial_dynamic_agent_profiles,
-                additional_directories=additional_directories,
-                autocompact_tokens=initial_autocompact_tokens,
-                **panel_kwargs,
-            )
+            with terminal_model_stream_scope(
+                client,
+                on_display_start=panel.pause,
+                on_display_end=panel.resume,
+            ) as stream_renderer:
+                result = run_agent_func(
+                    task,
+                    client=client,
+                    max_iterations=execution_config.max_iterations,
+                    command_timeout_ms=execution_config.command_timeout_ms,
+                    max_output_tokens=execution_config.max_output_tokens,
+                    model_retries=execution_config.model_retries,
+                    model_retry_delay_ms=execution_config.model_retry_delay_ms,
+                    model_timeout_ms=execution_config.model_timeout_ms,
+                    approval_handler=selected_approval_handler,
+                    approval_policy=approval_policy,
+                    trust_project_permissions=project_permissions_trusted,
+                    user_input_handler=selected_user_input_handler,
+                    prior_context=resume_context,
+                    prior_messages=conversation_messages or None,
+                    system_prompt=system_prompt,
+                    append_system_prompt=turn_append_system_prompt,
+                    task_metadata=task_metadata,
+                    task_source_run_id=(
+                        pending_branch_source_run_id
+                        or (
+                            resume_run_id
+                            if active_workspace is None and resume_context is not None
+                            else None
+                        )
+                    ),
+                    workspace=active_workspace,
+                    peer_runtime=peer_runtime,
+                    agent=initial_agent,
+                    dynamic_agent_profiles=initial_dynamic_agent_profiles,
+                    additional_directories=additional_directories,
+                    autocompact_tokens=initial_autocompact_tokens,
+                    **(
+                        {"model_stream_handler": stream_renderer.agent_event}
+                        if stream_renderer is not None
+                        else {}
+                    ),
+                    **panel_kwargs,
+                )
         finally:
             panel.close()
         if panel.config_error and panel.config_error != initial_panel_error:
             print(f"Plugin subagentStatusLine warning: {panel.config_error}")
-        print_agent_result(result)
+        print_agent_result(
+            result,
+            message_already_displayed=(
+                stream_renderer.matches_final_message(result.displayed_message)
+                if stream_renderer is not None
+                else False
+            ),
+        )
         result_approval_policy = getattr(result, "approval_policy", None)
         if (
             result_approval_policy in {"ask", "allow", "auto", "deny", "dontAsk", "plan"}
@@ -1006,17 +1024,23 @@ def run_interactive_loop(
             execution_config = resolve_execution_config(Path.cwd())
             client = client or create_interactive_client(interactive_provider_env(Path.cwd(), model_override))
             if request_mode == "chat":
-                response = run_chat_func(
-                    task,
-                    client=client,
-                    history=chat_history,
-                    max_output_tokens=execution_config.max_output_tokens,
-                    model_retries=execution_config.model_retries,
-                    model_retry_delay_ms=execution_config.model_retry_delay_ms,
-                    model_timeout_ms=execution_config.model_timeout_ms,
-                    system_prompt=system_prompt,
-                    append_system_prompt=append_system_prompt,
-                )
+                with terminal_model_stream_scope(client) as stream_renderer:
+                    response = run_chat_func(
+                        task,
+                        client=client,
+                        history=chat_history,
+                        max_output_tokens=execution_config.max_output_tokens,
+                        model_retries=execution_config.model_retries,
+                        model_retry_delay_ms=execution_config.model_retry_delay_ms,
+                        model_timeout_ms=execution_config.model_timeout_ms,
+                        system_prompt=system_prompt,
+                        append_system_prompt=append_system_prompt,
+                        **(
+                            {"model_stream_handler": stream_renderer.chat_event}
+                            if stream_renderer is not None
+                            else {}
+                        ),
+                    )
                 chat_history.extend(
                     [
                         ChatMessage(role="user", content=task),
@@ -1024,7 +1048,8 @@ def run_interactive_loop(
                     ]
                 )
                 recap_states["chat"].record_turn()
-                print(f"\n{response}")
+                if stream_renderer is None or not stream_renderer.matches_final_message(response):
+                    print(f"\n{response}")
                 continue
 
             if goal_state is not None and goal_state.status == "active":

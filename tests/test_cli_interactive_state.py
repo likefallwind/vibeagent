@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 from vibeagent.agent import AgentResult
 from vibeagent.cli import main
-from vibeagent.types import ApprovalRequest, ChatMessage
+from vibeagent.types import ApprovalRequest, AssistantResponse, ChatMessage
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.session_branching import read_session_branch_info
 from vibeagent.session_conversation import checkpoint_session_conversation
@@ -17,6 +17,63 @@ from vibeagent.workspace_core import create_run_workspace
 
 
 class CliInteractiveStateTests(unittest.TestCase):
+    def test_interactive_code_streams_text_without_reprinting_final_message(self) -> None:
+        class StreamingClient:
+            def complete(self, *args, **kwargs):
+                raise AssertionError("interactive turns should use complete_stream")
+
+            def complete_stream(self, messages, *, on_event, **kwargs):
+                on_event({"type": "message_start"})
+                on_event(
+                    {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "streamed result"}}
+                )
+                on_event({"type": "message_stop"})
+                return AssistantResponse(
+                    content=[{"type": "text", "text": "streamed result"}],
+                    raw={},
+                )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-stream-code-") as base:
+            root = Path(base)
+
+            stdout = io.StringIO()
+            with (
+                patch("builtins.input", side_effect=["inspect", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=StreamingClient()),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", str(root)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue().count("streamed result"), 1)
+
+    def test_interactive_chat_streams_text_without_reprinting_response(self) -> None:
+        class StreamingClient:
+            def complete(self, *args, **kwargs):
+                raise AssertionError("interactive turns should use complete_stream")
+
+            def complete_stream(self, messages, *, on_event, **kwargs):
+                on_event({"type": "message_start"})
+                on_event(
+                    {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "streamed chat"}}
+                )
+                on_event({"type": "message_stop"})
+                return AssistantResponse(
+                    content=[{"type": "text", "text": "streamed chat"}],
+                    raw={},
+                )
+
+        stdout = io.StringIO()
+        with (
+            patch("builtins.input", side_effect=["/chat hello", "/exit"]),
+            patch("vibeagent.cli.create_chat_client", return_value=StreamingClient()),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue().count("streamed chat"), 1)
+
     def test_explicit_resume_restores_persisted_conversation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-resume-conversation-") as base:
             root = Path(base)

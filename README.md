@@ -159,6 +159,16 @@ approval policy.
 python -m vibeagent
 ```
 
+Interactive coding and chat turns stream user-facing assistant text as it
+arrives when the active client supports incremental responses. Thinking blocks,
+tool inputs, and protocol events remain hidden. Provider fallback restarts and
+normal retries are separated visibly, interrupted text is line-terminated, and
+the completed message is not printed a second time. Custom clients without
+`complete_stream` retain the non-streaming path. Coding turns with an active
+`MessageDisplay` hook deliberately stay non-streaming so raw text cannot bypass
+the hook's final display transformation; the session records
+`model_streaming_disabled` with that reason.
+
 Confirm the installed package version:
 
 ```sh
@@ -2339,6 +2349,8 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   turns.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
+- `vibeagent/cli_model_stream.py`: renders provider text deltas for interactive
+  code/chat turns while hiding protocol, thinking, and tool-input events.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is
   the default; Anthropic uses the native Messages adapter, while DeepSeek and
   other OpenAI-compatible APIs use the OpenAI-compatible adapter.

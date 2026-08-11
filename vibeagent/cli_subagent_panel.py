@@ -55,6 +55,7 @@ class SubagentPanel:
         self._last_text = ""
         self._last_custom_at = 0.0
         self._custom_rows: dict[str, str] = {}
+        self._suspended = False
         if self.enabled:
             try:
                 self.config = resolve_subagent_status_line(self.project_root)
@@ -130,6 +131,9 @@ class SubagentPanel:
         workspace = self.workspace
         if not self.enabled or workspace is None:
             return
+        with self._lock:
+            if self._suspended:
+                return
         snapshots = list_background_delegate_snapshots(workspace)
         if not snapshots:
             self.clear()
@@ -178,6 +182,20 @@ class SubagentPanel:
                 self.stream.flush()
             self._rendered_lines = 0
             self._last_text = ""
+
+    def pause(self) -> None:
+        if not self.enabled:
+            return
+        with self._lock:
+            self._suspended = True
+            self.clear()
+
+    def resume(self) -> None:
+        if not self.enabled:
+            return
+        with self._lock:
+            self._suspended = False
+        self.refresh(force=True)
 
     def close(self) -> None:
         self._stop.set()
@@ -228,6 +246,8 @@ class SubagentPanel:
 
     def _render(self, text: str, *, force: bool) -> None:
         with self._lock:
+            if self._suspended:
+                return
             if text == self._last_text and not force:
                 return
             if self._rendered_lines:

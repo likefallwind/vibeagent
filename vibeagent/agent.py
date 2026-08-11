@@ -28,7 +28,7 @@ from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_ac
 from .plugin_monitor_runtime import PluginMonitorRuntime
 from .agent_result import AgentResult
 from .agent_run_setup import prepare_agent_run
-from .agent_runtime_utils import tool_error_observation
+from .agent_runtime_utils import append_session_event, tool_error_observation
 from .agent_steps import observation_summary
 from .agent_tool_execution import execute_parsed_tool_action
 from .agent_execution_support import (
@@ -135,6 +135,15 @@ def run_agent(
         model=setup.main_profile.model,
         effort=setup.main_profile.effort,
     )
+    if model_stream_handler is not None and any(
+        hook.event == "MessageDisplay" for hook in setup.project_hooks.hooks
+    ):
+        append_session_event(
+            setup.workspace.session_dir,
+            "model_streaming_disabled",
+            {"reason": "message_display_hook"},
+        )
+        model_stream_handler = None
     plugin_monitors = PluginMonitorRuntime(setup.workspace)
     try:
         return run_agent_loop(

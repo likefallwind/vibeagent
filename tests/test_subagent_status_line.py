@@ -155,6 +155,34 @@ class SubagentStatusLineTests(unittest.TestCase):
         self.assertEqual(stream.value, "")
         resolve.assert_not_called()
 
+    def test_panel_pause_blocks_refresh_until_resume(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-status-panel-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root, run_id="panel-run")
+            stream = TtyBuffer()
+            panel = SubagentPanel(root, stream=stream)
+            panel.workspace = workspace
+            snapshot = BackgroundDelegateSnapshot(
+                task_id="task-1",
+                action=DelegateTaskAction(type="delegate_task", task="Inspect auth"),
+                status="running",
+                started_at=1.0,
+            )
+            with patch(
+                "vibeagent.cli_subagent_panel.list_background_delegate_snapshots",
+                return_value=[snapshot],
+            ):
+                panel.refresh()
+                panel.pause()
+                paused_output = stream.value
+                panel.refresh(force=True)
+                self.assertEqual(stream.value, paused_output)
+                panel.resume()
+
+            panel.close()
+
+        self.assertGreater(len(stream.value), len(paused_output))
+
 
 if __name__ == "__main__":
     unittest.main()

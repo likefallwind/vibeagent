@@ -110,6 +110,11 @@ The automated suite currently covers these 1.0 surfaces:
   `xhigh`, and `max`, `/effort auto` rebuilds the provider/model default client,
   and later model switches preserve the override. Invalid or unsupported
   changes atomically keep the prior client and effort state.
+- Interactive provider streaming: code and chat turns render only assistant
+  text deltas, hide thinking and tool inputs, delimit retries and same-attempt
+  fallback restarts, close interrupted lines, suppress duplicate final text,
+  preserve the existing path for clients without streaming support, and disable
+  raw coding streams when a merged `MessageDisplay` hook must transform output.
 - Durable main-session conversation continuity: private atomic checkpoints at
   safe model/tool boundaries, fresh system/project context on every prompt,
   explicit resume and branch restoration, corrupt-state handoff fallback, and

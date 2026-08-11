@@ -23,10 +23,16 @@ class MessageClient:
     def __init__(self, content: list[ContentBlock]) -> None:
         self.content = content
         self.messages: list[list[ChatMessage]] = []
+        self.stream_calls = 0
 
     def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
         self.messages.append(list(messages))
         return AssistantResponse(content=self.content, raw={"content": self.content})
+
+    def complete_stream(self, messages, *, on_event, **kwargs):
+        self.stream_calls += 1
+        on_event({"type": "content_block_delta", "delta": {"type": "text_delta", "text": "unsafe"}})
+        return self.complete(messages, **kwargs)
 
 
 def _approve(_request) -> ApprovalDecision:
@@ -156,12 +162,14 @@ print(json.dumps({
                 },
             )
 
+            streamed_events = []
             result = run_agent(
                 "show a message",
                 base_dir=root,
                 client=client,
                 max_iterations=1,
                 approval_handler=_approve,
+                model_stream_handler=lambda *_args: streamed_events.append(_args[-1]),
             )
             hook_input = json.loads(
                 (root / "message-display-input.json").read_text(encoding="utf-8")
@@ -170,11 +178,21 @@ print(json.dumps({
                 result,
                 OneShotPriorContext(source="none"),
             )
+            session_events = [
+                json.loads(line)
+                for line in (root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
             stdout = io.StringIO()
             with redirect_stdout(stdout):
                 print_agent_result(result)
 
         self.assertTrue(result.success)
+        self.assertEqual(client.stream_calls, 0)
+        self.assertEqual(streamed_events, [])
+        disabled = next(event for event in session_events if event["type"] == "model_streaming_disabled")
+        self.assertEqual(disabled["reason"], "message_display_hook")
         self.assertEqual(result.message, "Visible SECRET")
         self.assertEqual(result.display_message, "Visible [redacted]")
         self.assertEqual(result.hook_system_messages, ["display transformed"])

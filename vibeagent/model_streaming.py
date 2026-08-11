@@ -44,10 +44,15 @@ def complete_streaming(
     return response
 
 
+def supports_model_streaming(client: object) -> bool:
+    return callable(getattr(client, "complete_stream", None))
+
+
 __all__ = [
     "AgentModelStreamHandler",
     "ChatModelStreamHandler",
     "ModelStreamingUnsupportedError",
     "ProviderStreamHandler",
     "complete_streaming",
+    "supports_model_streaming",
 ]
