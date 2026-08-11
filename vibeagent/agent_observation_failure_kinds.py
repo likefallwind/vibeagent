@@ -97,6 +97,7 @@ OK_FLAG_FAILURE_KINDS = {
     "http_fetch",
     "web_fetch",
     "web_search",
+    "browser",
     "start_command",
     "monitor",
     "read_process",

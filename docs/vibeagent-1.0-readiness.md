@@ -85,6 +85,19 @@ headless-browser checks cover connected desktop and mobile layouts without
 horizontal overflow. This self-hosted surface does not claim claude.ai/mobile
 account integration, active foreground conversation sync, or cross-project
 aggregation.
+Optional first-class browser tools use an installed `agent-browser` runtime to
+exercise the application being developed rather than opening a GUI through a
+shell command. Six deferred tools cover approved navigation, accessibility
+snapshots, bounded controls and DOM/console/error reads, atomic workspace
+screenshots, and explicit close. Each VibeAgent session gets an isolated browser
+name, private empty config, scrubbed proxy/profile/credential environment, and
+an approved-host navigation allowlist. URL credentials, link-local/reserved
+destinations, and mixed public/private DNS answers are refused; tool output is
+bounded to 30,000 characters and screenshots to 25 MiB inside safe workspace
+paths. Deterministic tests mock only the external process boundary, while a
+real local Chromium smoke opens a fixture page, snapshots it, fills and clicks
+controls, reads the changed DOM and clean console/error state, writes a
+screenshot whose pixels are inspected, and closes the browser.
 
 That release gate expands to:
 

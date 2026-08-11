@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .action_parsing import summarize_plan_update
 from .background_delegate_runtime import execute_background_task_action
+from .browser_runtime import execute_browser_action
 from .checkpoint_action_executor import execute_checkpoint_action
 from .cron_action_executor import execute_cron_action
 from .code_intel_action_executor import execute_code_intel_action
@@ -23,6 +24,7 @@ from .team_action_executor import execute_team_action
 from .types import (
     AgentAction,
     AskUserAction,
+    BrowserAction,
     DelegateTaskAction,
     DelegateTaskObservation,
     EnterPlanModeAction,
@@ -42,6 +44,9 @@ from .workspace import RunWorkspace
 
 def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout_ms: int = 30_000) -> Observation:
     # Dispatch one action at a time; all side effects stay within the given project workspace.
+    if isinstance(action, BrowserAction):
+        return execute_browser_action(workspace, action)
+
     read_observation = execute_read_action(workspace, action)
     if read_observation is not None:
         return read_observation

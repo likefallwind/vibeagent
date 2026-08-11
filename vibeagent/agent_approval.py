@@ -27,6 +27,25 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
     file_request = build_file_approval_request(action)
     if file_request is not None:
         return file_request
+    if isinstance(action, t.BrowserAction):
+        target = action.url or action.path or action.selector or action.operation
+        if action.operation in {"fill", "type", "press"} and action.text is not None:
+            target = f"{target} ({len(action.text)} text chars)"
+        if action.operation == "select":
+            target = f"{target} ({len(action.values)} value(s))"
+        risk = (
+            "This starts or controls an isolated browser process. Page content is untrusted; browser "
+            "interactions may navigate, disclose provided text, or trigger remote side effects."
+        )
+        if action.operation == "screenshot":
+            risk = "This controls the isolated browser and atomically writes a screenshot inside the active workspace."
+        elif action.operation == "close":
+            risk = "This stops the isolated browser session and releases its browser process."
+        return t.ApprovalRequest(
+            action_type=f"browser_{action.operation}",
+            target=redact_sensitive_text(str(target)),
+            risk=risk,
+        )
     if isinstance(action, t.ExitPlanModeAction):
         steps = "; ".join(item.step for item in action.plan)
         return t.ApprovalRequest(

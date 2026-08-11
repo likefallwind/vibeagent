@@ -187,6 +187,22 @@ EXPECTED_GATES = {
             "test_rejects_invalid_routes_payloads_and_non_tls_network_bind",
         },
     },
+    "VA1-BROWSER": {
+        "tools": {
+            "browser_open",
+            "browser_snapshot",
+            "browser_act",
+            "browser_read",
+            "browser_screenshot",
+            "browser_close",
+        },
+        "tests": {
+            "test_browser_tool_family_is_discoverable_and_hidden_in_plan_mode",
+            "test_navigation_is_session_isolated_domain_limited_and_environment_scrubbed",
+            "test_navigation_rejects_link_local_and_mixed_scope_resolution",
+            "test_screenshot_is_atomically_written_inside_workspace",
+        },
+    },
     "VA1-GOAL": {
         "tools": set(),
         "tests": {"test_one_shot_goal_continues_until_evaluator_accepts"},

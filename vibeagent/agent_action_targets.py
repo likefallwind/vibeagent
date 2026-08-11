@@ -25,6 +25,8 @@ def _monitor_target(action: t.MonitorAction) -> str:
 
 
 def build_action_target(action: object) -> str:
+    if isinstance(action, t.BrowserAction):
+        return action.url or action.path or action.selector or action.operation
     if isinstance(action, t.ListAgentsAction):
         return "session subagents"
     if isinstance(action, t.SendMessageAction):

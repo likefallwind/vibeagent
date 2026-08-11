@@ -34,6 +34,7 @@ def runtime_tool_commands() -> list[tuple[str, list[str]]]:
         ("yarn", ["yarn", "--version"]),
         ("uv", ["uv", "--version"]),
         ("pytest", ["pytest", "--version"]),
+        ("agent-browser", ["agent-browser", "--version"]),
     ]
 
 

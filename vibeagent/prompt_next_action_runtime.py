@@ -70,6 +70,12 @@ RUNTIME_NEXT_ACTION_KINDS = {
     "http_fetch",
     "web_fetch",
     "web_search",
+    "browser_open",
+    "browser_snapshot",
+    "browser_act",
+    "browser_read",
+    "browser_screenshot",
+    "browser_close",
 }
 
 
@@ -219,6 +225,16 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
         return _web_fetch_next_action_instruction(base, latest)
     if latest.kind == "web_search":
         return _web_search_next_action_instruction(base, latest)
+    if latest.kind == "browser":
+        if not latest.ok:
+            return f"{base} The browser operation failed. Use its concrete error to fix availability, selectors, or page state before continuing."
+        if latest.operation in {"open", "click", "dblclick", "fill", "type", "press", "check", "uncheck", "select"}:
+            return f"{base} Browser state may have changed. Use browser_snapshot before relying on old element references, then inspect console/errors when debugging a UI failure."
+        if latest.operation == "screenshot":
+            return f"{base} The screenshot is in the workspace at {latest.path}. Use view_image when pixel-level visual evidence is required."
+        if latest.operation == "close":
+            return f"{base} The isolated browser session is closed. Continue with remaining code verification or finish if all criteria are proven."
+        return f"{base} Continue the browser workflow using current snapshot evidence, and close the isolated browser when verification is complete."
     if latest.kind in {"command_check", "check_start_command"}:
         if getattr(latest, "blocked", False):
             return f"{base} Command preflight was blocked. Choose a safer command or inspect the block reason before requesting execution."

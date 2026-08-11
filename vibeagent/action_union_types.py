@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TypeAlias
 
+from .action_browser_types import BrowserAction
+
 from .action_checkpoint_types import (
     CheckCheckpointDeleteAction,
     CheckCheckpointPruneAction,
@@ -175,7 +177,8 @@ from .action_workflow_types import AskUserAction, DeepReviewAction, DelegateTask
 
 # Small union of all supported model action types.
 AgentAction: TypeAlias = (
-    CheckWriteFileAction
+    BrowserAction
+    | CheckWriteFileAction
     | WriteFileAction
     | CheckWriteFilesAction
     | WriteFilesAction

@@ -175,6 +175,29 @@ Confirm the installed package version:
 python -m vibeagent --version
 ```
 
+For first-class browser verification, install the optional `agent-browser`
+runtime and its browser binary:
+
+```sh
+npm install -g agent-browser
+agent-browser install
+```
+
+The deferred tools `browser_open`, `browser_snapshot`, `browser_act`,
+`browser_read`, `browser_screenshot`, and `browser_close` then let an agent
+exercise a real HTTP(S) UI, inspect accessibility references, fill and click
+controls, read DOM/console/error state, capture workspace screenshots, and
+release the isolated browser session. Every browser call uses the normal
+approval policy. VibeAgent supplies a private per-session name, ignores project
+and user `agent-browser` configuration, removes proxy/profile/credential
+environment variables, bounds returned text, and locks page navigation to the
+approved host. Browser URLs reject credentials, mixed public/private DNS
+answers, and link-local, multicast, reserved, or unspecified addresses.
+Screenshots are limited to 25 MiB and atomically replace only a non-protected,
+non-symlink workspace path. VibeAgent does not install a browser automatically,
+reuse a logged-in browser profile, expose JavaScript evaluation, or provide
+cookie, credential, upload, proxy, or network-interception operations.
+
 Before cutting a release, verify an editable install from outside the source
 tree:
 
@@ -2524,6 +2547,11 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   `web_fetch`, `web_search`, `mcp_resources`, `mcp_read_resource`, `checkpoint_create`, `checkpoint_list`, `checkpoint_show`, `checkpoint_diff`, `checkpoint_status`, `check_checkpoint_restore`, `checkpoint_restore`, `check_checkpoint_delete`, `checkpoint_delete`, `check_checkpoint_prune`, `checkpoint_prune`, `check_multi_edit_file`, `multi_edit_file`, `check_replace_python_definition`, `replace_python_definition`, `check_replace_lines`, `check_insert_lines`, `check_append_file`, `check_regex_replace`, `regex_replace`, `replace_lines`, `insert_lines`, `append_file`, `check_patch`, `check_patches`, `patch_file`, `patch_files`, `check_write_file`, `write_file`, `check_write_files`, `write_files`, `check_delete_file`, `delete_file`, `check_delete_files`, `delete_files`, `check_move_file`, `move_file`, `check_move_files`, `move_files`, `check_copy_file`, `copy_file`, `check_copy_files`, `copy_files`, `check_move_dir`, `move_dir`, `check_move_dirs`, `move_dirs`, `check_copy_dir`, `copy_dir`, `check_copy_dirs`, `copy_dirs`, `check_create_dir`, `create_dir`, `check_create_dirs`, `create_dirs`, `check_delete_empty_dir`, `delete_empty_dir`, `check_delete_empty_dirs`, `delete_empty_dirs`, `check_set_executable`, `set_executable`,
   `run_command`, `check_start_command`, `start_command`, Claude-compatible `Monitor`, `list_processes`, `read_process`, `process_output_contexts`, `process_output_diagnostics`, `wait_process`, `check_write_process`, `write_process`,
   `check_stop_all_processes`, `check_stop_process`, `stop_all_processes`, `stop_process`, `delegate_task`, Claude-compatible `ListAgents`, `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `CronCreate`, `CronList`, `CronDelete`, `TaskOutput`, and `TaskStop`, `ask_user`, `update_plan`, `todo_write`, `todo_read`, and `finish`.
+- `vibeagent/action_parsing_browser.py`, `vibeagent/browser_runtime.py`, and
+  `vibeagent/tool_definition_browser.py`: expose optional approved browser
+  navigation, accessibility snapshots, bounded interactions and reads,
+  console/error inspection, atomic workspace screenshots, and cleanup through
+  an isolated `agent-browser` session without accepting arbitrary CLI options.
 - `vibeagent/session_tasks.py`, `vibeagent/session_task_store.py`, and
   `vibeagent/session_task_graph.py`: manage the session-scoped structured task
   graph, atomic persistence, resume inheritance, and dependency invariants.
@@ -2685,9 +2713,10 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `/verify [goal]` turns the requested behavior or current changes into
   observable acceptance criteria, builds the project, runs the real CLI or
   service entry point, and records command, process, port, HTTP, and log
-  evidence. UI criteria require a browser-capable project skill or MCP tool;
-  HTTP success alone is reported separately and never presented as visual or
-  interaction proof. The workflow stops only processes it started and reports
+  evidence. UI criteria use `tool_search` to discover the optional native
+  `browser_*` tools or a browser-capable project skill/MCP tool; HTTP success
+  alone is reported separately and never presented as visual or interaction
+  proof. The workflow stops only processes it started and reports
   each criterion as `PASS`, `FAIL`, or `UNVERIFIED`.
   `/run-skill-generator [app]` first proves a selected app's build, launch,
   readiness, driven behavior, observation, and cleanup steps, then records the
@@ -2788,6 +2817,7 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `http_fetch` fetches bounded local/private HTTP(S) response metadata and body text without running shell commands;
   `web_fetch` fetches bounded readable text from public technical documents after approval, rejects URL credentials and non-public destinations, and revalidates redirects;
   `web_search`/`WebSearch` sends a bounded query to DuckDuckGo after approval, parses result titles, public URLs, and snippets, and supports local allow/block domain filtering before returning results;
+  `browser_open`, `browser_snapshot`, `browser_act`, `browser_read`, `browser_screenshot`, and `browser_close` use an optional `agent-browser` executable for approved per-session UI verification. The exposed contract covers navigation, accessibility snapshots, bounded element interaction and reads, console/page errors, atomic workspace screenshots, and cleanup without exposing arbitrary CLI arguments, JavaScript evaluation, browser credentials, uploads, cookies, proxies, or interception. A private empty config and scrubbed process environment prevent repository or inherited browser configuration from widening the contract; approved hosts are DNS-checked and persisted as the session navigation allowlist;
   `mcp_resources`/`ListMcpResourcesTool` follows bounded pagination for concrete MCP resources and RFC 6570 URI templates, while `mcp_read_resource`/`ReadMcpResourceTool` reads only an exact advertised URI or an instance matching an advertised template. Servers that do not implement `resources/templates/list` may return JSON-RPC method-not-found without breaking concrete resource discovery. Resource text is redacted and truncated, binary blobs remain hidden behind metadata, and both operations retain VibeAgent's explicit MCP approval boundary for stdio and HTTP servers;
   `check_start_command` does the same for long-running commands without starting a process;
   `monitor`/`Monitor` starts either an approved background command or an explicitly approved public `ws://`/`wss://` connection. Command sources deliver each complete stdout line; WebSocket sources preserve each text message as one event even when it spans lines, replace binary frames with byte-count placeholders, reject credentials, whitespace, non-ASCII URLs, invalid/duplicate subprotocols, DNS results containing private/link-local/metadata addresses, and messages larger than 1 MiB, and report close codes. Events and final status reach the active agent as untrusted runtime evidence. The default timeout is 300,000 ms and the maximum is 3,600,000 ms; `persistent: true` runs until `TaskStop` or CLI session exit. Active agent turns receive events between model calls, and an idle interactive CLI starts a resumed turn when an event arrives;

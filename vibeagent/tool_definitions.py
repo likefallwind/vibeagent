@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .tool_definition_code_intel import CODE_INTEL_TOOL_DEFINITIONS
+from .tool_definition_browser import BROWSER_TOOL_DEFINITIONS
 from .tool_definition_cron import CRON_TOOL_DEFINITIONS
 from .tool_definition_delegation import DELEGATION_TOOL_DEFINITIONS
 from .tool_definition_file_editing import FILE_EDITING_TOOL_DEFINITIONS
@@ -20,6 +21,7 @@ from .tool_definition_team import TEAM_TOOL_DEFINITIONS
 
 AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = (
     READING_TOOL_DEFINITIONS
+    + BROWSER_TOOL_DEFINITIONS
     + JSON_EDITING_TOOL_DEFINITIONS
     + CODE_INTEL_TOOL_DEFINITIONS
     + GIT_TOOL_DEFINITIONS

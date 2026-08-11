@@ -13,6 +13,7 @@ from .action_checkpoint_types import (
     CheckpointShowAction,
     CheckpointStatusAction,
 )
+from .action_browser_types import BrowserAction, BrowserActionOperation
 from .action_code_intel_types import (
     CheckReplacePythonDefinitionAction,
     CodeDefinitionsAction,

@@ -7,6 +7,12 @@ from .tool_definitions import AGENT_TOOL_DEFINITIONS
 
 APPROVAL_REQUIRED_TOOL_NAMES = {
     "ExitPlanMode",
+    "browser_act",
+    "browser_close",
+    "browser_open",
+    "browser_read",
+    "browser_screenshot",
+    "browser_snapshot",
     "append_file",
     "checkpoint_delete",
     "checkpoint_prune",
@@ -94,6 +100,12 @@ def tool_category(name: str) -> str:
     if name.startswith("mcp__"):
         return "project"
     if name in {
+        "browser_act",
+        "browser_close",
+        "browser_open",
+        "browser_read",
+        "browser_screenshot",
+        "browser_snapshot",
         "delegate_task",
         "mcp_call",
         "mcp_read_resource",

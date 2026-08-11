@@ -14,6 +14,7 @@ from .observation_checkpoint_types import (
     CheckpointShowObservation,
     CheckpointStatusObservation,
 )
+from .observation_browser_types import BrowserObservation
 from .observation_code_intel_types import (
     CodeDefinition,
     CodeDefinitionsObservation,

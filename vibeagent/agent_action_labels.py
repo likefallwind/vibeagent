@@ -7,6 +7,9 @@ from . import types as t
 
 
 def build_step_label(action: object) -> str:
+    if isinstance(action, t.BrowserAction):
+        target = action.url or action.path or action.selector
+        return f"Browser {action.operation}{f' {summarize(target, 80)}' if target else ''}"
     if isinstance(action, t.MemoryListAction):
         return "List project memory"
     if isinstance(action, t.MemoryReadAction):

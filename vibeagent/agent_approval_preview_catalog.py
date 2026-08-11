@@ -68,6 +68,12 @@ PREVIEW_KIND_BY_ACTION_TYPE = {
 # disclosure that approval is intended to guard.
 APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES = {
     "ExitPlanMode",
+    "browser_act",
+    "browser_close",
+    "browser_open",
+    "browser_read",
+    "browser_screenshot",
+    "browser_snapshot",
     "exit_plan_mode",
     "enter_worktree",
     "mcp_call",

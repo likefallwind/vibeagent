@@ -42,6 +42,7 @@ def _target_process_id(action: object) -> object:
 
 
 ACTION_LOG_SPECS: dict[str, tuple[str, ActionTargetBuilder]] = {
+    "browser": ("controlling browser", _target_action),
     "memory_list": ("listing memory", _target_none),
     "memory_read": ("reading memory", _target_action),
     "check_memory_write": ("checking memory write", _target_action),

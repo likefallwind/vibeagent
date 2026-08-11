@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TypeAlias
 
+from .observation_browser_types import BrowserObservation
+
 from .observation_checkpoint_types import (
     CheckCheckpointDeleteObservation,
     CheckCheckpointPruneObservation,
@@ -212,7 +214,8 @@ from .observation_cron_types import CronCreateObservation, CronDeleteObservation
 
 # Unified envelope returned from one agent step.
 Observation: TypeAlias = (
-    FileMutationObservation
+    BrowserObservation
+    | FileMutationObservation
     | ListFilesObservation
     | ListTreeObservation
     | RepoMapObservation
