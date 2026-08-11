@@ -44,7 +44,7 @@ class PluginMonitorConfig:
 
 def read_plugin_monitor_configs(workspace: RunWorkspace) -> list[PluginMonitorConfig]:
     configs: list[PluginMonitorConfig] = []
-    for manifest in enabled_plugin_manifests(workspace.root):
+    for manifest in enabled_plugin_manifests(workspace.root, workspace=workspace):
         seen: set[str] = set()
         for entries, source in _manifest_monitor_documents(manifest):
             for index, entry in enumerate(entries):

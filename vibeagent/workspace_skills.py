@@ -18,9 +18,9 @@ from .workspace_metadata_files import (
     parse_scalar_frontmatter,
     read_regular_file_bytes,
 )
+from .session_config_state import effective_skill_root
 
 
-SKILL_ROOTS = ((".claude/skills", "claude"), (".agents/skills", "agents"))
 SKILL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 SKILL_REFERENCE_PATTERN = re.compile(
     r"^(?:[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9]):)?[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
@@ -60,7 +60,7 @@ def read_project_skill(workspace: RunWorkspace, name: str, max_bytes: int = 20_0
         raise ValueError(f"Custom skill {normalized!r} is unavailable: {detail}")
 
     skill = available[0]
-    path = workspace.root / str(skill["path"])
+    path = _effective_skill_path(workspace, skill)
     raw = _read_skill_bytes(path)
     description = _validate_skill_content(
         path,
@@ -117,11 +117,12 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
     discovered: list[dict[str, object]] = []
     home = user_home()
     roots = [
-        *((workspace.root / relative_root, source) for relative_root, source in SKILL_ROOTS),
-        (home / ".claude/skills", "user"),
+        (effective_skill_root(workspace, user=False), "claude"),
+        (workspace.root / ".agents/skills", "agents"),
+        (effective_skill_root(workspace, user=True), "user"),
     ]
     for root, source in roots:
-        boundary = home if source == "user" else workspace.root
+        boundary = _skill_boundary(workspace, home, root, source)
         if not root.exists() or not root.is_dir() or has_symlink_component(boundary, root):
             continue
         try:
@@ -184,6 +185,31 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
         ),
     )
     return sorted(selected, key=lambda skill: (str(skill["name"]), str(skill["source"])))
+
+
+def _effective_skill_path(workspace: RunWorkspace, skill: dict[str, object]) -> Path:
+    source = str(skill["source"])
+    if source == "user":
+        return effective_skill_root(workspace, user=True) / str(skill["name"]) / "SKILL.md"
+    if source == "claude":
+        return effective_skill_root(workspace, user=False) / str(skill["name"]) / "SKILL.md"
+    return workspace.root / str(skill["path"])
+
+
+def _skill_boundary(
+    workspace: RunWorkspace,
+    home: Path,
+    root: Path,
+    source: str,
+) -> Path:
+    physical_root = (
+        home / ".claude/skills"
+        if source == "user"
+        else workspace.root / f".{source}/skills"
+    )
+    if source in {"user", "claude"} and root != physical_root:
+        return workspace.session_dir
+    return home if source == "user" else workspace.root
 
 
 def _skill_source_priority(source: str) -> int:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from uuid import uuid4
 
 from .plugin_installation import copy_plugin_tree, remove_plugin_tree
@@ -34,6 +34,9 @@ from .plugin_state import (
 )
 from .plugin_types import InstalledPlugin, PluginManifest, PluginUpdateResult
 from .workspace_resolve import resolve_mutation_path
+
+if TYPE_CHECKING:
+    from .workspace_core import RunWorkspace
 
 
 def install_local_plugin(
@@ -313,10 +316,14 @@ def uninstall_plugin(
         return installed
 
 
-def list_installed_plugins(project_root: Path) -> list[InstalledPlugin]:
+def list_installed_plugins(
+    project_root: Path,
+    *,
+    workspace: RunWorkspace | None = None,
+) -> list[InstalledPlugin]:
     project = project_root.resolve()
-    project_plugins = _list_installed_plugins_from_store(project, project)
-    user_plugins = _list_installed_plugins_from_store(project, user_home())
+    project_plugins = _list_installed_plugins_from_store(project, project, workspace=workspace)
+    user_plugins = _list_installed_plugins_from_store(project, user_home(), workspace=workspace)
     merged = {plugin.name: plugin for plugin in user_plugins}
     merged.update({plugin.name: plugin for plugin in project_plugins})
     return sorted(merged.values(), key=lambda plugin: plugin.name)
@@ -325,6 +332,8 @@ def list_installed_plugins(project_root: Path) -> list[InstalledPlugin]:
 def _list_installed_plugins_from_store(
     project_root: Path,
     store: Path,
+    *,
+    workspace: RunWorkspace | None = None,
 ) -> list[InstalledPlugin]:
     with _STORE_LOCK:
         state = _read_state(store)
@@ -345,7 +354,7 @@ def _list_installed_plugins_from_store(
             manifest = read_plugin_manifest(path)
             if manifest.name != item.name:
                 raise ValueError("cached manifest name does not match installed state")
-            item = _effective_installed_plugin(project_root, item)
+            item = _effective_installed_plugin(project_root, item, workspace=workspace)
         except (OSError, UnicodeError, ValueError) as error:
             item = InstalledPlugin(
                 name=name,
@@ -415,9 +424,13 @@ def _read_installed_plugin_manifest_from_store(store: Path, name: str) -> Plugin
     return manifest
 
 
-def enabled_plugin_manifests(project_root: Path) -> list[PluginManifest]:
+def enabled_plugin_manifests(
+    project_root: Path,
+    *,
+    workspace: RunWorkspace | None = None,
+) -> list[PluginManifest]:
     manifests: list[PluginManifest] = []
-    for plugin in list_installed_plugins(project_root):
+    for plugin in list_installed_plugins(project_root, workspace=workspace):
         if not plugin.enabled or plugin.error is not None:
             continue
         try:

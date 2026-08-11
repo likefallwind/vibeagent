@@ -137,6 +137,25 @@ class AgentLifecycleRuntime:
             iteration=iteration,
         )
 
+    def config_change(
+        self,
+        workspace: RunWorkspace,
+        source: str,
+        *,
+        file_path: str | None = None,
+        iteration: int = 0,
+    ) -> LifecycleHookResult:
+        fields: dict[str, object] = {"source": source}
+        if file_path is not None:
+            fields["file_path"] = file_path
+        return self._run(
+            workspace,
+            "ConfigChange",
+            source,
+            fields,
+            iteration=iteration,
+        )
+
     def message_display(
         self,
         workspace: RunWorkspace,

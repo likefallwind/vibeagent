@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 
 HookEvent = Literal[
+    "ConfigChange",
     "CwdChanged",
     "DirectoryAdded",
     "FileChanged",
@@ -35,6 +36,7 @@ HookEvent = Literal[
 HOOK_EVENTS = frozenset(
     {
         "CwdChanged",
+        "ConfigChange",
         "DirectoryAdded",
         "FileChanged",
         "InstructionsLoaded",

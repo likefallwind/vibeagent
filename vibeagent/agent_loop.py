@@ -66,6 +66,7 @@ from .types import (
 from .workspace_core import RunWorkspace
 from .deferred_tool_state import DeferredToolState
 from .file_changed_hooks import FileChangedHookRuntime
+from .config_change_hooks import ConfigChangeHookRuntime
 
 
 @dataclass(frozen=True)
@@ -324,6 +325,7 @@ def run_agent_loop(
             iteration=iteration,
         )
 
+    config_change_runtime = ConfigChangeHookRuntime(current_workspace, lifecycle)
     startup_block = lifecycle.start(
         current_workspace,
         messages,
@@ -338,6 +340,8 @@ def run_agent_loop(
         project_hooks,
         lifecycle,
     )
+    initial_config_changes = config_change_runtime.poll(iteration=0)
+    hook_system_messages.extend(initial_config_changes.system_messages)
     checkpoint_conversation()
     plugin_monitors = AgentPluginMonitorController.create(
         plugin_monitor_runtime,
@@ -352,7 +356,12 @@ def run_agent_loop(
     def stop_feedback_if_needed(message: str, iteration: int) -> str | None:
         return lifecycle.stop_feedback_if_needed(current_workspace, message, iteration)
 
-    def poll_file_changes(iteration: int) -> None:
+    def poll_runtime_changes(iteration: int) -> None:
+        config_changes = config_change_runtime.poll(
+            workspace=current_workspace,
+            iteration=iteration,
+        )
+        hook_system_messages.extend(config_changes.system_messages)
         changed = file_changed_runtime.poll(
             workspace=current_workspace,
             iteration=iteration,
@@ -546,7 +555,7 @@ def run_agent_loop(
         if logger:
             logger("thinking", f"iteration {iteration}/{max_iterations}")
 
-        poll_file_changes(iteration)
+        poll_runtime_changes(iteration)
 
         inject_background_delegate_notifications(
             current_workspace,
@@ -634,7 +643,7 @@ def run_agent_loop(
             return finish_run(False, failure_message, iteration)
         strip_consumed_tool_images(messages)
         model_turn = record_model_turn(current_workspace, messages, response, iteration)
-        poll_file_changes(iteration)
+        poll_runtime_changes(iteration)
         assistant_content = model_turn.assistant_content
         tool_calls = model_turn.tool_calls
         assistant_text = content_blocks_to_text(assistant_content)

@@ -102,6 +102,7 @@ from .session_additional_directories import (
 )
 from .session_conversation import load_session_conversation
 from .session_lifecycle_hooks import (
+    create_interactive_config_change_runtime,
     create_interactive_file_changed_runtime,
     run_interactive_notification_hooks,
     run_interactive_session_hook,
@@ -159,6 +160,7 @@ def run_interactive_loop(
     workflow_client_lock = Lock()
     idle_notification = IdleNotificationTimer()
     file_changed_runtime = None
+    config_change_runtime = None
     if initial_resume_run_id is not None:
         restored_goal = read_session_goal(Path.cwd(), initial_resume_run_id)
         goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
@@ -294,6 +296,10 @@ def run_interactive_loop(
         try:
             if file_changed_runtime is not None:
                 changed = file_changed_runtime.poll(iteration=0)
+                for message in changed.system_messages:
+                    print(f"\n{message}")
+            if config_change_runtime is not None:
+                changed = config_change_runtime.poll(iteration=0)
                 for message in changed.system_messages:
                     print(f"\n{message}")
             if idle_notification.due() and resume_run_id is not None:
@@ -470,6 +476,7 @@ def run_interactive_loop(
         try:
             idle_notification = IdleNotificationTimer()
             file_changed_runtime = None
+            config_change_runtime = None
             if resume_run_id is not None:
                 try:
                     execution_config = resolve_execution_config(Path.cwd())
@@ -482,8 +489,17 @@ def run_interactive_loop(
                         approval_handler=approval_handler,
                         approval_policy=approval_policy,
                     )
+                    config_change_runtime = create_interactive_config_change_runtime(
+                        Path.cwd(),
+                        resume_run_id,
+                        pending_workspace,
+                        additional_directories,
+                        command_timeout_ms=execution_config.command_timeout_ms,
+                        approval_handler=approval_handler,
+                        approval_policy=approval_policy,
+                    )
                 except Exception as error:
-                    print(f"FileChanged hook warning: {format_error(error)}")
+                    print(f"Runtime change hook warning: {format_error(error)}")
             with interactive_prompt_completion(Path.cwd(), additional_directories):
                 task = input_with_idle_callback(
                     interactive_session_prompt(Path.cwd(), resume_run_id, pending_workspace),

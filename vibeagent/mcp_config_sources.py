@@ -58,7 +58,7 @@ def read_scoped_mcp_server_configs(
             ),
             replace_existing=False,
         )
-    for manifest in enabled_plugin_manifests(workspace.root):
+    for manifest in enabled_plugin_manifests(workspace.root, workspace=workspace):
         if manifest.inline_mcp_servers is None:
             continue
         component = inline_plugin_component(manifest, "mcp")

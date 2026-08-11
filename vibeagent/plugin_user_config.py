@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 from typing import Literal
+from typing import TYPE_CHECKING
 
 from .plugin_scope_settings import PluginScope
 from .plugin_store import read_installed_plugin, read_installed_plugin_manifest
@@ -16,6 +17,9 @@ from .plugin_user_config_store import (
     unset_plugin_configured_value,
     write_plugin_configured_value,
 )
+
+if TYPE_CHECKING:
+    from .workspace_core import RunWorkspace
 
 
 PLUGIN_USER_VARIABLE_PATTERN = re.compile(r"\$\{user_config\.([A-Za-z_][A-Za-z0-9_]{0,63})\}")
@@ -47,11 +51,14 @@ def resolve_plugin_user_config(
     manifest: PluginManifest,
     *,
     plugin_id: str | None = None,
+    workspace: RunWorkspace | None = None,
 ) -> ResolvedPluginUserConfig:
     root = project_root.resolve()
     plugin_id = plugin_id or installed_plugin_id(root, manifest.name)
     aliases = (plugin_id,)
-    configured, sources, settings_sources = read_plugin_configured_values(root, aliases)
+    configured, sources, settings_sources = read_plugin_configured_values(
+        root, aliases, workspace=workspace
+    )
 
     values: dict[str, object] = {}
     selected_sources: dict[str, str] = {}

@@ -62,7 +62,7 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
             _append_plugin_hooks(hooks, workspace, component, payload, source)
             if len(hooks) > MAX_HOOKS:
                 raise ValueError(f"Workspace and plugin hooks exceed {MAX_HOOKS} hooks.")
-        for manifest in enabled_plugin_manifests(workspace.root):
+        for manifest in enabled_plugin_manifests(workspace.root, workspace=workspace):
             if manifest.inline_hooks is None:
                 continue
             component = inline_plugin_component(manifest, "hook")

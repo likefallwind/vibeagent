@@ -66,7 +66,7 @@ class LspServerConfig:
 def read_lsp_server_configs(workspace: RunWorkspace) -> list[LspServerConfig]:
     configs: list[LspServerConfig] = []
     seen: dict[str, str] = {}
-    for manifest in enabled_plugin_manifests(workspace.root):
+    for manifest in enabled_plugin_manifests(workspace.root, workspace=workspace):
         for document, label in _manifest_documents(manifest):
             for name, value in document.items():
                 selected = _parse_server(workspace, manifest, name, value, label)

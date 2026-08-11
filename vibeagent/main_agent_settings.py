@@ -5,10 +5,10 @@ import json
 from pathlib import Path
 
 from .plugin_store import enabled_plugin_manifests
-from .user_paths import user_home
 from .workspace_agent_profile_parser import AGENT_REFERENCE_PATTERN
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
+from .workspace_settings_sources import claude_settings_files
 
 
 MAX_AGENT_SETTINGS_BYTES = 128_000
@@ -35,11 +35,12 @@ def resolve_main_agent_selection(
             source="explicit",
         )
 
+    settings = {item.source: item for item in claude_settings_files(workspace)}
     for relative in PROJECT_AGENT_SETTINGS_PATHS:
-        path = workspace.root / relative
-        if not path.exists() and not path.is_symlink():
+        config = settings[relative]
+        if not config.path.exists() and not config.path.is_symlink():
             continue
-        payload = _read_agent_settings(workspace.root, path, relative)
+        payload = _read_agent_settings(config.boundary, config.path, relative)
         if "agent" not in payload:
             continue
         return MainAgentSelection(
@@ -47,12 +48,11 @@ def resolve_main_agent_selection(
             source=relative,
         )
 
-    home = user_home()
-    user_settings = home / ".claude/settings.json"
-    if user_settings.exists() or user_settings.is_symlink():
+    user_config = settings[USER_AGENT_SETTINGS_PATH]
+    if user_config.path.exists() or user_config.path.is_symlink():
         payload = _read_agent_settings(
-            home,
-            user_settings,
+            user_config.boundary,
+            user_config.path,
             USER_AGENT_SETTINGS_PATH,
         )
         if "agent" in payload:
@@ -66,7 +66,7 @@ def resolve_main_agent_selection(
 
     defaults = [
         (manifest.name, manifest.default_agent, manifest.default_settings_source)
-        for manifest in enabled_plugin_manifests(workspace.root)
+        for manifest in enabled_plugin_manifests(workspace.root, workspace=workspace)
         if manifest.default_agent is not None
     ]
     if len(defaults) > 1:

@@ -5,11 +5,15 @@ import os
 from pathlib import Path
 import stat
 from tempfile import NamedTemporaryFile
+from typing import TYPE_CHECKING
 
 from .plugin_locations import user_home
 from .plugin_scope_settings import PluginScope
 from .plugin_state import PLUGIN_STORE_LOCK, plugins_root
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
+
+if TYPE_CHECKING:
+    from .workspace_core import RunWorkspace
 
 
 MAX_PLUGIN_USER_SETTINGS_BYTES = 512_000
@@ -20,17 +24,27 @@ PLUGIN_CREDENTIALS_VERSION = 1
 def read_plugin_configured_values(
     root: Path,
     aliases: tuple[str, ...],
+    *,
+    workspace: RunWorkspace | None = None,
 ) -> tuple[dict[str, object], dict[str, str], dict[str, str]]:
     configured: dict[str, object] = {}
     sources: dict[str, str] = {}
     settings_sources: dict[str, str] = {}
-    settings_locations = [
-        (user_home(), ".claude/settings.json", "~/.claude/settings.json"),
-        (root, ".claude/settings.json", ".claude/settings.json"),
-        (root, ".claude/settings.local.json", ".claude/settings.local.json"),
-    ]
-    for settings_root, relative, label in settings_locations:
-        payload = _read_settings_payload(settings_root, relative, label=label)
+    if workspace is None:
+        settings_locations = [
+            (user_home(), user_home() / ".claude/settings.json", "~/.claude/settings.json"),
+            (root, root / ".claude/settings.json", ".claude/settings.json"),
+            (root, root / ".claude/settings.local.json", ".claude/settings.local.json"),
+        ]
+    else:
+        from .workspace_settings_sources import claude_settings_files
+
+        settings_locations = [
+            (config.boundary, config.path, config.source)
+            for config in claude_settings_files(workspace)
+        ]
+    for settings_root, path, label in settings_locations:
+        payload = _read_settings_path(settings_root, path, label=label)
         for alias in aliases:
             for key, value in _plugin_options(payload, alias, label).items():
                 configured[key] = value
@@ -96,6 +110,10 @@ def _read_settings_payload(
 ) -> dict[str, object]:
     label = label or relative
     path = root / relative
+    return _read_settings_path(root, path, label=label)
+
+
+def _read_settings_path(root: Path, path: Path, *, label: str) -> dict[str, object]:
     if not path.exists() and not path.is_symlink():
         return {}
     if has_symlink_component(root, path) or not path.is_file():

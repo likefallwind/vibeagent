@@ -6,9 +6,12 @@ import os
 from pathlib import Path
 import stat
 from tempfile import NamedTemporaryFile
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
+
+if TYPE_CHECKING:
+    from .workspace_core import RunWorkspace
 
 
 PluginScope = Literal["local", "project", "user"]
@@ -102,11 +105,27 @@ def restore_plugin_settings(snapshot: PluginSettingsSnapshot) -> None:
     path.unlink(missing_ok=True)
 
 
-def effective_plugin_enabled(root: Path, plugin_id: str, *, fallback: bool) -> bool:
+def effective_plugin_enabled(
+    root: Path,
+    plugin_id: str,
+    *,
+    fallback: bool,
+    workspace: RunWorkspace | None = None,
+) -> bool:
     selected = fallback
-    for scope in ("user", "project", "local"):
-        snapshot = capture_plugin_settings(root, scope)
-        payload = _decode_settings(snapshot, scope)
+    if workspace is None:
+        payloads = [
+            (_decode_settings(capture_plugin_settings(root, scope), scope), scope)
+            for scope in ("user", "project", "local")
+        ]
+    else:
+        from .workspace_settings_sources import claude_settings_files
+
+        payloads = [
+            (_decode_settings_path(config.boundary, config.path, config.source), config.source)
+            for config in claude_settings_files(workspace)
+        ]
+    for payload, scope in payloads:
         configured = payload.get("enabledPlugins", {})
         if not isinstance(configured, dict) or any(
             not isinstance(key, str) or not isinstance(value, bool)
@@ -117,6 +136,25 @@ def effective_plugin_enabled(root: Path, plugin_id: str, *, fallback: bool) -> b
         if isinstance(value, bool):
             selected = value
     return selected
+
+
+def _decode_settings_path(boundary: Path, path: Path, label: str) -> dict[str, object]:
+    if not path.exists() and not path.is_symlink():
+        return {}
+    if has_symlink_component(boundary, path) or not path.is_file():
+        raise ValueError(f"{label} must be a regular non-symlink file.")
+    content = read_regular_file_bytes(
+        path,
+        max_bytes=MAX_PLUGIN_SCOPE_SETTINGS_BYTES,
+        label=label,
+    )
+    try:
+        payload = json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"Could not parse {label}: {error}") from error
+    if not isinstance(payload, dict):
+        raise ValueError(f"{label} must contain a JSON object.")
+    return payload
 
 
 def _decode_settings(

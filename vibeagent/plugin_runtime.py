@@ -64,7 +64,7 @@ def enabled_plugin_component_files(
         "monitor": "monitor_files",
     }[kind]
     components: list[PluginComponentFile] = []
-    for manifest in enabled_plugin_manifests(workspace.root):
+    for manifest in enabled_plugin_manifests(workspace.root, workspace=workspace):
         for path in getattr(manifest, attribute):
             components.append(
                 PluginComponentFile(
@@ -126,7 +126,7 @@ def resolve_plugin_component_user_config(
     manifest = read_plugin_manifest(component.plugin_root)
     if manifest.name != component.plugin:
         raise ValueError(f"Plugin component identity mismatch: {component.plugin}")
-    return resolve_plugin_user_config(workspace.root, manifest)
+    return resolve_plugin_user_config(workspace.root, manifest, workspace=workspace)
 
 
 def plugin_component_for_path(

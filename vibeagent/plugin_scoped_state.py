@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import cast
+from typing import cast, TYPE_CHECKING
 
 from .plugin_scope_settings import PluginScope, effective_plugin_enabled
 from .plugin_types import InstalledPlugin
+
+if TYPE_CHECKING:
+    from .workspace_core import RunWorkspace
 
 
 def plugin_entry_scopes(entry: object) -> dict[PluginScope, bool]:
@@ -36,6 +39,8 @@ def qualified_plugin_id(name: str, marketplace: str | None) -> str:
 def effective_installed_plugin(
     project_root: Path,
     plugin: InstalledPlugin,
+    *,
+    workspace: RunWorkspace | None = None,
 ) -> InstalledPlugin:
     return replace(
         plugin,
@@ -43,6 +48,7 @@ def effective_installed_plugin(
             project_root,
             qualified_plugin_id(plugin.name, plugin.marketplace),
             fallback=plugin.enabled,
+            workspace=workspace,
         ),
     )
 
