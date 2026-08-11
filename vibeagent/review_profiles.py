@@ -3,9 +3,11 @@ from __future__ import annotations
 
 DEFECT_REVIEW_PERSPECTIVES = ("correctness", "security", "tests")
 CLEANUP_REVIEW_PERSPECTIVES = ("reuse", "simplicity", "efficiency", "abstraction")
+SECURITY_REVIEW_PERSPECTIVES = ("access_control", "injection", "data_exposure", "supply_chain")
 REVIEW_PERSPECTIVES = {
     "defects": DEFECT_REVIEW_PERSPECTIVES,
     "cleanup": CLEANUP_REVIEW_PERSPECTIVES,
+    "security": SECURITY_REVIEW_PERSPECTIVES,
 }
 
 PERSPECTIVE_GUIDANCE = {
@@ -37,6 +39,22 @@ PERSPECTIVE_GUIDANCE = {
         "Check whether changed behavior lives at the correct ownership boundary and abstraction level. Flag leaky, "
         "premature, or misplaced abstractions only when a specific simpler repository-aligned placement is evident."
     ),
+    "access_control": (
+        "Trace authentication, authorization, tenancy, ownership, privilege transitions, and fail-open behavior across "
+        "changed trust boundaries. Require a concrete path by which an actor gains access beyond their intended rights."
+    ),
+    "injection": (
+        "Trace attacker-controlled input into command, query, template, path, parser, deserialization, URL-fetch, or "
+        "code-execution sinks. Verify the actual escaping, validation, canonicalization, and execution context."
+    ),
+    "data_exposure": (
+        "Inspect changed storage, logging, errors, serialization, network responses, and secret handling for unauthorized "
+        "disclosure or integrity loss. Identify the sensitive asset, unauthorized observer, and exposure path."
+    ),
+    "supply_chain": (
+        "Inspect changed dependencies, build/release inputs, configuration, cryptography, update paths, and insecure defaults. "
+        "Report only risks with a concrete untrusted input, compromised boundary, or unsafe production consequence."
+    ),
 }
 
 
@@ -45,4 +63,5 @@ __all__ = [
     "DEFECT_REVIEW_PERSPECTIVES",
     "PERSPECTIVE_GUIDANCE",
     "REVIEW_PERSPECTIVES",
+    "SECURITY_REVIEW_PERSPECTIVES",
 ]

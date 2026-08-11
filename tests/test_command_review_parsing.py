@@ -23,6 +23,8 @@ class CommandReviewParsingTests(unittest.TestCase):
             "/batch migrate src to async IO": LocalCommand(
                 type="batch", argument="migrate src to async IO"
             ),
+            "/security-review": LocalCommand(type="security_review"),
+            "/security-review extra": LocalCommand(type="security_review", argument="extra"),
             "/handoff": LocalCommand(type="handoff"),
             "/handoff --max-files 1 --max-checks 2": LocalCommand(type="handoff", argument="--max-files 1 --max-checks 2"),
             "/changes": LocalCommand(type="changes"),

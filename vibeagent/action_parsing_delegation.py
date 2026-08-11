@@ -117,7 +117,7 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
 def _parse_deep_review_action(value: dict[str, Any], raw: str) -> DeepReviewAction:
     review_kind = value.get("review_kind", "defects")
     if not isinstance(review_kind, str) or review_kind not in REVIEW_PERSPECTIVES:
-        raise ActionParseError("deep_review action review_kind must be defects or cleanup.", raw)
+        raise ActionParseError("deep_review action review_kind must be defects, cleanup, or security.", raw)
     allowed = REVIEW_PERSPECTIVES[review_kind]
     perspectives = value.get("perspectives", list(allowed))
     if (

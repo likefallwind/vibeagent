@@ -33,6 +33,12 @@ class DeepReviewTests(unittest.TestCase):
         cleanup = parse_tool_action("deep_review", {"review_kind": "cleanup"})
         self.assertEqual(cleanup.review_kind, "cleanup")
         self.assertEqual(cleanup.perspectives, ["reuse", "simplicity", "efficiency", "abstraction"])
+        security = parse_tool_action("deep_review", {"review_kind": "security"})
+        self.assertEqual(security.review_kind, "security")
+        self.assertEqual(
+            security.perspectives,
+            ["access_control", "injection", "data_exposure", "supply_chain"],
+        )
 
     def test_rejects_invalid_deep_review_inputs(self) -> None:
         invalid_inputs = [
@@ -47,6 +53,8 @@ class DeepReviewTests(unittest.TestCase):
             {"review_kind": "style"},
             {"review_kind": "cleanup", "perspectives": ["correctness"]},
             {"review_kind": "defects", "perspectives": ["reuse"]},
+            {"review_kind": "security", "perspectives": ["security"]},
+            {"review_kind": "cleanup", "perspectives": ["injection"]},
         ]
         for value in invalid_inputs:
             with self.subTest(value=value), self.assertRaises(ActionParseError):
@@ -133,6 +141,11 @@ class DeepReviewTests(unittest.TestCase):
         self.assertTrue(
             all("REVIEW.md guidance has highest priority" in call[1]["additional_system_prompt"] for call in calls)
         )
+        defect_reviewer_tasks = [
+            call[0].task for call in calls if not call[1]["subagent_id"].endswith("verifier")
+        ]
+        self.assertTrue(all("[IMPORTANT|NIT|PRE-EXISTING]" in task for task in defect_reviewer_tasks))
+        self.assertTrue(all("[CRITICAL|HIGH|MEDIUM|LOW]" not in task for task in defect_reviewer_tasks))
         rendered = format_observations([observation])
         self.assertIn("[tests] ok=true", rendered)
         self.assertIn("security report", rendered)
@@ -197,6 +210,66 @@ class DeepReviewTests(unittest.TestCase):
         self.assertIn("Discard correctness findings", verifier_task)
         self.assertNotIn("PRE-EXISTING", verifier_task)
         self.assertIn("kind=cleanup", format_observations([observation]))
+
+    def test_runs_four_security_reviewers_and_verifies_exploitability(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-security-review-") as base:
+            workspace = create_run_workspace(Path(base))
+            barrier = threading.Barrier(4)
+            calls = []
+
+            def delegate_executor(_workspace, action, _client, **kwargs):
+                calls.append((action, kwargs))
+                perspective = kwargs["subagent_id"].rsplit("-", 1)[-1]
+                if perspective != "verifier":
+                    barrier.wait(timeout=2)
+                return DelegateTaskObservation(
+                    kind="delegate_task",
+                    ok=True,
+                    task=action.task,
+                    summary=f"{perspective} report",
+                    iterations=1,
+                    tool_calls=["git_diff"],
+                    message="done",
+                )
+
+            observation = execute_deep_review_action(
+                workspace,
+                DeepReviewAction(
+                    type="deep_review",
+                    review_kind="security",
+                    perspectives=["access_control", "injection", "data_exposure", "supply_chain"],
+                    base_ref="origin/HEAD",
+                ),
+                object(),
+                parent_iteration=3,
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=None,
+                approval_policy="ask",
+                hooks=ProjectHooks(),
+                permissions=ProjectPermissions(),
+                tool_ceiling_names=None,
+                delegate_executor=delegate_executor,
+            )
+
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.review_kind, "security")
+        self.assertEqual(
+            [result.perspective for result in observation.results],
+            ["access_control", "injection", "data_exposure", "supply_chain"],
+        )
+        self.assertEqual(len(calls), 5)
+        reviewer_tasks = [call[0].task for call in calls if not call[1]["subagent_id"].endswith("verifier")]
+        self.assertTrue(all("attacker capability" in task for task in reviewer_tasks))
+        self.assertTrue(all("[CRITICAL|HIGH|MEDIUM|LOW]" in task for task in reviewer_tasks))
+        verifier_task = next(call[0].task for call in calls if call[1]["subagent_id"].endswith("verifier"))
+        self.assertIn("attacker inputs that cannot reach", verifier_task)
+        self.assertIn("verified vulnerabilities", verifier_task)
+        self.assertIn("kind=security", format_observations([observation]))
 
     def test_returns_other_results_when_one_reviewer_fails(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-deep-review-") as base:

@@ -279,11 +279,18 @@ def _deep_review_next_action_instruction(base: str, latest: Observation) -> str:
         )
     summary = str(getattr(latest, "summary", "") or "").strip()
     if summary == "No findings.":
+        if getattr(latest, "review_kind", "defects") == "security":
+            return f"{base} Security review verified no vulnerabilities. Keep the workflow read-only and report the result."
         return f"{base} Deep review verified no findings. Run required checks, then use final_review before finishing."
     if getattr(latest, "review_kind", "defects") == "cleanup":
         return (
             f"{base} Cleanup review produced verified opportunities. Apply only clearly behavior-preserving improvements, "
             "run focused checks, and use final_review before finishing."
+        )
+    if getattr(latest, "review_kind", "defects") == "security":
+        return (
+            f"{base} Security review produced verified vulnerabilities. Keep the workflow read-only and report each "
+            "severity, exploit path, impact, and cited location; do not edit unless the user separately requests fixes."
         )
     return (
         f"{base} Deep review produced verified findings. Inspect each cited location, fix justified issues introduced "

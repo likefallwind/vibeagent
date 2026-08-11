@@ -189,6 +189,7 @@ def get_help_text() -> str:
             "  /code-review [low|medium|high|xhigh|max] [--fix] [target] Run verified multi-agent code review; edits only with --fix.",
             "  /simplify [target] Run verified reuse, simplicity, efficiency, and abstraction cleanup, then apply justified fixes.",
             "  /batch <instruction> Plan 5-30 independent units, ask for approval, then run worktree agents that open pull requests.",
+            "  /security-review Review the current branch against origin/HEAD for verified security vulnerabilities.",
             "  /handoff [--max-files N] [--max-checks N] [--max-status-chars N] [--max-plan-chars N] Show a final handoff bundle with review status, focused tests, and latest plan.",
             "  /changes [--max-files N] Show a structured changed-file summary.",
             "  /diff [--staged] [--max-chars N] [path]  Show the current git diff.",

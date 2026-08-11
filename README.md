@@ -2544,6 +2544,14 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   pre-existing/style-only findings, applies only justified behavior-preserving
   fixes, and then requires focused verification plus `final_review`. Targets
   currently resolve against the local checkout rather than a GitHub PR.
+  `/security-review` performs a separate read-only branch review against the
+  cached `origin/HEAD` ref. Four parallel agents cover access control,
+  injection/execution, sensitive-data exposure, and supply-chain/configuration
+  risks; the verifier retains only branch-introduced findings with a concrete
+  attacker capability, reachable exploit path, affected asset, and impact.
+  Findings use `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW` severity. The command
+  fails when the Git/origin/default-ref preflight is unavailable, never fetches
+  implicitly, and does not edit or apply fixes.
 - `final_review` is a read-only handoff bundle for non-trivial code changes:
   blocking issues, warnings, running background processes, changed files, and
   suggested verification commands plus focused test commands inferred from

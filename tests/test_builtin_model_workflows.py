@@ -11,9 +11,11 @@ from vibeagent.agent import AgentResult
 from vibeagent.builtin_model_workflows import (
     build_batch_workflow,
     build_code_review_workflow,
+    build_security_review_workflow,
     build_simplify_workflow,
     parse_batch_instruction,
     parse_code_review_arguments,
+    parse_security_review_arguments,
     parse_simplify_arguments,
 )
 from vibeagent.cli_project_command_expansion import expand_one_shot_project_command
@@ -133,6 +135,32 @@ class BuiltinModelWorkflowTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "interactive session"):
                 expand_one_shot_project_command(Path(base), "/batch migrate src")
 
+    def test_builds_read_only_security_review_with_all_domains(self) -> None:
+        workflow = build_security_review_workflow(None)
+
+        self.assertIn("git_show on origin/HEAD", workflow.task)
+        self.assertIn('"review_kind": "security"', workflow.task)
+        for perspective in ("access_control", "injection", "data_exposure", "supply_chain"):
+            self.assertIn(f'"{perspective}"', workflow.task)
+        self.assertIn('"base_ref": "origin/HEAD"', workflow.task)
+        self.assertIn("strictly read-only", workflow.task)
+        self.assertIn("attacker capability, exploit path", workflow.task)
+        self.assertEqual(workflow.metadata["name"], "security-review")
+
+    def test_security_review_rejects_arguments(self) -> None:
+        self.assertIsNone(parse_security_review_arguments(None))
+        with self.assertRaisesRegex(ValueError, "does not accept"):
+            parse_security_review_arguments("main")
+
+    def test_one_shot_security_review_expands_before_provider_execution(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-security-review-") as base:
+            task, metadata = expand_one_shot_project_command(Path(base), "/security-review")
+
+        self.assertIn('"review_kind": "security"', task)
+        self.assertIn('"base_ref": "origin/HEAD"', task)
+        self.assertEqual(metadata["source"], "builtin_command")
+        self.assertEqual(metadata["name"], "security-review")
+
     def test_non_workflow_builtin_remains_unexpanded(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-code-review-") as base:
             task, metadata = expand_one_shot_project_command(Path(base), "/help")
@@ -238,6 +266,38 @@ class BuiltinModelWorkflowTests(unittest.TestCase):
         self.assertNotEqual(exit_code, 0)
         create_client.assert_not_called()
         self.assertIn("interactive session", stdout.getvalue())
+
+    def test_interactive_security_review_runs_read_only_workflow(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-security-review-") as base:
+            root = Path(base)
+            result = AgentResult(True, "security review done", root, "security-run", 1, [], [])
+            run_agent = Mock(return_value=result)
+            with (
+                patch("builtins.input", side_effect=["/security-review", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", str(root)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn('"review_kind": "security"', run_agent.call_args.args[0])
+        self.assertIn("strictly read-only", run_agent.call_args.args[0])
+        self.assertEqual(run_agent.call_args.kwargs["task_metadata"]["name"], "security-review")
+
+    def test_invalid_print_security_review_fails_before_provider_creation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-security-review-") as base:
+            create_client = Mock()
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", create_client),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, "--print", "/security-review main"])
+
+        self.assertNotEqual(exit_code, 0)
+        create_client.assert_not_called()
+        self.assertIn("does not accept", stdout.getvalue())
 
     def test_invalid_print_mode_simplify_fails_before_provider_creation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-simplify-") as base:

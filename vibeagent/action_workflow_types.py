@@ -5,7 +5,7 @@ from typing import Literal, TypeAlias
 
 
 PlanItemStatus: TypeAlias = Literal["pending", "in_progress", "completed"]
-DeepReviewKind: TypeAlias = Literal["defects", "cleanup"]
+DeepReviewKind: TypeAlias = Literal["defects", "cleanup", "security"]
 DeepReviewPerspective: TypeAlias = Literal[
     "correctness",
     "security",
@@ -14,6 +14,10 @@ DeepReviewPerspective: TypeAlias = Literal[
     "simplicity",
     "efficiency",
     "abstraction",
+    "access_control",
+    "injection",
+    "data_exposure",
+    "supply_chain",
 ]
 
 

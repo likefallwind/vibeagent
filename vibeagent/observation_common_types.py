@@ -86,7 +86,7 @@ class DeepReviewObservation:
     target: str | None
     instructions_path: str | None
     message: str
-    review_kind: Literal["defects", "cleanup"] = "defects"
+    review_kind: Literal["defects", "cleanup", "security"] = "defects"
 
 
 @dataclass(frozen=True)

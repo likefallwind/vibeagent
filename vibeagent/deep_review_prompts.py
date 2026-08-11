@@ -91,6 +91,12 @@ def review_focus(action: DeepReviewAction) -> str:
             "Inspect the diff and enough surrounding code to verify every claim. Report only concrete, "
             "behavior-preserving cleanup opportunities in changed code; correctness bugs are out of scope."
         )
+    if action.review_kind == "security":
+        return (
+            "Inspect the branch diff and enough surrounding code to prove each claim. Report only security vulnerabilities "
+            "introduced by the reviewed changes. Every finding must identify attacker capability, a reachable trust boundary "
+            "or source-to-sink path, the affected asset, and concrete impact; generic hardening advice is out of scope."
+        )
     return "Inspect the diff and enough surrounding code to verify every claim. Focus on issues introduced by the changes."
 
 
@@ -100,6 +106,13 @@ def review_verification_contract(action: DeepReviewAction) -> str:
             "Inspect the actual diff and surrounding code for every candidate. Discard correctness findings, "
             "pure style preferences, speculative optimizations, unsupported claims, pre-existing issues, and duplicates. "
             "Keep only specific behavior-preserving improvements whose replacement is simpler or reuses verified existing code."
+        )
+    if action.review_kind == "security":
+        return (
+            "Inspect the actual diff and surrounding code for every candidate. Discard pre-existing issues, defense-in-depth "
+            "suggestions without a vulnerability, attacker inputs that cannot reach the claimed sink, unreachable paths, "
+            "unsupported severity, duplicates, and findings already prevented by existing controls. Keep only exploitable "
+            "or concretely security-relevant regressions introduced by the reviewed branch."
         )
     return (
         "Inspect the actual diff and surrounding code for every candidate. Discard false positives, issues not introduced "
@@ -115,6 +128,13 @@ def review_output_contract(action: DeepReviewAction, *, verifier: bool = False) 
             else "For each actionable finding use exactly"
         )
         return f"{prefix}: [IMPORTANT|NIT] path:line - short title"
+    if action.review_kind == "security":
+        prefix = (
+            "Return only verified vulnerabilities, ordered CRITICAL, HIGH, MEDIUM, then LOW, using"
+            if verifier
+            else "For each actionable vulnerability use exactly"
+        )
+        return f"{prefix}: [CRITICAL|HIGH|MEDIUM|LOW] path:line - short title"
     prefix = (
         "Return only verified findings, ordered IMPORTANT, NIT, then PRE-EXISTING, using"
         if verifier

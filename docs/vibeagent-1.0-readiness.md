@@ -72,6 +72,10 @@ The automated suite currently covers these 1.0 surfaces:
   cleanup reviewers, independent candidate verification, strict separation from
   correctness review, bounded local targets, a behavior-preserving edit contract,
   focused checks, and final review.
+- Built-in `/security-review` expansion in interactive and print modes: cached
+  `origin/HEAD` preflight, four isolated security domains, exploitability-aware
+  verification, security severity levels, strict read-only behavior, and
+  argument rejection before provider creation.
 - Interactive `/batch` expansion: bounded required instructions, clean
   Git/origin preflight contract, 5-30 disjoint work units, explicit plan approval,
   background worktree isolation, per-unit checks/commit/push/PR requirements, and
