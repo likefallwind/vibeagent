@@ -10,6 +10,7 @@ const test = require('node:test');
 
 test('registers IDE commands and routes editor context through native VS Code surfaces', async () => {
   let activeEditorChanged = null;
+  let closedTerminal = null;
   const callbacks = new Map();
   const terminals = [];
   const executed = [];
@@ -18,6 +19,7 @@ test('registers IDE commands and routes editor context through native VS Code su
   const catalogCalls = [];
   const quickPicks = [];
   const textDocuments = [];
+  const statusItems = [];
   const root = path.resolve('/workspace/project');
   const file = path.join(root, 'src', 'app.py');
   const documentUri = { scheme: 'file', fsPath: file };
@@ -39,6 +41,7 @@ test('registers IDE commands and routes editor context through native VS Code su
 
   const vscode = {
     EventEmitter,
+    StatusBarAlignment: { Left: 1 },
     Uri: {
       parse(value) {
         return { value, toString: () => value };
@@ -78,6 +81,16 @@ test('registers IDE commands and routes editor context through native VS Code su
           end: { line: 2, character: 4 },
         },
       },
+      createStatusBarItem(alignment, priority) {
+        const item = {
+          alignment, priority, visible: false, disposed: false,
+          show() { this.visible = true; },
+          hide() { this.visible = false; },
+          dispose() { this.disposed = true; },
+        };
+        statusItems.push(item);
+        return item;
+      },
       createTerminal(options) {
         const terminal = {
           options,
@@ -89,7 +102,10 @@ test('registers IDE commands and routes editor context through native VS Code su
         terminals.push(terminal);
         return terminal;
       },
-      onDidCloseTerminal() { return { dispose() {} }; },
+      onDidCloseTerminal(handler) {
+        closedTerminal = handler;
+        return { dispose() {} };
+      },
       onDidChangeActiveTextEditor(handler) {
         activeEditorChanged = handler;
         return { dispose() {} };
@@ -114,6 +130,7 @@ test('registers IDE commands and routes editor context through native VS Code su
       workspaceFolders: [{ uri: { fsPath: root } }],
       getWorkspaceFolder() { return { uri: { fsPath: root } }; },
       getConfiguration() { return { get: (_name, fallback) => fallback }; },
+      onDidChangeWorkspaceFolders() { return { dispose() {} }; },
       onDidCloseTextDocument() { return { dispose() {} }; },
       async openTextDocument(options) {
         const document = {
@@ -195,6 +212,7 @@ test('registers IDE commands and routes editor context through native VS Code su
     childProcess.spawn = originalSpawn;
   }
   assert.deepEqual(new Set(callbacks.keys()), new Set([
+    'vibeagent.showSession',
     'vibeagent.open',
     'vibeagent.newSession',
     'vibeagent.resumeSession',
@@ -219,10 +237,20 @@ test('registers IDE commands and routes editor context through native VS Code su
   assert.deepEqual(executed[0], [
     'setContext', 'vibeagent.sessionInspectorActive', false,
   ]);
+  assert.equal(statusItems.length, 1);
+  assert.equal(statusItems[0].text, '$(sparkle) VibeAgent');
+  assert.equal(statusItems[0].command, 'vibeagent.showSession');
+  assert.equal(statusItems[0].visible, true);
 
-  await callbacks.get('vibeagent.open')();
+  await callbacks.get('vibeagent.showSession')();
+  assert.equal(terminals.length, 1);
   assert.equal(terminals[0].options.shellPath, 'python');
   assert.deepEqual(terminals[0].options.shellArgs, ['-m', 'vibeagent', '--cwd', root]);
+  assert.equal(statusItems[0].text, '$(terminal) VibeAgent 1');
+  await callbacks.get('vibeagent.open')();
+  await callbacks.get('vibeagent.showSession')();
+  assert.equal(terminals.length, 1);
+  assert.equal(terminals[0].shown, 3);
   const contextPayload = JSON.parse(fs.readFileSync(terminals[0].options.env.VIBEAGENT_IDE_CONTEXT_FILE, 'utf8'));
   assert.equal(contextPayload.token, terminals[0].options.env.VIBEAGENT_IDE_CONTEXT_TOKEN);
   assert.equal(contextPayload.file, 'src/app.py');
@@ -232,6 +260,8 @@ test('registers IDE commands and routes editor context through native VS Code su
 
   await callbacks.get('vibeagent.insertReference')();
   assert.deepEqual(terminals[0].sent, [['@src/app.py#L2-L3', false]]);
+  closedTerminal(terminals[0]);
+  assert.equal(statusItems[0].text, '$(sparkle) VibeAgent');
 
   await callbacks.get('vibeagent.newSession')();
   assert.deepEqual(terminals[1].options.shellArgs, ['-m', 'vibeagent', '--cwd', root]);

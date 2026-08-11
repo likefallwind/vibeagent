@@ -18,6 +18,7 @@ const { InteractiveTerminalManager } = require('./src/terminals');
 const { PlanReviewManager } = require('./src/sessionPlan');
 const { RewindReviewManager } = require('./src/sessionRewind');
 const { SessionInspectorManager } = require('./src/sessionInspector');
+const { SessionStatusBar } = require('./src/sessionStatusBar');
 
 class GitHeadContentProvider {
   constructor() {
@@ -62,6 +63,8 @@ function activate(context) {
       return bridge.environment();
     },
   });
+  const sessionStatusBar = new SessionStatusBar(vscode, terminals);
+  const terminalStatusSubscription = terminals.onDidChange(() => sessionStatusBar.refresh());
   const rewindReviews = new RewindReviewManager(vscode, {
     catalog: sessionCatalog,
     terminals,
@@ -74,6 +77,8 @@ function activate(context) {
     diffProvider,
     agentChangeProvider,
     agentPanels,
+    sessionStatusBar,
+    terminalStatusSubscription,
     planReviews,
     rewindReviews,
     sessionInspectors,
@@ -81,11 +86,13 @@ function activate(context) {
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-git', diffProvider),
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-change', agentChangeProvider),
     vscode.window.onDidCloseTerminal((terminal) => terminals.closed(terminal)),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => sessionStatusBar.refresh()),
     vscode.workspace.onDidCloseTextDocument((document) => planReviews.closed(document)),
     vscode.workspace.onDidCloseTextDocument((document) => rewindReviews.closed(document)),
     vscode.workspace.onDidCloseTextDocument((document) => sessionInspectors.closed(document)),
     vscode.window.onDidChangeActiveTextEditor((editor) => runCommand(async () => {
       refreshEditorContext(editor);
+      sessionStatusBar.refresh(editor);
       await sessionInspectors.activeChanged(editor);
     })),
     vscode.window.onDidChangeTextEditorSelection((event) => refreshEditorContext(event.textEditor)),
@@ -95,6 +102,13 @@ function activate(context) {
   const register = (name, handler) => context.subscriptions.push(
     vscode.commands.registerCommand(name, () => runCommand(handler)),
   );
+
+  register('vibeagent.showSession', async () => {
+    const root = activeWorkspaceRoot();
+    const terminal = terminals.referenceTarget(root);
+    if (terminal) terminal.show(false);
+    else terminals.openPrimary(launchConfig(), root);
+  });
 
   register('vibeagent.open', async () => {
     const root = activeWorkspaceRoot();
@@ -238,6 +252,8 @@ function activate(context) {
     const task = buildDiagnosticsPrompt(instruction, reference, diagnostics);
     terminals.openTask('VibeAgent Diagnostics', launchConfig(), root, task);
   });
+
+  sessionStatusBar.refresh();
 
   register('vibeagent.reviewCurrentFile', async () => {
     const { editor, root } = activeEditorContext();

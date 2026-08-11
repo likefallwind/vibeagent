@@ -5,6 +5,13 @@ terminal, preserving terminal permission prompts while adding editor context.
 
 ## Commands
 
+The VibeAgent status item appears when VS Code finishes starting. It shows the
+open managed interactive-terminal count for the active workspace; selecting it
+starts a primary session when none exists or reveals an existing session. One-shot task
+and verification terminals are intentionally excluded from the count.
+
+- `VibeAgent: Show or Start Workspace Session` reveals the active, primary, or
+  most recent managed session, or starts the primary session when none exists.
 - `VibeAgent: Open Agent Panel` opens a workspace dashboard for dispatching and
   supervising background agents, viewing bounded logs, sending follow-ups,
   answering questions, approving exact pending requests, and reviewing bounded

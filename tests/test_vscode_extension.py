@@ -20,6 +20,7 @@ class VsCodeExtensionTests(unittest.TestCase):
         self.assertEqual(
             commands,
             {
+                "vibeagent.showSession",
                 "vibeagent.open",
                 "vibeagent.newSession",
                 "vibeagent.resumeSession",
@@ -84,6 +85,12 @@ class VsCodeExtensionTests(unittest.TestCase):
                 },
             ],
         )
+        self.assertIn("onStartupFinished", manifest["activationEvents"])
+        status_command = next(
+            item for item in manifest["contributes"]["commands"]
+            if item["command"] == "vibeagent.showSession"
+        )
+        self.assertEqual(status_command["icon"], "$(terminal)")
         self.assertEqual(manifest["main"], "./extension.js")
         self.assertEqual(manifest["engines"]["vscode"], "^1.98.0")
         properties = manifest["contributes"]["configuration"]["properties"]
@@ -108,6 +115,7 @@ class VsCodeExtensionTests(unittest.TestCase):
             "src/sessionPlan.js",
             "src/sessionRewindClient.js",
             "src/sessionRewind.js",
+            "src/sessionStatusBar.js",
             "src/terminals.js",
         ):
             result = subprocess.run(
@@ -173,6 +181,7 @@ class VsCodeExtensionTests(unittest.TestCase):
                         "extension/src/sessionPlan.js",
                         "extension/src/sessionRewindClient.js",
                         "extension/src/sessionRewind.js",
+                        "extension/src/sessionStatusBar.js",
                         "extension/src/terminals.js",
                     },
                 )

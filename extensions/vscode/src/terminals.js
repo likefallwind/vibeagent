@@ -13,6 +13,7 @@ class InteractiveTerminalManager {
     this.primaryByRoot = new Map();
     this.resumedByKey = new Map();
     this.newSessionCount = 0;
+    this.changeListeners = new Set();
   }
 
   openPrimary(config, root) {
@@ -81,6 +82,20 @@ class InteractiveTerminalManager {
     return terminal;
   }
 
+  onDidChange(listener) {
+    if (typeof listener !== 'function') throw new TypeError('Terminal change listener must be a function.');
+    this.changeListeners.add(listener);
+    return { dispose: () => this.changeListeners.delete(listener) };
+  }
+
+  sessionCount(root) {
+    let count = 0;
+    for (const entry of this.entries.values()) {
+      if (entry.root === root) count += 1;
+    }
+    return count;
+  }
+
   referenceTarget(root) {
     const active = this.vscode.window.activeTerminal;
     const activeEntry = active && this.entries.get(active);
@@ -100,12 +115,14 @@ class InteractiveTerminalManager {
     if (entry.resumeKey && this.resumedByKey.get(entry.resumeKey) === terminal) {
       this.resumedByKey.delete(entry.resumeKey);
     }
+    this._emitChange();
   }
 
   dispose() {
     this.entries.clear();
     this.primaryByRoot.clear();
     this.resumedByKey.clear();
+    this.changeListeners.clear();
   }
 
   _create(name, config, root, extraArgs = [], task = undefined) {
@@ -123,6 +140,17 @@ class InteractiveTerminalManager {
 
   _track(terminal, root, kind, resumeKey = null) {
     this.entries.set(terminal, { root, kind, resumeKey });
+    this._emitChange();
+  }
+
+  _emitChange() {
+    for (const listener of this.changeListeners) {
+      try {
+        listener();
+      } catch (_error) {
+        // A presentation listener must not break terminal lifecycle bookkeeping.
+      }
+    }
   }
 
   _resumeOneShot(prefix, config, root, sessionId, sessionName, task) {

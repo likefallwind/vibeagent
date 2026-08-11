@@ -22,6 +22,8 @@ test('manages primary, parallel, and exact resumed terminals', () => {
   });
   const config = { executable: 'python', args: ['-m', 'vibeagent'] };
   const root = path.resolve('/workspace/project');
+  let changes = 0;
+  const changeSubscription = manager.onDidChange(() => { changes += 1; });
 
   const primary = manager.openPrimary(config, root);
   assert.equal(manager.openPrimary(config, root), primary);
@@ -35,16 +37,26 @@ test('manages primary, parallel, and exact resumed terminals', () => {
   assert.equal(resumed.options.name, 'VibeAgent: Parser repair');
   assert.equal(resumed.options.env.ROOT, root);
   assert.equal(terminals.length, 3);
+  assert.equal(manager.sessionCount(root), 3);
+  assert.equal(manager.sessionCount('/workspace/other'), 0);
+  assert.equal(changes, 3);
 
   vscode.window.activeTerminal = parallel;
   assert.equal(manager.referenceTarget(root), parallel);
   vscode.window.activeTerminal = { unrelated: true };
   assert.equal(manager.referenceTarget(root), primary);
   manager.closed(primary);
+  assert.equal(manager.sessionCount(root), 2);
+  assert.equal(changes, 4);
   assert.equal(manager.referenceTarget(root), resumed);
   manager.closed(resumed);
   assert.equal(manager.resume(config, root, 'run-123'), terminals.at(-1));
   assert.equal(terminals.length, 4);
+  assert.equal(manager.sessionCount(root), 2);
+  changeSubscription.dispose();
+  manager.openNew(config, root);
+  assert.equal(changes, 6);
+  assert.throws(() => manager.onDidChange(null), /listener must be a function/);
   assert.throws(() => manager.resume(config, root, '../escape'), /session ID/);
 });
 

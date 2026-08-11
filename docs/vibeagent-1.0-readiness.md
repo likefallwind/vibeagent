@@ -114,7 +114,10 @@ History lookup runs the provider-free JSON CLI through an argument array with
 no shell or live-context credentials. A timeout, byte limits, item/field bounds,
 duplicate checks, and path/control rejection protect Quick Pick and `--resume`;
 already open IDs are focused instead of duplicated, and editor references route
-to the active managed terminal before the primary workspace session.
+to the active managed terminal before the primary workspace session. A
+startup-activated status item derives its per-workspace open-terminal count
+from that same managed-terminal registry, excludes one-shot terminals, and starts or reveals a
+session without maintaining a second lifecycle model.
 Session Inspector adds a one-request, provider-free review surface over stored
 session evidence. It validates a bounded overview, up to 20 plan items, 50 persistent tasks, 50
 checks per verification group, 100 referenced files, and 80 timeline events

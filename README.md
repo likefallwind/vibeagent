@@ -217,6 +217,10 @@ unrelated main-worktree changes remain untouched. An explicit button opens the
 isolated agent worktree in a new VS Code window for further inspection. It also
 reuses a primary interactive terminal, opens additional parallel sessions, and
 lists recent workspace sessions for exact-ID resume from a bounded Quick Pick.
+A startup-activated workspace status item shows the number of open managed
+interactive session terminals. Clicking it starts a primary session when the
+count is zero or reveals the active, primary, or most recent session without
+creating a duplicate.
 A selected session plan opens as editable Markdown, and an explicit
 `VibeAgent: Execute Reviewed Plan` command resumes the exact recorded session
 with the reviewed text as a bounded one-shot task. It also runs a one-shot task
