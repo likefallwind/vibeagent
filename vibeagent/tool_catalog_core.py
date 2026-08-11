@@ -30,6 +30,7 @@ APPROVAL_REQUIRED_TOOL_NAMES = {
     "git_pull",
     "git_push",
     "github_issue_context",
+    "github_issue_comment",
     "github_pr_create",
     "github_pr_context",
     "github_pr_ci_logs",
@@ -163,6 +164,8 @@ def tool_category(name: str) -> str:
         return "checkpoint"
     if name.startswith("git_") or name.startswith("check_git_") or name in {
         "github_issue_context",
+        "github_issue_comment",
+        "check_github_issue_comment",
         "github_pr_create",
         "check_github_pr_create",
         "github_pr_context",

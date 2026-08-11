@@ -40,8 +40,10 @@ from .action_code_intel_types import (
 )
 from .action_file_edit_union_types import FileEditAgentAction
 from .action_github_types import (
+    CheckGitHubIssueCommentAction,
     CheckGitHubPrCommentAction,
     CheckGitHubPrCreateAction,
+    GitHubIssueCommentAction,
     GitHubIssueContextAction,
     GitHubPrCiLogsAction,
     GitHubPrCommentAction,
@@ -246,6 +248,8 @@ AgentAction: TypeAlias = (
     | CheckGitPushAction
     | GitPushAction
     | GitHubIssueContextAction
+    | CheckGitHubIssueCommentAction
+    | GitHubIssueCommentAction
     | CheckGitHubPrCreateAction
     | GitHubPrCreateAction
     | GitHubPrContextAction

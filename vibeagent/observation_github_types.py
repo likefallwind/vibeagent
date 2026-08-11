@@ -40,6 +40,35 @@ class GitHubIssueContextObservation:
 
 
 @dataclass(frozen=True)
+class CheckGitHubIssueCommentObservation:
+    kind: Literal["check_github_issue_comment"]
+    ok: bool
+    repository: str
+    selector: str
+    issue: str
+    remote: str | None
+    body_chars: int
+    body_sha256: str
+    comment_target: str
+    message: str
+
+
+@dataclass(frozen=True)
+class GitHubIssueCommentObservation:
+    kind: Literal["github_issue_comment"]
+    ok: bool
+    repository: str
+    selector: str
+    issue: str
+    remote: str | None
+    body_chars: int
+    body_sha256: str
+    comment_target: str
+    url: str
+    message: str
+
+
+@dataclass(frozen=True)
 class GitHubPrComment:
     kind: Literal["comment", "inline"]
     author: str

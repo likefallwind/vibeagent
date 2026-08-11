@@ -2,6 +2,7 @@ from __future__ import annotations
 
 
 GIT_PREVIEW_KINDS = {
+    "check_github_issue_comment",
     "check_github_pr_comment",
     "check_github_pr_create",
     "check_git_fetch",
@@ -18,6 +19,7 @@ GIT_PREVIEW_KINDS = {
 }
 
 GIT_MUTATION_OBSERVATION_KINDS = {
+    "github_issue_comment",
     "github_pr_comment",
     "github_pr_create",
     "git_fetch",

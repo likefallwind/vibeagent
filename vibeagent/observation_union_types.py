@@ -85,8 +85,10 @@ from .observation_git_types import (
     GitUnstageObservation,
 )
 from .observation_github_types import (
+    CheckGitHubIssueCommentObservation,
     CheckGitHubPrCommentObservation,
     CheckGitHubPrCreateObservation,
+    GitHubIssueCommentObservation,
     GitHubIssueContextObservation,
     GitHubPrCiLogsObservation,
     GitHubPrCommentObservation,
@@ -272,6 +274,8 @@ Observation: TypeAlias = (
     | CheckGitPushObservation
     | GitPushObservation
     | GitHubIssueContextObservation
+    | CheckGitHubIssueCommentObservation
+    | GitHubIssueCommentObservation
     | CheckGitHubPrCreateObservation
     | GitHubPrCreateObservation
     | GitHubPrContextObservation

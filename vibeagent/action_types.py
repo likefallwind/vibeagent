@@ -126,8 +126,10 @@ from .action_git_types import (
     GitUnstageAction,
 )
 from .action_github_types import (
+    CheckGitHubIssueCommentAction,
     CheckGitHubPrCommentAction,
     CheckGitHubPrCreateAction,
+    GitHubIssueCommentAction,
     GitHubIssueContextAction,
     GitHubPrCiLogsAction,
     GitHubPrCommentAction,

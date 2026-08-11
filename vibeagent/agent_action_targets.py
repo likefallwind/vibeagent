@@ -8,6 +8,7 @@ from .agent_approval_targets import (
     suggested_checks_target,
 )
 from .agent_observation_utils import summarize
+from .github_issue_comment_runtime import github_issue_comment_target
 from .github_pr_comment_runtime import github_pr_comment_target
 from . import types as t
 
@@ -196,6 +197,8 @@ def build_action_target(action: object) -> str:
         return f"{action.title} -> {action.base or 'default branch'}"
     if isinstance(action, t.GitHubIssueContextAction):
         return action.issue
+    if isinstance(action, (t.CheckGitHubIssueCommentAction, t.GitHubIssueCommentAction)):
+        return github_issue_comment_target(action.issue, action.body)
     if isinstance(action, t.GitHubPrContextAction):
         return action.pr or "current branch pull request"
     if isinstance(action, t.GitHubPrCiLogsAction):

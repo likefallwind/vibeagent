@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .github_issue_context_runtime import read_github_issue_context
+from .github_issue_action_executor import execute_github_issue_action
 from .github_pr_context_runtime import read_github_pr_context
 from .github_pr_ci_runtime import read_github_pr_ci_logs
 from .github_pr_comment_runtime import create_github_pr_comment, preview_github_pr_comment
@@ -10,9 +10,6 @@ from .types import (
     CheckGitHubPrCreateObservation,
     CheckGitHubPrCommentAction,
     CheckGitHubPrCommentObservation,
-    GitHubIssueComment,
-    GitHubIssueContextAction,
-    GitHubIssueContextObservation,
     GitHubPrCheck,
     GitHubPrCiLogsAction,
     GitHubPrCiLogsObservation,
@@ -33,37 +30,9 @@ from .workspace import RunWorkspace
 
 
 def execute_github_pr_action(workspace: RunWorkspace, action: object) -> Observation | None:
-    if isinstance(action, GitHubIssueContextAction):
-        result = read_github_issue_context(
-            workspace,
-            issue=action.issue,
-            remote=action.remote,
-        )
-        return GitHubIssueContextObservation(
-            kind="github_issue_context",
-            ok=bool(result["ok"]),
-            repository=str(result["repository"]),
-            number=int(result["number"]),
-            url=str(result["url"]),
-            title=str(result["title"]),
-            body=str(result["body"]),
-            author=str(result["author"]),
-            state=str(result["state"]),
-            state_reason=str(result["state_reason"]),
-            created_at=str(result["created_at"]),
-            updated_at=str(result["updated_at"]),
-            milestone=str(result["milestone"]),
-            labels=[str(item) for item in result["labels"]],
-            labels_total=int(result["labels_total"]),
-            labels_truncated=bool(result["labels_truncated"]),
-            assignees=[str(item) for item in result["assignees"]],
-            assignees_total=int(result["assignees_total"]),
-            assignees_truncated=bool(result["assignees_truncated"]),
-            comments=[GitHubIssueComment(**item) for item in result["comments"]],
-            comments_total=int(result["comments_total"]),
-            comments_truncated=bool(result["comments_truncated"]),
-            message=str(result["message"]),
-        )
+    issue_observation = execute_github_issue_action(workspace, action)
+    if issue_observation is not None:
+        return issue_observation
     if isinstance(action, (CheckGitHubPrCommentAction, GitHubPrCommentAction)):
         options = {
             "body": action.body,

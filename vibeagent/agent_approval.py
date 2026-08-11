@@ -12,6 +12,7 @@ from .agent_approval_targets import (
 from .agent_file_approval import build_file_approval_request
 from .agent_observation_utils import summarize
 from .redaction import redact_jsonable_payload, redact_sensitive_text
+from .github_issue_comment_runtime import github_issue_comment_target
 from .github_pr_comment_runtime import github_pr_comment_target
 from . import types as t
 
@@ -116,6 +117,15 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             action_type="github_issue_context",
             target=target,
             risk="This will contact GitHub and read the selected issue from a repository configured as a local Git remote.",
+        )
+    if isinstance(action, t.GitHubIssueCommentAction):
+        return t.ApprovalRequest(
+            action_type="github_issue_comment",
+            target=github_issue_comment_target(action.issue, action.body),
+            risk=(
+                "This will publish text to a GitHub issue using the configured gh account and trigger notifications. "
+                "Repository workflows may react to issue_comment events."
+            ),
         )
     if isinstance(action, t.GitHubPrContextAction):
         target = action.pr or "current branch pull request"

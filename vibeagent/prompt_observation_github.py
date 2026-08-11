@@ -4,6 +4,18 @@ from .prompt_observation_utils import truncate
 
 
 def format_github_observation(index: int, observation: object) -> str | None:
+    if observation.kind in {"check_github_issue_comment", "github_issue_comment"}:
+        url = f"\nurl: {observation.url}" if observation.kind == "github_issue_comment" and observation.url else ""
+        return "\n".join(
+            [
+                f"{index}. {observation.kind}: {observation.message}",
+                f"ok: {str(observation.ok).lower()}",
+                f"repository: {observation.repository or 'none'}",
+                f"issue: {observation.selector or 'none'}",
+                f"bodyChars: {observation.body_chars}",
+                f"bodySha256: {observation.body_sha256}{url}",
+            ]
+        )
     if observation.kind == "github_issue_context":
         parts = [
             f"{index}. github_issue_context: {observation.message}",

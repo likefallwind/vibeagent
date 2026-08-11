@@ -12,6 +12,22 @@ class GitHubIssueContextAction:
 
 
 @dataclass(frozen=True)
+class CheckGitHubIssueCommentAction:
+    type: Literal["check_github_issue_comment"]
+    body: str
+    issue: str
+    remote: str | None = None
+
+
+@dataclass(frozen=True)
+class GitHubIssueCommentAction:
+    type: Literal["github_issue_comment"]
+    body: str
+    issue: str
+    remote: str | None = None
+
+
+@dataclass(frozen=True)
 class CheckGitHubPrCreateAction:
     type: Literal["check_github_pr_create"]
     title: str

@@ -102,6 +102,8 @@ ACTION_LOG_SPECS: dict[str, tuple[str, ActionTargetBuilder]] = {
     "check_github_pr_create": ("checking GitHub pull request", _target_action),
     "github_pr_create": ("creating GitHub pull request", _target_action),
     "github_issue_context": ("reading GitHub issue", _target_action),
+    "check_github_issue_comment": ("checking GitHub issue comment", _target_action),
+    "github_issue_comment": ("posting GitHub issue comment", _target_action),
     "github_pr_context": ("reading GitHub pull request", _target_action),
     "github_pr_ci_logs": ("reading GitHub CI failures", _target_action),
     "check_github_pr_comment": ("checking GitHub PR comment", _target_action),

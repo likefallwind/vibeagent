@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-import hashlib
 import re
 import shutil
 from typing import Any
 
+from .github_comment_runtime import (
+    github_comment_metadata,
+    github_comment_summary,
+    validate_github_comment_body,
+)
 from .github_pr_context_runtime import (
     normalize_pr_selector,
     run_gh_json,
@@ -15,7 +19,6 @@ from .workspace_core import RunWorkspace
 from .workspace_git_utils import redact_git_text
 
 
-MAX_COMMENT_CHARS = 65_536
 _COMMENT_URL = re.compile(r"https://github\.com/[^\s]+/pull/\d+#[^\s]+", re.IGNORECASE)
 
 
@@ -38,8 +41,7 @@ def preview_github_pr_comment(
         "pr": pr,
         "remote": remote,
         "reply_to": reply_to,
-        "body_chars": len(body),
-        "body_sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+        **github_comment_metadata(body),
         "comment_target": target,
         "message": error or "",
     }
@@ -109,16 +111,13 @@ def create_github_pr_comment(workspace: RunWorkspace, **options: Any) -> dict[st
 def github_pr_comment_target(pr: str | None, reply_to: int | None, body: str) -> str:
     selector = pr.strip() if isinstance(pr, str) and pr.strip() else "current branch pull request"
     destination = f" reply-to={reply_to}" if reply_to is not None else ""
-    compact = " ".join(body.split())
-    summary = compact if len(compact) <= 120 else compact[:120] + "..."
-    return f"{selector}{destination}: {summary}"
+    return f"{selector}{destination}: {github_comment_summary(body)}"
 
 
 def _validate_comment(body: str, reply_to: int | None) -> str | None:
-    if not body.strip() or len(body) > MAX_COMMENT_CHARS:
-        return f"GitHub pull request comment body must contain 1-{MAX_COMMENT_CHARS} characters."
-    if any(ord(char) < 32 and char not in "\n\r\t" for char in body):
-        return "GitHub pull request comment body cannot contain control characters."
+    error = validate_github_comment_body(body, destination="pull request")
+    if error:
+        return error
     if reply_to is not None and (not isinstance(reply_to, int) or isinstance(reply_to, bool) or reply_to < 1):
         return "reply_to must be a positive review comment ID when provided."
     return None

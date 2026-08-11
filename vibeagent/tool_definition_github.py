@@ -11,6 +11,12 @@ _PR_PROPERTIES: dict[str, Any] = {
     "draft": {"type": "boolean", "description": "Create the pull request as a draft."},
 }
 
+_ISSUE_COMMENT_PROPERTIES: dict[str, Any] = {
+    "body": {"type": "string", "description": "Comment body in Markdown, at most 65536 characters."},
+    "issue": {"type": "string", "description": "Positive issue number or full same-repository GitHub issue URL."},
+    "remote": {"type": "string", "description": "Optional local GitHub remote used to select the repository."},
+}
+
 GITHUB_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "github_issue_context",
@@ -28,6 +34,26 @@ GITHUB_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
             },
             "required": ["issue"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "check_github_issue_comment",
+        "description": "Locally validate an exact GitHub issue comment without contacting GitHub.",
+        "input_schema": {
+            "type": "object",
+            "properties": _ISSUE_COMMENT_PROPERTIES,
+            "required": ["body", "issue"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "github_issue_comment",
+        "description": "Post a comment to a same-repository GitHub issue after matching local validation and explicit approval. Comments may trigger repository automation.",
+        "input_schema": {
+            "type": "object",
+            "properties": _ISSUE_COMMENT_PROPERTIES,
+            "required": ["body", "issue"],
             "additionalProperties": False,
         },
     },

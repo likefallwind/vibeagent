@@ -308,9 +308,11 @@ from .observation_git_types import (
     UntrackedFilePreview,
 )
 from .observation_github_types import (
+    CheckGitHubIssueCommentObservation,
     CheckGitHubPrCreateObservation,
     CheckGitHubPrCommentObservation,
     GitHubIssueComment,
+    GitHubIssueCommentObservation,
     GitHubIssueContextObservation,
     GitHubPrCheck,
     GitHubPrCiLogsObservation,

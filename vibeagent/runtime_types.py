@@ -121,6 +121,7 @@ class ApprovalRequest:
         "git_pull",
         "git_push",
         "github_issue_context",
+        "github_issue_comment",
         "github_pr_create",
         "github_pr_context",
         "github_pr_ci_logs",
