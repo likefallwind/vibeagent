@@ -63,6 +63,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--add-dir requires an interactive or one-shot coding session."
     if args.effort is not None and has_local_flag(args):
         return "--effort requires an interactive or one-shot session."
+    if args.autocompact is not None and has_local_flag(args):
+        return "--autocompact requires an interactive or one-shot session."
     if any(not value.strip() for value in args.add_dir):
         return "--add-dir path cannot be empty."
     if args.add_dir and args.worktree is not None:

@@ -58,6 +58,7 @@ from .cli_additional_directory_state import update_additional_directory_state
 from .cli_interactive_branch import prepare_interactive_branch_switch
 from .cli_interactive_model import interactive_provider_env
 from .cli_interactive_effort import configure_interactive_effort
+from .context_compaction import format_autocompact_setting
 from .cli_interactive_provider_commands import run_interactive_provider_command
 from .cli_interactive_rewind import run_interactive_rewind_command
 from .cli_interactive_session_management import interactive_session_prompt, run_interactive_session_management
@@ -135,6 +136,7 @@ def run_interactive_loop(
     initial_dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
     initial_effort: str | None = None,
     initial_effort_locked: bool = False,
+    initial_autocompact_tokens: int | None = None,
     initial_system_prompt: str | None = None,
     initial_append_system_prompt: str | None = None,
     initial_additional_directories: tuple[Path, ...] = (),
@@ -258,6 +260,7 @@ def run_interactive_loop(
                 agent=initial_agent,
                 dynamic_agent_profiles=initial_dynamic_agent_profiles,
                 additional_directories=additional_directories,
+                autocompact_tokens=initial_autocompact_tokens,
                 **panel_kwargs,
             )
         finally:
@@ -691,6 +694,7 @@ def run_interactive_loop(
                 resume_context=resume_context,
                 chat_turns=len(chat_history) // 2,
                 effort=effort_override or "auto",
+                autocompact=format_autocompact_setting(initial_autocompact_tokens),
                 system_prompt_set=bool(system_prompt),
                 append_system_prompt_set=bool(append_system_prompt),
             )

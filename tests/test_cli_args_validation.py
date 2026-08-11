@@ -8,6 +8,27 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_autocompact_accepts_compatible_values_and_rejects_local_commands(self) -> None:
+        one_shot = cli_module.parse_args(["--autocompact", "200", "inspect"])
+        interactive = cli_module.parse_args(["--autocompact", "auto"])
+        local = cli_module.parse_args(["--autocompact", "100k", "--status"])
+
+        self.assertEqual(one_shot.autocompact, 200_000)
+        self.assertEqual(
+            cli_module.build_one_shot_kwargs_from_args(one_shot)["autocompact_tokens"],
+            200_000,
+        )
+        self.assertIsNone(cli_module.validate_cli_args(one_shot))
+        self.assertIsNone(cli_module.validate_cli_args(interactive))
+        self.assertIsNone(cli_module.build_one_shot_kwargs_from_args(interactive)["autocompact_tokens"])
+        self.assertEqual(
+            cli_module.validate_cli_args(local),
+            "--autocompact requires an interactive or one-shot session.",
+        )
+
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            cli_module.parse_args(["--autocompact", "99k", "inspect"])
+
     def test_tools_value_restricts_one_shot_catalog_while_bare_flag_stays_local(self) -> None:
         local = cli_module.parse_args(["--tools"])
         restricted = cli_module.parse_args(["-p", "--tools", "Read,Edit", "inspect"])

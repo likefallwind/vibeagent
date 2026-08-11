@@ -13,6 +13,7 @@ from .agent_runtime_utils import (
     compact_session_context,
     message_history_char_count,
 )
+from .context_compaction import autocompact_char_threshold, estimate_message_tokens
 from .prompt_observations import format_observations
 from .types import ChatMessage, DelegateTaskAction, Observation
 from .workspace import format_project_skill_catalog, read_project_instructions, read_workspace_snapshot
@@ -90,8 +91,10 @@ def compact_delegate_message_history(
     reason: str | None = None,
 ) -> list[ChatMessage]:
     previous_chars = message_history_char_count(messages)
-    message_threshold_reached = len(messages) > threshold
-    char_threshold_reached = previous_chars > char_threshold
+    configured_token_limit = workspace.autocompact_tokens
+    effective_char_threshold = autocompact_char_threshold(configured_token_limit, char_threshold)
+    message_threshold_reached = configured_token_limit is None and len(messages) > threshold
+    char_threshold_reached = previous_chars > effective_char_threshold
     if not force and not message_threshold_reached and not char_threshold_reached:
         return messages
 
@@ -126,6 +129,9 @@ def compact_delegate_message_history(
             "new_messages": len(compacted_messages),
             "previous_chars": previous_chars,
             "new_chars": new_chars,
+            "estimated_previous_tokens": estimate_message_tokens(previous_chars),
+            "autocompact_tokens": configured_token_limit,
+            "effective_char_threshold": effective_char_threshold,
             "observations": len(observations),
             "retained_observations": min(len(observations), observation_limit),
             "retained_image_tool_results": pending_image_tool_result_count(messages),

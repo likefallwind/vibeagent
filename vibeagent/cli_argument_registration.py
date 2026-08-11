@@ -5,6 +5,7 @@ import argparse
 from .cli_checkpoint_args import add_checkpoint_local_arguments
 from .cli_code_intel_args import add_code_intel_local_arguments, add_code_intel_option_arguments
 from .cli_compat_args import add_compat_arguments
+from .context_compaction import parse_autocompact_tokens
 from .cli_edit_args import add_edit_local_arguments, add_edit_option_arguments
 from .cli_git_args import (
     add_git_diff_local_arguments,
@@ -112,6 +113,7 @@ def add_cli_arguments(parser: argparse.ArgumentParser) -> None:
         positive_int=positive_int,
         nonnegative_int=nonnegative_int,
         timeout_ms=timeout_ms,
+        autocompact_tokens=parse_autocompact_tokens,
     )
     add_output_arguments(parser)
     add_compat_arguments(parser, positive_int=positive_int, positive_decimal=positive_decimal)

@@ -101,6 +101,7 @@ def run_agent(
     defer_tool_calls: bool = False,
     close_async_hooks_on_finish: bool = False,
     setup_trigger: str | None = None,
+    autocompact_tokens: int | None = None,
 ) -> AgentResult:
     setup = prepare_agent_run(
         task,
@@ -121,6 +122,7 @@ def run_agent(
         tool_names=tool_names,
         additional_directories=additional_directories,
         dynamic_agent_profiles=dynamic_agent_profiles,
+        autocompact_tokens=autocompact_tokens,
     )
     if workspace_observer is not None:
         workspace_observer(setup.workspace)

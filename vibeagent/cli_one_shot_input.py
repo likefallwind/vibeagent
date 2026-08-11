@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import sys
 
+from .cli_additional_directories import resolve_additional_directories
 from .cli_context import (
     OneShotPriorContext,
     SessionContextGetter,
@@ -15,12 +16,12 @@ from .cli_context import (
 from .cli_input_format import StreamJsonTaskInput, resolve_json_task_input, resolve_stream_json_task_input
 from .cli_permission_overrides import build_permission_overrides
 from .cli_project_command_expansion import expand_one_shot_project_command
-from .cli_system_prompt_files import resolve_system_prompt_inputs
-from .cli_additional_directories import resolve_additional_directories
-from .structured_output import parse_structured_output_schema
 from .cli_tool_restrictions import parse_cli_tool_names
+from .cli_system_prompt_files import resolve_system_prompt_inputs
+from .context_compaction import resolve_autocompact_tokens
 from .dynamic_agent_profiles import parse_dynamic_agent_profiles
 from .model_effort import resolve_model_effort_setting
+from .structured_output import parse_structured_output_schema
 
 
 def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
@@ -111,6 +112,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "fallback_model": args.fallback_model,
         "effort": effort.level,
         "effort_locked": effort.locked,
+        "autocompact_tokens": resolve_autocompact_tokens(args.autocompact),
         "setup_trigger": args.setup_trigger,
         "tool_names": parse_cli_tool_names(args.tools),
         "permission_overrides": build_permission_overrides(args),

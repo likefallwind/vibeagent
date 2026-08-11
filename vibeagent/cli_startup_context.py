@@ -10,9 +10,12 @@ from .cli_context import (
     is_resume_clear_arg,
     normalize_resume_arg,
 )
-from .commands import get_compact_context, get_resume_context
-from .cli_system_prompt_files import resolve_system_prompt_inputs
 from .cli_additional_directories import resolve_additional_directories
+from .cli_system_prompt_files import resolve_system_prompt_inputs
+from .commands import get_compact_context, get_resume_context
+from .context_compaction import resolve_autocompact_tokens
+from .dynamic_agent_profiles import DynamicAgentProfile, parse_dynamic_agent_profiles
+from .model_effort import resolve_model_effort_setting
 from .session_additional_directories import (
     merge_additional_directories,
     restore_session_additional_directories,
@@ -22,8 +25,6 @@ from .session_names import name_session, normalize_session_name
 from .session_conversation import load_session_conversation
 from .types import ChatMessage
 from .workspace_core import RunWorkspace, create_local_workspace, create_run_workspace
-from .dynamic_agent_profiles import DynamicAgentProfile, parse_dynamic_agent_profiles
-from .model_effort import resolve_model_effort_setting
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,7 @@ class InteractiveStartupContext:
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = ()
     effort: str | None = None
     effort_locked: bool = False
+    autocompact_tokens: int | None = None
 
 
 def resolve_interactive_startup_context(
@@ -70,6 +72,7 @@ def resolve_interactive_startup_context(
         "dynamic_agent_profiles": dynamic_agent_profiles,
         "effort": effort.level,
         "effort_locked": effort.locked,
+        "autocompact_tokens": resolve_autocompact_tokens(getattr(args, "autocompact", None)),
     }
     session_resume = args.resume if args.resume is not None else args.session_id
     if session_resume is None and args.compact is None:

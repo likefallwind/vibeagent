@@ -265,6 +265,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_dynamic_agent_profiles=context.dynamic_agent_profiles,
         initial_effort=context.effort,
         initial_effort_locked=context.effort_locked,
+        initial_autocompact_tokens=context.autocompact_tokens,
         initial_system_prompt=context.system_prompt,
         initial_append_system_prompt=context.append_system_prompt,
         initial_additional_directories=context.additional_directories,

@@ -11,6 +11,7 @@ def add_one_shot_arguments(
     positive_int,
     nonnegative_int,
     timeout_ms,
+    autocompact_tokens,
 ) -> None:
     parser.add_argument(
         "--approval",
@@ -105,6 +106,12 @@ def add_one_shot_arguments(
         "--effort",
         choices=("auto", "low", "medium", "high", "xhigh", "max"),
         help="Set model effort for interactive or one-shot sessions; CLAUDE_CODE_EFFORT_LEVEL takes precedence.",
+    )
+    parser.add_argument(
+        "--autocompact",
+        type=autocompact_tokens,
+        metavar="AUTO|TOKENS",
+        help="Set automatic context compaction to auto or a 100k-1M token threshold.",
     )
     parser.add_argument("--base-url", help="Temporarily override the provider base URL for this command.")
     parser.add_argument("--api-key", help="Temporarily override the provider API key for this command.")

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from vibeagent.agent_core_tools import CORE_AGENT_TOOL_NAMES
@@ -11,6 +12,50 @@ from vibeagent.workspace import create_run_workspace
 
 
 class AgentRunSetupTests(unittest.TestCase):
+    def test_prepare_agent_run_sets_and_inherits_autocompact_threshold(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-run-autocompact-") as base:
+            root = Path(base)
+            workspace = replace(create_run_workspace(root, "run-1"), autocompact_tokens=200_000)
+            inherited = prepare_agent_run(
+                "Inspect inherited threshold",
+                base_dir=None,
+                workspace=workspace,
+                prior_context=None,
+                approval_policy="ask",
+                task_metadata=None,
+                trust_project_permissions=False,
+                permission_overrides=None,
+                mcp_config_paths=(),
+                strict_mcp_config=False,
+                system_prompt=None,
+                append_system_prompt=None,
+            )
+            configured = prepare_agent_run(
+                "Inspect configured threshold",
+                base_dir=root,
+                workspace=None,
+                prior_context=None,
+                approval_policy="ask",
+                task_metadata=None,
+                trust_project_permissions=False,
+                permission_overrides=None,
+                mcp_config_paths=(),
+                strict_mcp_config=False,
+                system_prompt=None,
+                append_system_prompt=None,
+                autocompact_tokens=100_000,
+            )
+            events = [
+                json.loads(line)
+                for line in configured.workspace.session_dir.joinpath("events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        self.assertEqual(inherited.workspace.autocompact_tokens, 200_000)
+        self.assertEqual(configured.workspace.autocompact_tokens, 100_000)
+        self.assertEqual(events[0]["autocompact_tokens"], 100_000)
+
     def test_prepare_agent_run_initializes_workspace_events_and_core_tools(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-run-setup-") as base:
             root = Path(base)

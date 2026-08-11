@@ -31,6 +31,7 @@ class CliOneShotAgentKwargsTests(unittest.TestCase):
                 prior_context="prior",
                 system_prompt="system",
                 append_system_prompt="append",
+                autocompact_tokens=200_000,
                 task_metadata={"source": "project_command"},
                 workspace=workspace,
             )
@@ -45,6 +46,7 @@ class CliOneShotAgentKwargsTests(unittest.TestCase):
         self.assertEqual(kwargs["prior_context"], "prior")
         self.assertEqual(kwargs["system_prompt"], "system")
         self.assertEqual(kwargs["append_system_prompt"], "append")
+        self.assertEqual(kwargs["autocompact_tokens"], 200_000)
         self.assertEqual(kwargs["task_metadata"], {"source": "project_command"})
 
     def test_text_output_builds_approval_and_user_input_handlers(self) -> None:

@@ -220,6 +220,7 @@ python -m vibeagent --cwd ../my-project --worktree feature-auth "implement authe
 python -m vibeagent --cwd ../my-project -w feature-auth
 python -m vibeagent --provider deepseek --model deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
 python -m vibeagent --provider anthropic --effort high "inspect this repo thoroughly"
+python -m vibeagent --autocompact 200k "inspect a large repository"
 python -m vibeagent 'review @src/app.py and @"docs/design notes.md"'
 printf "summarize the project risks\n" | python -m vibeagent -
 ```
@@ -267,6 +268,7 @@ paths are skipped instead of expanding the workspace boundary.
 
 `--provider`, `--model MODEL` / `--model-name MODEL`, `--base-url`, `--api-key`,
 `--effort auto|low|medium|high|xhigh|max`,
+`--autocompact auto|TOKENS`,
 `--max-iterations`, `--command-timeout-ms`, `--max-output-tokens`,
 `--model-retries`, `--model-retry-delay-ms`, and `--model-timeout-ms` are
 per-command overrides; they do not rewrite environment variables or local config
@@ -276,6 +278,15 @@ files.
 CLI option and agent profiles, and locks `/effort` for that process. Providers
 without an effort request field reject non-automatic levels before the model
 request.
+`--autocompact` controls proactive coding-context compaction for the main agent
+and inherited subagent or workflow sessions. `auto` keeps the built-in
+message-count and character thresholds. Explicit values from 100k through 1m
+replace the message-count trigger with a conservative estimated-token threshold
+that reserves 20k tokens for system, tool, and output overhead. Claude-compatible
+forms include `200`, `200k`, `200000`, and `1m`. Context-limit errors still force
+compaction and retry regardless of the configured proactive threshold. Interactive
+`/status` reports the active setting. This option is separate from
+`--no-auto-compact`, which controls loading the latest prior-session handoff.
 `--agents JSON` defines up to 100 invocation-scoped agent profiles for coding
 sessions. The value is an object keyed by agent name; each definition uses
 the normal profile fields plus a required `prompt`, for example
@@ -1544,6 +1555,9 @@ the active Session workspace and run ID, so their plans, transcript, usage, and
 rewind points form one coherent history. While that Session remains active in
 the current process, its full model/tool conversation is carried into the next
 prompt and automatically uses the existing context compaction thresholds. A
+startup `--autocompact` value applies to every coding turn and delegated agent in
+that process; compaction events record the configured threshold, effective
+character threshold, and estimated previous token count. A
 redacted, bounded copy of the non-system conversation is also atomically stored
 as mode-`0600` session state after safe model/tool boundaries. Explicit
 `--resume`, `/resume`, and `--session-id` restore that copy and append the next

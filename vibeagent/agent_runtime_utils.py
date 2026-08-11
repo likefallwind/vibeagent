@@ -10,6 +10,7 @@ from typing import Any
 from .action_parsing import ActionParseError
 from .agent_multimodal import pending_image_tool_exchange, pending_image_tool_result_count
 from .agent_observation_utils import summarize
+from .context_compaction import autocompact_char_threshold, estimate_message_tokens
 from .prompt_observations import format_observations
 from .prompts import build_messages
 from .prompt_file_mentions import PROMPT_FILE_REFERENCE_MARKER
@@ -77,8 +78,10 @@ def compact_agent_message_history(
     compact_hook_runner: CompactHookRunner | None = None,
 ) -> list[ChatMessage]:
     previous_chars = message_history_char_count(messages)
-    message_threshold_reached = len(messages) > threshold
-    char_threshold_reached = previous_chars > char_threshold
+    configured_token_limit = workspace.autocompact_tokens
+    effective_char_threshold = autocompact_char_threshold(configured_token_limit, char_threshold)
+    message_threshold_reached = configured_token_limit is None and len(messages) > threshold
+    char_threshold_reached = previous_chars > effective_char_threshold
     if not force and not message_threshold_reached and not char_threshold_reached:
         return messages
 
@@ -119,6 +122,9 @@ def compact_agent_message_history(
             "new_messages": len(compacted_messages),
             "previous_chars": previous_chars,
             "new_chars": new_chars,
+            "estimated_previous_tokens": estimate_message_tokens(previous_chars),
+            "autocompact_tokens": configured_token_limit,
+            "effective_char_threshold": effective_char_threshold,
             "observations": len(observations),
             "plan_items": len(plan),
             "retained_observations": min(len(observations), observation_limit),

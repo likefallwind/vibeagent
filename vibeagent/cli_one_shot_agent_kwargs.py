@@ -33,6 +33,7 @@ def build_one_shot_agent_kwargs(
     append_system_prompt: str | None,
     additional_directories: tuple[Path, ...] = (),
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
+    autocompact_tokens: int | None = None,
     task_metadata: dict[str, object] | None,
     workspace: RunWorkspace | None = None,
     peer_runtime: PeerSessionRuntime | None = None,
@@ -60,6 +61,7 @@ def build_one_shot_agent_kwargs(
         "append_system_prompt": append_system_prompt,
         "task_metadata": task_metadata,
         "dynamic_agent_profiles": dynamic_agent_profiles,
+        "autocompact_tokens": autocompact_tokens,
         "defer_tool_calls": print_mode,
         "close_async_hooks_on_finish": print_mode,
     }

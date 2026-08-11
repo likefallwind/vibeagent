@@ -87,6 +87,7 @@ def prepare_agent_run(
     tool_names: frozenset[str] | None = None,
     additional_directories: tuple[Path, ...] = (),
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
+    autocompact_tokens: int | None = None,
 ) -> AgentRunSetup:
     current_workspace = _prepare_workspace(
         base_dir,
@@ -96,6 +97,7 @@ def prepare_agent_run(
         trust_project_permissions,
         additional_directories,
         dynamic_agent_profiles,
+        autocompact_tokens,
     )
     main_selection = resolve_main_agent_selection(current_workspace, agent)
     main_profile = load_main_agent_profile(
@@ -326,6 +328,7 @@ def _prepare_workspace(
     trust_project_permissions: bool,
     additional_directories: tuple[Path, ...],
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...],
+    autocompact_tokens: int | None,
 ) -> RunWorkspace:
     current_workspace = workspace or create_run_workspace(
         base_dir,
@@ -351,6 +354,8 @@ def _prepare_workspace(
             current_workspace,
             dynamic_agent_profiles=dynamic_agent_profiles,
         )
+    if autocompact_tokens is not None and autocompact_tokens != current_workspace.autocompact_tokens:
+        current_workspace = replace(current_workspace, autocompact_tokens=autocompact_tokens)
     return current_workspace
 
 
@@ -378,6 +383,8 @@ def _append_task_event(
         "prior_context": compact_session_context(prior_context) if prior_context else None,
         "additional_directories": [str(root) for root in workspace.additional_roots],
     }
+    if workspace.autocompact_tokens is not None:
+        task_event["autocompact_tokens"] = workspace.autocompact_tokens
     if task_metadata:
         task_event["metadata"] = redact_jsonable_payload(task_metadata)
     append_session_event(workspace.session_dir, "task", task_event)

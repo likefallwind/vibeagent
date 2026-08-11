@@ -29,6 +29,7 @@ class RunWorkspace:
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = ()
     profile_mcp_server_configs: tuple[McpServerConfig, ...] = ()
     maintain_shell_cwd: bool = True
+    autocompact_tokens: int | None = None
 
 
 @dataclass(frozen=True)

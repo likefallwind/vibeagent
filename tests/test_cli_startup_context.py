@@ -40,12 +40,23 @@ def _args(**overrides) -> Namespace:
         "compact_max_text": None,
         "fork_session": False,
         "name": None,
+        "autocompact": None,
     }
     values.update(overrides)
     return Namespace(**values)
 
 
 class CliStartupContextTests(unittest.TestCase):
+    def test_autocompact_is_forwarded_for_interactive_startup(self) -> None:
+        context = resolve_interactive_startup_context(
+            _args(autocompact=200_000),
+            Path.cwd(),
+            get_resume_context_func=Mock(),
+            get_compact_context_func=Mock(),
+        )
+
+        self.assertEqual(context.autocompact_tokens, 200_000)
+
     def test_dynamic_agents_are_validated_for_interactive_startup(self) -> None:
         context = resolve_interactive_startup_context(
             _args(

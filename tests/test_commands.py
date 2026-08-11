@@ -8405,6 +8405,7 @@ class CommandTests(unittest.TestCase):
             system_prompt_set=True,
             append_system_prompt_set=True,
             effort="high",
+            autocompact="200k",
         )
 
         self.assertIn("Status:", text)
@@ -8414,6 +8415,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("resume: run-1", text)
         self.assertIn("chatTurns: 2", text)
         self.assertIn("effort: high", text)
+        self.assertIn("autocompact: 200k", text)
         self.assertIn("systemPrompt: custom", text)
         self.assertIn("appendSystemPrompt: set", text)
 
@@ -8427,6 +8429,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["resume"], "run-1")
         self.assertEqual(report["chatTurns"], 2)
         self.assertEqual(report["effort"], "auto")
+        self.assertEqual(report["autocompact"], "auto")
         self.assertEqual(report["systemPrompt"], "custom")
         self.assertEqual(report["appendSystemPrompt"], "none")
         rendered = format_status_report_text(report)

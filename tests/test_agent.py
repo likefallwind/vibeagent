@@ -265,6 +265,7 @@ class AgentTests(unittest.TestCase):
                 client=client,
                 max_iterations=3,
                 model_retries=0,
+                autocompact_tokens=1_000_000,
             )
             rows = [
                 json.loads(line)
@@ -285,6 +286,7 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(model_errors[0]["retry_reason"], "context_compaction")
         self.assertEqual(len(compactions), 1)
         self.assertEqual(compactions[0]["reason"], "context_limit_error")
+        self.assertEqual(compactions[0]["autocompact_tokens"], 1_000_000)
         self.assertEqual(compactions[0]["previous_messages"], 6)
         self.assertEqual(compactions[0]["new_messages"], 2)
 
