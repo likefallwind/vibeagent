@@ -39,13 +39,7 @@ def build_provider_env(
     if arg_provider:
         env["VIBEAGENT_PROVIDER"] = arg_provider
     if arg_model_name:
-        if provider == "minimax":
-            env["MINIMAX_MODEL"] = arg_model_name
-        elif provider == "anthropic":
-            env["ANTHROPIC_MODEL"] = arg_model_name
-        else:
-            env["OPENAI_COMPAT_MODEL"] = arg_model_name
-            env["DEEPSEEK_MODEL"] = arg_model_name
+        env = provider_env_with_model_override(env, arg_model_name, provider=provider)
     if arg_base_url:
         if provider == "minimax":
             env["MINIMAX_BASE_URL"] = arg_base_url
@@ -63,6 +57,24 @@ def build_provider_env(
             env["OPENAI_COMPAT_API_KEY"] = arg_api_key
             env["DEEPSEEK_API_KEY"] = arg_api_key
     return env
+
+
+def provider_env_with_model_override(
+    env: dict[str, str | None],
+    model: str,
+    *,
+    provider: str | None = None,
+) -> dict[str, str | None]:
+    updated = dict(env)
+    active_provider = provider or get_provider_name(updated)
+    if active_provider == "minimax":
+        updated["MINIMAX_MODEL"] = model
+    elif active_provider == "anthropic":
+        updated["ANTHROPIC_MODEL"] = model
+    else:
+        updated["OPENAI_COMPAT_MODEL"] = model
+        updated["DEEPSEEK_MODEL"] = model
+    return updated
 
 
 def save_project_config_from_args(args: argparse.Namespace, project_root: str | Path) -> str:

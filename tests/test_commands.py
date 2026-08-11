@@ -541,6 +541,7 @@ class CommandTests(unittest.TestCase):
     def test_parse_local_command_recognizes_local_commands(self) -> None:
         self.assertEqual(parse_local_command("/help"), LocalCommand(type="help"))
         self.assertEqual(parse_local_command("  /model  "), LocalCommand(type="model"))
+        self.assertEqual(parse_local_command("/model claude-opus-5"), LocalCommand(type="model", argument="claude-opus-5"))
         self.assertEqual(parse_local_command("/config"), LocalCommand(type="config"))
         self.assertEqual(parse_local_command("/custom-commands"), LocalCommand(type="custom_commands"))
         self.assertEqual(parse_local_command("/agents"), LocalCommand(type="agents"))

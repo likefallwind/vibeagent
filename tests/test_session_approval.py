@@ -171,7 +171,7 @@ class InteractiveApprovalLifecycleTests(unittest.TestCase):
                 patch("vibeagent.cli_interactive.prompt_project_permission_trust", return_value=False),
                 patch("vibeagent.cli_interactive.print_agent_result"),
                 patch("vibeagent.cli_interactive.resolve_execution_config") as config,
-                patch("vibeagent.cli_interactive.build_provider_env", return_value={}),
+                patch("vibeagent.cli_interactive_model.build_provider_env", return_value={}),
                 patch("pathlib.Path.cwd", return_value=Path(base)),
                 patch("sys.stdout"),
             ):

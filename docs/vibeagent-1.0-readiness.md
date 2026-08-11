@@ -98,6 +98,11 @@ The automated suite currently covers these 1.0 surfaces:
   every subagent path while scoped deny rules retain action-level matching,
   shared provider-cost budgets, sticky overload-model fallback, and
   pending-user-input output.
+- Interactive model selection: `/model` reports the active configured or
+  session-overridden model, `/model <name>` maps an override to the current
+  provider and replaces the shared client only after successful construction,
+  and `/model default` restores configuration while coding/chat history remains
+  intact and project settings remain unchanged.
 - Durable main-session conversation continuity: private atomic checkpoints at
   safe model/tool boundaries, fresh system/project context on every prompt,
   explicit resume and branch restoration, corrupt-state handoff fallback, and

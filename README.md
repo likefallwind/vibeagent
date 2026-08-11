@@ -950,8 +950,11 @@ python -m vibeagent --save-config --cwd ../my-project --provider deepseek --mode
 python -m vibeagent --json --doctor --cwd ../my-project
 ```
 
-Use `/help` to list local commands, `/model` to inspect the configured provider,
-model, base URL, and API key source, `/config` to inspect resolved provider,
+Use `/help` to list local commands, `/model` to inspect the active interactive
+provider and model, `/model <model-name>` to switch the current interactive
+process after successfully constructing a replacement client, and `/model default`
+to restore the configured model without changing project settings or conversation
+history. Use `/config` to inspect resolved provider,
 execution, project config, and cost-rate settings, `/status` to inspect local mode, approval,
 and resume state, `/btw <question>` to ask one tool-free side question using the
 current mode's bounded conversation without adding the question or answer to
@@ -2183,6 +2186,10 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
 - `vibeagent/btw.py`: renders a bounded read-only view of the current coding or
   chat conversation, omits binary payloads, and asks one provider question
   without tools or any history/session persistence.
+- `vibeagent/cli_interactive_model.py` and
+  `vibeagent/cli_interactive_provider_commands.py`: validate session-only model
+  overrides, map them to provider-specific configuration, and keep model/BTW
+  provider command execution out of the main interactive loop.
 - `vibeagent/agent.py`: orchestrates the ReAct loop. It creates a run
   session, builds model prompts, executes optional tool calls, records events,
   tracks the model's latest task plan, and stops on a plain text answer, a

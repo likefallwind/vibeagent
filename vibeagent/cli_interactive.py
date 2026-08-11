@@ -24,7 +24,6 @@ from .cli_checkpoint_local_flags import run_interactive_checkpoint_command
 from .cli_completion import interactive_prompt_completion
 from .cli_code_intel_local_flags import run_interactive_code_intel_command
 from .cli_command_local_flags import run_interactive_command_execution
-from .cli_config import build_provider_env
 from .cli_edit_local_flags import run_interactive_edit_command
 from .cli_git_local_flags import run_interactive_git_command
 from .cli_json_local_flags import run_interactive_json_command
@@ -51,6 +50,8 @@ from .cli_session_local_flags import run_interactive_resume_command, run_interac
 from .cli_system_prompt_state import update_system_prompt_state
 from .cli_additional_directory_state import update_additional_directory_state
 from .cli_interactive_branch import prepare_interactive_branch_switch
+from .cli_interactive_model import interactive_provider_env
+from .cli_interactive_provider_commands import run_interactive_provider_command
 from .cli_interactive_rewind import run_interactive_rewind_command
 from .cli_interactive_session_management import interactive_session_prompt, run_interactive_session_management
 from .cli_subagent_panel import SubagentPanel
@@ -139,6 +140,7 @@ def run_interactive_loop(
     project_permissions_trusted = prompt_project_permission_trust(Path.cwd())
 
     client = None
+    model_override: str | None = None
     mode = "code"
     approval_policy: ApprovalPolicy = "ask"
     approval_handler = build_approval_handler(approval_policy)
@@ -182,7 +184,7 @@ def run_interactive_loop(
         )
         for error in directory_hook_errors:
             print(f"DirectoryAdded hook warning: {error}")
-        client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
+        client = client or create_chat_client_func(interactive_provider_env(Path.cwd(), model_override))
         panel = SubagentPanel(Path.cwd())
         panel.authorize_custom(approval_handler, approval_policy)
         initial_panel_error = panel.config_error
@@ -424,7 +426,7 @@ def run_interactive_loop(
         def execute_agent(request, cancel_requested):
             nonlocal client
             with workflow_client_lock:
-                client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
+                client = client or create_chat_client_func(interactive_provider_env(Path.cwd(), model_override))
             return execute_workflow_agent_request(
                 workspace,
                 request,
@@ -567,6 +569,27 @@ def run_interactive_loop(
                 peer_runtime.close()
             plugin_auto_updates.close()
             return 0
+        if command and command.type in {"model", "btw"}:
+            update = run_interactive_provider_command(
+                command.type,
+                command.argument,
+                project_root=Path.cwd(),
+                current_override=model_override,
+                current_client=client,
+                create_chat_client=create_chat_client_func,
+                run_btw=run_btw_func,
+                history=conversation_messages if mode == "code" else chat_history,
+                system_prompt=system_prompt,
+                append_system_prompt=append_system_prompt,
+            )
+            if update.model_changed:
+                with workflow_client_lock:
+                    client = update.client
+                model_override = update.model_override
+            else:
+                client = update.client
+            print(update.text)
+            continue
         if command and (
             project_text := run_interactive_project_command(command, command_namespace, approval_policy, Path.cwd())
         ) is not None:
@@ -893,30 +916,6 @@ def run_interactive_loop(
             if restored_conversation.warning:
                 print(restored_conversation.warning)
             continue
-        if command and command.type == "btw":
-            if not command.argument:
-                print("Usage: /btw <question>")
-                continue
-            try:
-                execution_config = resolve_execution_config(Path.cwd())
-                client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
-                response = run_btw_func(
-                    command.argument,
-                    client=client,
-                    history=conversation_messages if mode == "code" else chat_history,
-                    max_output_tokens=execution_config.max_output_tokens,
-                    model_retries=execution_config.model_retries,
-                    model_retry_delay_ms=execution_config.model_retry_delay_ms,
-                    model_timeout_ms=execution_config.model_timeout_ms,
-                    system_prompt=system_prompt,
-                    append_system_prompt=append_system_prompt,
-                )
-                print(f"\n{response}")
-            except KeyboardInterrupt:
-                print("\nInterrupted.")
-            except Exception as error:
-                print(f"\nBTW error: {format_error(error)}")
-            continue
         request_mode = "code" if custom_command is not None else mode
         if command and command.type == "chat":
             if not command.argument:
@@ -936,7 +935,7 @@ def run_interactive_loop(
         try:
             # Reuse client across turns so auth/model config is loaded once.
             execution_config = resolve_execution_config(Path.cwd())
-            client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
+            client = client or create_chat_client_func(interactive_provider_env(Path.cwd(), model_override))
             if request_mode == "chat":
                 response = run_chat_func(
                     task,

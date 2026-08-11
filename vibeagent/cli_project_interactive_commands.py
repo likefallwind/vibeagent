@@ -51,8 +51,6 @@ def run_interactive_project_command(
 ) -> str | None:
     if command.type == "help":
         return commands["get_help_text"]()
-    if command.type == "model":
-        return commands["get_model_text"]()
     if command.type == "config":
         return commands["get_config_text"]()
     if command.type == "custom_commands":
