@@ -65,7 +65,9 @@ local changes when asked, and resume from recorded session context.
   `extensions/vscode/test/` prove the extension manifest, machine-only launch
   configuration, exact argument arrays, selected-line and quoted-path
   references, bounded diagnostic sanitization, bounded provider-free session
-  discovery, exact-ID resume, parallel/primary terminal routing, command registration, native
+  discovery, exact-ID resume, bounded provider-free plan loading, editable
+  plan-review documents with trusted out-of-band session metadata, exact-session
+  reviewed-plan execution, parallel/primary terminal routing, command registration, native
   diff routing, token-isolated Agent Panel routing and lifecycle, exact request
   IDs, same-repository worktree validation, bounded in-memory base/current
   review, exact-snapshot integration routing, explicit worktree opening,

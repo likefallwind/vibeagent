@@ -15,6 +15,7 @@ const { AgentPanelManager } = require('./src/agentPanel');
 const { AgentChangeContentProvider } = require('./src/agentChanges');
 const { SessionCatalog, sessionQuickPickItems } = require('./src/sessionCatalog');
 const { InteractiveTerminalManager } = require('./src/terminals');
+const { PlanReviewManager } = require('./src/sessionPlan');
 
 class GitHeadContentProvider {
   constructor() {
@@ -51,6 +52,7 @@ function activate(context) {
   const agentChangeProvider = new AgentChangeContentProvider(vscode);
   const agentPanels = new AgentPanelManager(vscode, { changeProvider: agentChangeProvider });
   const sessionCatalog = new SessionCatalog();
+  const planReviews = new PlanReviewManager(vscode);
   const terminals = new InteractiveTerminalManager(vscode, {
     prepareEnvironment(root) {
       const bridge = contextBridge(root);
@@ -62,10 +64,12 @@ function activate(context) {
     diffProvider,
     agentChangeProvider,
     agentPanels,
+    planReviews,
     terminals,
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-git', diffProvider),
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-change', agentChangeProvider),
     vscode.window.onDidCloseTerminal((terminal) => terminals.closed(terminal)),
+    vscode.workspace.onDidCloseTextDocument((document) => planReviews.closed(document)),
     vscode.window.onDidChangeActiveTextEditor((editor) => refreshEditorContext(editor)),
     vscode.window.onDidChangeTextEditorSelection((event) => refreshEditorContext(event.textEditor)),
     vscode.languages.onDidChangeDiagnostics(() => refreshEditorContext(vscode.window.activeTextEditor)),
@@ -102,6 +106,38 @@ function activate(context) {
     });
     if (!selected) return;
     terminals.resume(launch, root, selected.session, selected.label);
+  });
+
+  register('vibeagent.reviewSessionPlan', async () => {
+    const root = activeWorkspaceRoot();
+    const launch = launchConfig();
+    const sessions = await sessionCatalog.list(launch, root);
+    if (!sessions.length) {
+      vscode.window.showInformationMessage('No VibeAgent sessions are available in this workspace.');
+      return;
+    }
+    const selected = await vscode.window.showQuickPick(sessionQuickPickItems(sessions), {
+      title: 'Review VibeAgent Session Plan',
+      placeHolder: 'Choose a recent workspace session',
+      matchOnDescription: true,
+      matchOnDetail: true,
+      ignoreFocusOut: true,
+    });
+    if (!selected) return;
+    const session = sessions.find((item) => item.session === selected.session);
+    if (!session) throw new Error('The selected VibeAgent session is no longer available.');
+    await planReviews.open(launch, root, session);
+  });
+
+  register('vibeagent.executeReviewedPlan', async () => {
+    const review = planReviews.activeExecution();
+    terminals.resumeTask(
+      launchConfig(),
+      review.root,
+      review.session,
+      review.name,
+      review.prompt,
+    );
   });
 
   register('vibeagent.openAgentPanel', async () => {

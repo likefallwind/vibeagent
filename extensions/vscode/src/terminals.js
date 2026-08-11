@@ -47,6 +47,20 @@ class InteractiveTerminalManager {
     return terminal;
   }
 
+  resumeTask(config, root, sessionId, sessionName, task) {
+    const safeId = requireSessionId(sessionId);
+    const title = boundedTerminalTitle(sessionName) || safeId.slice(0, 20);
+    const terminal = this._create(
+      `VibeAgent Plan: ${title}`,
+      config,
+      root,
+      ['--resume', safeId],
+      task,
+    );
+    terminal.show(false);
+    return terminal;
+  }
+
   openTask(name, config, root, task) {
     const terminal = this._create(name, config, root, [], task);
     terminal.show(false);
@@ -82,7 +96,10 @@ class InteractiveTerminalManager {
 
   _create(name, config, root, extraArgs = [], task = undefined) {
     const spec = buildLaunchSpec(config, root, task);
-    if (extraArgs.length) spec.shellArgs.push(...extraArgs);
+    if (extraArgs.length) {
+      const insertion = task === undefined ? spec.shellArgs.length : spec.shellArgs.length - 1;
+      spec.shellArgs.splice(insertion, 0, ...extraArgs);
+    }
     return this.vscode.window.createTerminal({
       name,
       ...spec,

@@ -217,10 +217,13 @@ unrelated main-worktree changes remain untouched. An explicit button opens the
 isolated agent worktree in a new VS Code window for further inspection. It also
 reuses a primary interactive terminal, opens additional parallel sessions, and
 lists recent workspace sessions for exact-ID resume from a bounded Quick Pick.
-It runs a one-shot task against the active selection, inserts an
-`@path#Lx-Ly` reference, send up to 20 bounded diagnostics, and open the active
-file against Git `HEAD` in VS Code's native diff viewer. VibeAgent still runs in
-a real terminal, so approval prompts retain their normal TTY behavior. The
+A selected session plan opens as editable Markdown, and an explicit
+`VibeAgent: Execute Reviewed Plan` command resumes the exact recorded session
+with the reviewed text as a bounded one-shot task. It also runs a one-shot task
+against the active selection, inserts an `@path#Lx-Ly` reference, sends up to
+20 bounded diagnostics, and opens the active file against Git `HEAD` in VS
+Code's native diff viewer. VibeAgent still runs in a real terminal, so approval
+prompts retain their normal TTY behavior. The
 extension launches an executable plus argument array without shell command
 interpolation; those settings are machine-scoped so repository configuration
 cannot replace the executable. Diagnostics are marked untrusted, stripped of
@@ -237,6 +240,14 @@ catalog subprocess does not receive live-context bridge credentials. Resuming
 an already open ID reveals its existing terminal, while file references prefer
 the active managed VibeAgent terminal and otherwise fall back to the primary
 workspace session.
+
+Plan review uses the provider-free `--json --plan RUN_ID` contract through the
+same bounded local client. The extension validates the returned session ID,
+status, task, item count, item statuses, and text limits before opening an
+untitled Markdown editor. Session and workspace execution metadata remain in
+trusted extension memory rather than being parsed from editable text. Executing
+the review places `--resume RUN_ID` before the bounded task argument and keeps
+that one-shot terminal outside interactive file-reference routing.
 
 The Agent Panel launches the existing Remote Control service on `127.0.0.1`
 without shell interpolation. Its generated bearer token remains in the trusted

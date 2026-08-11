@@ -23,6 +23,8 @@ class VsCodeExtensionTests(unittest.TestCase):
                 "vibeagent.open",
                 "vibeagent.newSession",
                 "vibeagent.resumeSession",
+                "vibeagent.reviewSessionPlan",
+                "vibeagent.executeReviewedPlan",
                 "vibeagent.openAgentPanel",
                 "vibeagent.askSelection",
                 "vibeagent.insertReference",
@@ -45,7 +47,9 @@ class VsCodeExtensionTests(unittest.TestCase):
             "src/agentChanges.js",
             "src/agentPanel.js",
             "src/agentPanelView.js",
+            "src/localCli.js",
             "src/sessionCatalog.js",
+            "src/sessionPlan.js",
             "src/terminals.js",
         ):
             result = subprocess.run(
@@ -102,7 +106,9 @@ class VsCodeExtensionTests(unittest.TestCase):
                         "extension/src/agentChanges.js",
                         "extension/src/agentPanel.js",
                         "extension/src/agentPanelView.js",
+                        "extension/src/localCli.js",
                         "extension/src/sessionCatalog.js",
+                        "extension/src/sessionPlan.js",
                         "extension/src/terminals.js",
                     },
                 )

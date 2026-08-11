@@ -18,7 +18,9 @@ SOURCE_FILES = (
     "src/agentChanges.js",
     "src/agentPanel.js",
     "src/agentPanelView.js",
+    "src/localCli.js",
     "src/sessionCatalog.js",
+    "src/sessionPlan.js",
     "src/terminals.js",
 )
 ZIP_TIMESTAMP = (2024, 1, 1, 0, 0, 0)

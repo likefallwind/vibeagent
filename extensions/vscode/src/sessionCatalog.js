@@ -1,90 +1,36 @@
 'use strict';
 
-const childProcess = require('node:child_process');
+const {
+  LOCAL_CLI_TIMEOUT_MS,
+  MAX_JSON_BYTES,
+  LocalJsonClient,
+  parseLocalEnvelope,
+} = require('./localCli');
 
-const MAX_CATALOG_BYTES = 2 * 1024 * 1024;
-const MAX_CATALOG_ERROR_BYTES = 32 * 1024;
+const MAX_CATALOG_BYTES = MAX_JSON_BYTES;
 const MAX_CATALOG_ITEMS = 100;
-const CATALOG_TIMEOUT_MS = 10_000;
+const CATALOG_TIMEOUT_MS = LOCAL_CLI_TIMEOUT_MS;
 
 class SessionCatalog {
   constructor(options = {}) {
-    this.spawn = options.spawn || childProcess.spawn;
-    this.timeoutMs = options.timeoutMs || CATALOG_TIMEOUT_MS;
+    this.client = options.client || new LocalJsonClient(options);
   }
 
-  list(config, workspaceRoot) {
-    const args = [...config.args, '--json', '--cwd', workspaceRoot, '--sessions'];
-    const environment = { ...process.env, PYTHONUNBUFFERED: '1' };
-    delete environment.VIBEAGENT_IDE_CONTEXT_FILE;
-    delete environment.VIBEAGENT_IDE_CONTEXT_TOKEN;
-    let child;
-    try {
-      child = this.spawn(config.executable, args, {
-        cwd: workspaceRoot,
-        env: environment,
-        shell: false,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-      });
-    } catch (error) {
-      return Promise.reject(error);
+  async list(config, workspaceRoot) {
+    const { code, payload } = await this.client.run(config, workspaceRoot, ['--sessions']);
+    const sessions = parseSessionCatalog(payload);
+    const emptyResult = code === 1 && sessions.length === 0;
+    if (code !== 0 && !emptyResult) {
+      throw new Error(`VibeAgent session catalog exited with status ${code}.`);
     }
-    return collectCatalog(child, this.timeoutMs).then(({ code, stdout }) => {
-      const sessions = parseSessionCatalog(stdout);
-      const emptyResult = code === 1 && sessions.length === 0;
-      if (code !== 0 && !emptyResult) {
-        throw new Error(`VibeAgent session catalog exited with status ${code}.`);
-      }
-      return sessions;
-    });
+    return sessions;
   }
-}
-
-function collectCatalog(child, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    let stdout = Buffer.alloc(0);
-    let stderrBytes = 0;
-    let settled = false;
-    const finish = (callback, value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      callback(value);
-    };
-    const abort = (error) => {
-      if (!settled && child && typeof child.kill === 'function') child.kill('SIGTERM');
-      finish(reject, error);
-    };
-    const timer = setTimeout(
-      () => abort(new Error('VibeAgent session catalog timed out.')),
-      timeoutMs,
-    );
-    child.stdout.on('data', (chunk) => {
-      const value = Buffer.from(chunk);
-      if (stdout.length + value.length > MAX_CATALOG_BYTES) {
-        abort(new Error('VibeAgent session catalog exceeded 2 MiB.'));
-        return;
-      }
-      stdout = Buffer.concat([stdout, value]);
-    });
-    child.stderr.on('data', (chunk) => {
-      stderrBytes += Buffer.byteLength(chunk);
-      if (stderrBytes > MAX_CATALOG_ERROR_BYTES) {
-        abort(new Error('VibeAgent session catalog error output exceeded 32 KiB.'));
-      }
-    });
-    child.on('error', (error) => abort(error));
-    child.on('close', (code) => {
-      finish(resolve, { code: Number.isInteger(code) ? code : -1, stdout });
-    });
-  });
 }
 
 function parseSessionCatalog(raw) {
   let payload;
   try {
-    payload = JSON.parse(Buffer.from(raw).toString('utf8'));
+    payload = Buffer.isBuffer(raw) || typeof raw === 'string' ? parseLocalEnvelope(raw) : raw;
   } catch (_error) {
     throw new Error('VibeAgent returned an invalid session catalog.');
   }

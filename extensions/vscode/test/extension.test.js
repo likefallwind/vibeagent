@@ -16,6 +16,7 @@ test('registers IDE commands and routes editor context through native VS Code su
   const contentProviders = new Map();
   const catalogCalls = [];
   const quickPicks = [];
+  const textDocuments = [];
   const root = path.resolve('/workspace/project');
   const file = path.join(root, 'src', 'app.py');
   const documentUri = { scheme: 'file', fsPath: file };
@@ -97,6 +98,11 @@ test('registers IDE commands and routes editor context through native VS Code su
         quickPicks.push({ items, options });
         return items[0];
       },
+      async showTextDocument(document, options) {
+        textDocuments.push({ document, options });
+        this.activeTextEditor = { document };
+        return this.activeTextEditor;
+      },
       showErrorMessage(message) { errors.push(message); },
       showInformationMessage() {},
     },
@@ -104,6 +110,15 @@ test('registers IDE commands and routes editor context through native VS Code su
       workspaceFolders: [{ uri: { fsPath: root } }],
       getWorkspaceFolder() { return { uri: { fsPath: root } }; },
       getConfiguration() { return { get: (_name, fallback) => fallback }; },
+      onDidCloseTextDocument() { return { dispose() {} }; },
+      async openTextDocument(options) {
+        const document = {
+          uri: { scheme: 'untitled', toString: () => `untitled:plan-${textDocuments.length + 1}` },
+          getText: () => options.content,
+        };
+        textDocuments.push({ document, options });
+        return document;
+      },
       registerTextDocumentContentProvider(_scheme, provider) {
         contentProviders.set(_scheme, provider);
         return { dispose() {} };
@@ -119,6 +134,23 @@ test('registers IDE commands and routes editor context through native VS Code su
     child.stderr = new NodeEventEmitter();
     child.kill = () => {};
     process.nextTick(() => {
+      if (args.includes('--plan')) {
+        child.stdout.emit('data', Buffer.from(JSON.stringify({
+          schemaVersion: 1,
+          kind: 'local',
+          sessionPlan: {
+            session: 'run-123',
+            exists: true,
+            ok: true,
+            status: 'in_progress',
+            message: 'Found 2 plan item(s).',
+            task: 'Fix parser',
+            items: [{ status: 'in_progress', step: 'Implement parser fix' }],
+          },
+        })));
+        child.emit('close', 0);
+        return;
+      }
       child.stdout.emit('data', Buffer.from(JSON.stringify({
         schemaVersion: 1,
         kind: 'local',
@@ -162,6 +194,8 @@ test('registers IDE commands and routes editor context through native VS Code su
     'vibeagent.open',
     'vibeagent.newSession',
     'vibeagent.resumeSession',
+    'vibeagent.reviewSessionPlan',
+    'vibeagent.executeReviewedPlan',
     'vibeagent.openAgentPanel',
     'vibeagent.askSelection',
     'vibeagent.insertReference',
