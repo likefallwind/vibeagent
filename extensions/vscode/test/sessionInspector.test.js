@@ -199,9 +199,13 @@ test('preserves a bounded missing-session error from the local CLI', async () =>
 
 test('opens an inspector document, resumes its exact session, and invalidates closed documents', async () => {
   const calls = [];
+  const contexts = [];
   const resumed = [];
   const document = { uri: { toString: () => 'untitled:session-inspector-1' } };
   const vscode = {
+    commands: {
+      async executeCommand(...args) { contexts.push(args); },
+    },
     window: {
       activeTextEditor: null,
       async showQuickPick(items, options) {
@@ -241,6 +245,7 @@ test('opens an inspector document, resumes its exact session, and invalidates cl
   });
   const config = { executable: 'python', args: ['-m', 'vibeagent'] };
   await manager.open(config, '/workspace/project');
+  await manager.activeChanged(vscode.window.activeTextEditor);
   const openCall = calls.find((item) => item[0] === 'openDocument');
 
   assert.match(openCall[1].content, /# VibeAgent Session Inspector/);
@@ -248,12 +253,19 @@ test('opens an inspector document, resumes its exact session, and invalidates cl
   assert.match(openCall[1].content, /## Persistent Tasks \(2\/2\)/);
   assert.match(openCall[1].content, /`#2` pending \(blocked\): Implement parser/);
   assert.match(openCall[1].content, /`app\.py`/);
+  assert.deepEqual(contexts.at(-1), [
+    'setContext', 'vibeagent.sessionInspectorActive', true,
+  ]);
   assert.equal(manager.resumeActive(config), 'terminal');
   assert.deepEqual(resumed[0], {
     config, root: '/workspace/project', session: SESSION, name: 'Parser repair',
   });
 
   manager.closed(document);
+  await manager.activeChanged(vscode.window.activeTextEditor);
+  assert.deepEqual(contexts.at(-1), [
+    'setContext', 'vibeagent.sessionInspectorActive', false,
+  ]);
   assert.throws(() => manager.resumeActive(config), /not a VibeAgent session inspector/);
 });
 

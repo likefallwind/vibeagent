@@ -33,6 +33,12 @@ terminal, preserving terminal permission prompts while adding editor context.
 - `VibeAgent: Run Inspected Verification` refreshes the active inspector,
   confirms its current failed and pending checks, and reruns up to 10 checks in
   a visible one-shot terminal for the exact stored session.
+
+Managed Session Inspector editors show refresh, open-file, and continue-task
+icons in the editor title. Resume and verification are available in the title
+overflow menu. These actions are enabled only by the extension's private
+inspector-document registry, not by Markdown contents or filenames.
+
 - `VibeAgent: Review Session Plan` selects a recent session, reads its structured
   local plan, and opens it as editable Markdown.
 - `VibeAgent: Execute Reviewed Plan` resumes the exact session associated with

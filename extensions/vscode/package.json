@@ -57,23 +57,33 @@
       },
       {
         "command": "vibeagent.resumeInspectedSession",
-        "title": "VibeAgent: Resume Inspected Session"
+        "title": "VibeAgent: Resume Inspected Session",
+        "icon": "$(debug-continue)",
+        "enablement": "vibeagent.sessionInspectorActive"
       },
       {
         "command": "vibeagent.refreshInspectedSession",
-        "title": "VibeAgent: Refresh Inspected Session"
+        "title": "VibeAgent: Refresh Inspected Session",
+        "icon": "$(refresh)",
+        "enablement": "vibeagent.sessionInspectorActive"
       },
       {
         "command": "vibeagent.openInspectedFile",
-        "title": "VibeAgent: Open Inspected File"
+        "title": "VibeAgent: Open Inspected File",
+        "icon": "$(go-to-file)",
+        "enablement": "vibeagent.sessionInspectorActive"
       },
       {
         "command": "vibeagent.continueInspectedTask",
-        "title": "VibeAgent: Continue Inspected Task"
+        "title": "VibeAgent: Continue Inspected Task",
+        "icon": "$(play)",
+        "enablement": "vibeagent.sessionInspectorActive"
       },
       {
         "command": "vibeagent.runInspectedVerification",
-        "title": "VibeAgent: Run Inspected Verification"
+        "title": "VibeAgent: Run Inspected Verification",
+        "icon": "$(beaker)",
+        "enablement": "vibeagent.sessionInspectorActive"
       },
       {
         "command": "vibeagent.reviewSessionPlan",
@@ -112,6 +122,35 @@
         "title": "VibeAgent: Review Current File Changes"
       }
     ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "vibeagent.refreshInspectedSession",
+          "when": "vibeagent.sessionInspectorActive",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vibeagent.openInspectedFile",
+          "when": "vibeagent.sessionInspectorActive",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vibeagent.continueInspectedTask",
+          "when": "vibeagent.sessionInspectorActive",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vibeagent.runInspectedVerification",
+          "when": "vibeagent.sessionInspectorActive",
+          "group": "vibeagent@1"
+        },
+        {
+          "command": "vibeagent.resumeInspectedSession",
+          "when": "vibeagent.sessionInspectorActive",
+          "group": "vibeagent@2"
+        }
+      ]
+    },
     "keybindings": [
       {
         "command": "vibeagent.insertReference",

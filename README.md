@@ -268,6 +268,11 @@ excluded. The selected real path is resolved again before VS Code opens it, so
 a target change while Quick Pick is active fails closed. This command opens an
 editor document only; it never launches a file manager.
 
+While a managed Session Inspector is active, its editor title exposes refresh,
+open-file, and continue-task actions; resume and verification remain in the
+title overflow menu. The visibility key comes from the extension's private
+document registry, so ordinary or edited Markdown cannot activate these controls.
+
 `Continue Inspected Task` refreshes that exact session before selection and
 offers only unblocked `pending` or `in_progress` persistent tasks, with active
 work listed first. The chosen task is wrapped as bounded, explicitly untrusted

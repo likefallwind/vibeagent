@@ -40,6 +40,50 @@ class VsCodeExtensionTests(unittest.TestCase):
                 "vibeagent.reviewCurrentFile",
             },
         )
+        inspector_commands = {
+            "vibeagent.resumeInspectedSession": "$(debug-continue)",
+            "vibeagent.refreshInspectedSession": "$(refresh)",
+            "vibeagent.openInspectedFile": "$(go-to-file)",
+            "vibeagent.continueInspectedTask": "$(play)",
+            "vibeagent.runInspectedVerification": "$(beaker)",
+        }
+        command_entries = {item["command"]: item for item in manifest["contributes"]["commands"]}
+        for command, icon in inspector_commands.items():
+            self.assertEqual(command_entries[command]["icon"], icon)
+            self.assertEqual(
+                command_entries[command]["enablement"],
+                "vibeagent.sessionInspectorActive",
+            )
+        self.assertEqual(
+            manifest["contributes"]["menus"]["editor/title"],
+            [
+                {
+                    "command": "vibeagent.refreshInspectedSession",
+                    "when": "vibeagent.sessionInspectorActive",
+                    "group": "navigation@1",
+                },
+                {
+                    "command": "vibeagent.openInspectedFile",
+                    "when": "vibeagent.sessionInspectorActive",
+                    "group": "navigation@2",
+                },
+                {
+                    "command": "vibeagent.continueInspectedTask",
+                    "when": "vibeagent.sessionInspectorActive",
+                    "group": "navigation@3",
+                },
+                {
+                    "command": "vibeagent.runInspectedVerification",
+                    "when": "vibeagent.sessionInspectorActive",
+                    "group": "vibeagent@1",
+                },
+                {
+                    "command": "vibeagent.resumeInspectedSession",
+                    "when": "vibeagent.sessionInspectorActive",
+                    "group": "vibeagent@2",
+                },
+            ],
+        )
         self.assertEqual(manifest["main"], "./extension.js")
         self.assertEqual(manifest["engines"]["vscode"], "^1.98.0")
         properties = manifest["contributes"]["configuration"]["properties"]

@@ -120,7 +120,10 @@ session evidence. It validates a bounded overview, up to 20 plan items, 50 persi
 checks per verification group, 100 referenced files, and 80 timeline events
 before rendering native Markdown. Trusted workspace, session, and display-name
 metadata remain outside the document, and `Resume Inspected Session` uses the
-exact stored ID regardless of document edits.
+exact stored ID regardless of document edits. Managed inspector editors expose
+refresh, open-file, and continue-task title actions plus resume and verification
+in the overflow menu; a private URI registry controls visibility, leaving
+ordinary or edited Markdown unaffected.
 The adjacent refresh action re-reads that exact out-of-band session and updates
 the active inspector in place under the same 250,000-character rendering cap.
 Unchanged generated snapshots need no prompt, while local document edits require

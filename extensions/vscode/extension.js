@@ -84,7 +84,10 @@ function activate(context) {
     vscode.workspace.onDidCloseTextDocument((document) => planReviews.closed(document)),
     vscode.workspace.onDidCloseTextDocument((document) => rewindReviews.closed(document)),
     vscode.workspace.onDidCloseTextDocument((document) => sessionInspectors.closed(document)),
-    vscode.window.onDidChangeActiveTextEditor((editor) => refreshEditorContext(editor)),
+    vscode.window.onDidChangeActiveTextEditor((editor) => runCommand(async () => {
+      refreshEditorContext(editor);
+      await sessionInspectors.activeChanged(editor);
+    })),
     vscode.window.onDidChangeTextEditorSelection((event) => refreshEditorContext(event.textEditor)),
     vscode.languages.onDidChangeDiagnostics(() => refreshEditorContext(vscode.window.activeTextEditor)),
   );

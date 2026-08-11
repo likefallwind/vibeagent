@@ -9,6 +9,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 test('registers IDE commands and routes editor context through native VS Code surfaces', async () => {
+  let activeEditorChanged = null;
   const callbacks = new Map();
   const terminals = [];
   const executed = [];
@@ -89,7 +90,10 @@ test('registers IDE commands and routes editor context through native VS Code su
         return terminal;
       },
       onDidCloseTerminal() { return { dispose() {} }; },
-      onDidChangeActiveTextEditor() { return { dispose() {} }; },
+      onDidChangeActiveTextEditor(handler) {
+        activeEditorChanged = handler;
+        return { dispose() {} };
+      },
       onDidChangeTextEditorSelection() { return { dispose() {} }; },
       async showInputBox(options) {
         return options.title.includes('Diagnostics') ? 'Fix diagnostics' : 'Explain selection';
@@ -210,6 +214,11 @@ test('registers IDE commands and routes editor context through native VS Code su
     'vibeagent.sendDiagnostics',
     'vibeagent.reviewCurrentFile',
   ]));
+  assert.equal(typeof activeEditorChanged, 'function');
+  await activeEditorChanged(vscode.window.activeTextEditor);
+  assert.deepEqual(executed[0], [
+    'setContext', 'vibeagent.sessionInspectorActive', false,
+  ]);
 
   await callbacks.get('vibeagent.open')();
   assert.equal(terminals[0].options.shellPath, 'python');

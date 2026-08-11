@@ -4,6 +4,7 @@ const { sessionQuickPickItems } = require('./sessionCatalog');
 const { SessionInspectorClient } = require('./sessionInspectorClient');
 const { MAX_INSPECTOR_DOCUMENT_CHARS, renderSessionInspector } = require('./sessionInspectorView');
 const { resolveSessionFilePath, sessionFileQuickPickItems } = require('./sessionInspectorFiles');
+const SESSION_INSPECTOR_CONTEXT_KEY = 'vibeagent.sessionInspectorActive';
 
 const MAX_TASK_CONTINUATION_PROMPT_CHARS = 4_000;
 const MAX_VERIFICATION_RUNS = 10;
@@ -186,6 +187,12 @@ class SessionInspectorManager {
     );
   }
 
+  activeChanged(editor) {
+    const uri = editor && editor.document && editor.document.uri;
+    const active = Boolean(uri && this.documents.has(uri.toString()));
+    return this.vscode.commands.executeCommand('setContext', SESSION_INSPECTOR_CONTEXT_KEY, active);
+  }
+
   closed(document) {
     if (document && document.uri) this.documents.delete(document.uri.toString());
   }
@@ -276,6 +283,7 @@ function refreshConfirmationDetail(inspected) {
 
 module.exports = {
   MAX_INSPECTOR_DOCUMENT_CHARS,
+  SESSION_INSPECTOR_CONTEXT_KEY,
   MAX_TASK_CONTINUATION_PROMPT_CHARS,
   MAX_VERIFICATION_RUNS,
   SessionInspectorManager,
