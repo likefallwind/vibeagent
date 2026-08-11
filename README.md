@@ -2627,7 +2627,7 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   process observations include both VibeAgent process ids and OS pids, and
   `stop_process` / `stop_all_processes` terminate only processes VibeAgent started
   for the current project registry.
-- File writes, batch file writes, file edits, JSON value updates/removals/patches, Python renames, Python definition replacements, file patches, file copies, file moves, file deletes, directory lifecycle changes, git fetches, git pulls, git pushes, git restores, git stashes, git stash applies, git stash drops, git branch switches, process stdin writes, and command
+- File writes, batch file writes, file edits, JSON value updates/removals/patches, Python renames, Python definition replacements, file patches, file copies, file moves, file deletes, directory lifecycle changes, git fetches, git pulls, git pushes, GitHub pull request creation through `gh`, git restores, git stashes, git stash applies, git stash drops, git branch switches, process stdin writes, and command
   starts/runs require approval in the CLI before execution. Library callers that
   do not provide an approval handler deny those actions by default.
 - CLI approval defaults to `ask`; `/approval allow` approves future actions in

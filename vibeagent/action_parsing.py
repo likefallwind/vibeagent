@@ -11,6 +11,7 @@ from .action_parsing_delegation import parse_delegation_action
 from .action_parsing_code_intel import parse_code_intel_action
 from .action_parsing_file_edit import parse_file_edit_action
 from .action_parsing_git import parse_git_action
+from .action_parsing_github import parse_github_action
 from .action_parsing_json import parse_json_action
 from .action_parsing_mcp import parse_mcp_action
 from .action_parsing_memory import parse_memory_action
@@ -38,6 +39,7 @@ def parse_action(value: Any, raw: str) -> AgentAction:
         parse_code_intel_action,
         parse_search_action,
         parse_git_action,
+        parse_github_action,
         parse_mcp_action,
         parse_memory_action,
         parse_project_action,

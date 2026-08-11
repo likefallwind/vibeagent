@@ -120,6 +120,7 @@ class ApprovalRequest:
         "git_fetch",
         "git_pull",
         "git_push",
+        "github_pr_create",
         "git_restore",
         "git_stash",
         "git_stash_apply",

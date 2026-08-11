@@ -102,6 +102,21 @@ def format_git_observation(index: int, observation: object) -> str | None:
     if observation.kind in {"check_git_pull", "git_pull", "check_git_push", "git_push"}:
         return format_git_sync_observation(index, observation)
 
+    if observation.kind in {"check_github_pr_create", "github_pr_create"}:
+        url = f"\nurl: {observation.url}" if observation.kind == "github_pr_create" and observation.url else ""
+        return "\n".join(
+            [
+                f"{index}. {observation.kind}: {observation.message}",
+                f"ok: {str(observation.ok).lower()}",
+                f"repository: {observation.repository or 'none'}",
+                f"headBase: {observation.head or 'none'} -> {observation.base or 'none'}",
+                f"title: {observation.title}",
+                f"draft: {str(observation.draft).lower()}",
+                f"aheadBehind: {observation.ahead}/{observation.behind}",
+                f"commits: {observation.commits}{url}",
+            ]
+        )
+
     if observation.kind in {"check_git_restore", "git_restore"}:
         return "\n".join(
             [

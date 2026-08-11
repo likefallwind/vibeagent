@@ -143,6 +143,8 @@ OK_FLAG_FAILURE_KINDS = {
     "git_pull",
     "check_git_push",
     "git_push",
+    "check_github_pr_create",
+    "github_pr_create",
     "check_git_restore",
     "git_restore",
     "git_stashes",

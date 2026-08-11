@@ -191,6 +191,8 @@ def build_action_target(action: object) -> str:
         return "current branch upstream"
     if isinstance(action, (t.CheckGitPushAction, t.GitPushAction)):
         return "current branch upstream"
+    if isinstance(action, (t.CheckGitHubPrCreateAction, t.GitHubPrCreateAction)):
+        return f"{action.title} -> {action.base or 'default branch'}"
     if isinstance(action, (t.CheckGitRestoreAction, t.GitRestoreAction)):
         return ", ".join(action.paths)
     if isinstance(action, t.GitStashesAction):

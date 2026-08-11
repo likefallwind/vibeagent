@@ -41,6 +41,7 @@ PREVIEW_KIND_BY_ACTION_TYPE = {
     "git_fetch": "check_git_fetch",
     "git_pull": "check_git_pull",
     "git_push": "check_git_push",
+    "github_pr_create": "check_github_pr_create",
     "git_restore": "check_git_restore",
     "git_switch": "check_git_switch",
     "git_stash": "check_git_stash",

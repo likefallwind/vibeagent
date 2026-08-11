@@ -307,6 +307,7 @@ from .observation_git_types import (
     GitUnstageObservation,
     UntrackedFilePreview,
 )
+from .observation_github_types import CheckGitHubPrCreateObservation, GitHubPrCreateObservation
 from .observation_notebook_types import (
     CheckNotebookEditObservation,
     NotebookCellSummary,

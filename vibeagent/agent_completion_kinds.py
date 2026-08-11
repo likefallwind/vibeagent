@@ -43,6 +43,7 @@ PROJECT_CHANGE_OBSERVATION_KINDS = {
     "git_stash_apply",
     "git_stash_drop",
     "git_switch",
+    "github_pr_create",
     "checkpoint_restore",
 }
 
@@ -52,6 +53,7 @@ VCS_METADATA_OBSERVATION_KINDS = {
     "git_unstage",
     "git_commit",
     "git_stash_drop",
+    "github_pr_create",
 }
 
 
@@ -60,6 +62,7 @@ VERIFICATION_INVALIDATING_OBSERVATION_KINDS = PROJECT_CHANGE_OBSERVATION_KINDS -
 
 AUTO_FINAL_REVIEW_EXCLUDED_OBSERVATION_KINDS = {
     "git_stash_drop",
+    "github_pr_create",
 }
 
 

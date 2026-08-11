@@ -99,6 +99,8 @@ ACTION_LOG_SPECS: dict[str, tuple[str, ActionTargetBuilder]] = {
     "git_pull": ("pulling git upstream", _target_action),
     "check_git_push": ("checking git push", _target_action),
     "git_push": ("pushing git upstream", _target_action),
+    "check_github_pr_create": ("checking GitHub pull request", _target_action),
+    "github_pr_create": ("creating GitHub pull request", _target_action),
     "check_git_restore": ("checking git restore", _target_action),
     "git_restore": ("restoring git paths", _target_action),
     "git_stashes": ("reading git stashes", _target_action),

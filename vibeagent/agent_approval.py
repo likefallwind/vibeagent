@@ -101,6 +101,12 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target="current branch upstream",
             risk="This will contact the git remote and push local commits to the configured upstream.",
         )
+    if isinstance(action, t.GitHubPrCreateAction):
+        return t.ApprovalRequest(
+            action_type="github_pr_create",
+            target=f"{action.title} -> {action.base or 'default branch'}",
+            risk="This will contact GitHub and create a pull request from the current pushed branch.",
+        )
     if isinstance(action, t.GitRestoreAction):
         return t.ApprovalRequest(
             action_type="git_restore",

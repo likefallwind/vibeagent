@@ -8,6 +8,7 @@ from .code_intel_action_executor import execute_code_intel_action
 from .file_action_executor import execute_file_action
 from .final_review_action_executor import execute_final_review_action
 from .git_action_executor import execute_git_action
+from .github_pr_action_executor import execute_github_pr_action
 from .json_action_executor import execute_json_action
 from .mcp_action_executor import execute_mcp_action
 from .memory_action_executor import execute_memory_action
@@ -60,6 +61,10 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
     git_observation = execute_git_action(workspace, action)
     if git_observation is not None:
         return git_observation
+
+    github_pr_observation = execute_github_pr_action(workspace, action)
+    if github_pr_observation is not None:
+        return github_pr_observation
 
     mcp_observation = execute_mcp_action(workspace, action)
     if mcp_observation is not None:

@@ -84,6 +84,7 @@ from .observation_git_types import (
     GitSwitchObservation,
     GitUnstageObservation,
 )
+from .observation_github_types import CheckGitHubPrCreateObservation, GitHubPrCreateObservation
 from .observation_notebook_types import (
     CheckNotebookEditObservation,
     NotebookEditObservation,
@@ -262,6 +263,8 @@ Observation: TypeAlias = (
     | GitPullObservation
     | CheckGitPushObservation
     | GitPushObservation
+    | CheckGitHubPrCreateObservation
+    | GitHubPrCreateObservation
     | CheckGitRestoreObservation
     | GitRestoreObservation
     | GitStashesObservation

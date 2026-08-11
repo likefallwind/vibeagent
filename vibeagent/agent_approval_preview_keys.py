@@ -179,6 +179,15 @@ def workflow_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
 
 
 def git_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
+    if kind in {"github_pr_create", "check_github_pr_create"}:
+        return (
+            "github_pr_create",
+            getattr(value, "title", ""),
+            getattr(value, "body", ""),
+            getattr(value, "base", None),
+            getattr(value, "remote", None),
+            getattr(value, "draft", False),
+        )
     if kind in {"git_fetch", "check_git_fetch"}:
         return ("git_fetch", getattr(value, "remote", None) or "default remote")
     if kind in {"git_pull", "check_git_pull", "git_push", "check_git_push"}:
