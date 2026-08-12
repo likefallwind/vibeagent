@@ -102,7 +102,7 @@ def delegate_tool_definitions(
 ) -> list[dict[str, object]]:
     nested_names = NESTED_DELEGATE_TOOL_NAMES if nested_delegation_allowed else frozenset()
     coordination_names = TEAM_COORDINATION_TOOL_NAMES if team_member else frozenset()
-    if mode == "explore":
+    if mode in {"explore", "plan"}:
         return [
             tool
             for tool in AGENT_TOOL_DEFINITIONS
@@ -380,13 +380,17 @@ def execute_delegate_action(
     auto_mode_runtime: AutoModeRuntime | None = None,
 ) -> tuple[Observation, bool, tuple[HookRunResult, ...], str | None]:
     action_type = getattr(parsed, "type", None)
-    if mode == "explore":
+    if mode in {"explore", "plan"}:
+        coordination_tool = tool_name in TEAM_COORDINATION_TOOL_NAMES
         allowed_read_only_tool = (
             tool_name in DELEGATE_TOOL_NAMES
             or tool_name in READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES
             or action_type in DELEGATE_TOOL_NAMES
+            or coordination_tool
         )
-        if not allowed_read_only_tool or not is_parallel_safe_action(parsed):
+        if not allowed_read_only_tool or (
+            not coordination_tool and not is_parallel_safe_action(parsed)
+        ):
             return (
                 ToolErrorObservation(
                     kind="tool_error",

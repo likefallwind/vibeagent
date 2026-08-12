@@ -17,6 +17,8 @@ def clip_delegate_summary(value: str, max_chars: int = 12_000) -> str:
 def delegate_completion_message(action: DelegateTaskAction) -> str:
     if action.mode == "code":
         return "Subagent completed the coding task."
+    if action.mode == "plan":
+        return "Teammate submitted a plan for lead approval."
     return "Subagent completed the investigation."
 
 

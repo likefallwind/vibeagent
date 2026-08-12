@@ -108,7 +108,13 @@ remaining teammates and clears coordination state. `TeamCreate` and
 catalog. Claude-compatible `--teammate-mode in-process` and `auto` select the
 built-in status panel; `tmux` and `iterm2` are rejected before a provider call
 until VibeAgent can provide independent interactive pane control. This note
-supersedes the legacy lifecycle wording in the capability table above.
+supersedes the legacy lifecycle wording in the capability table above. Named
+teammates may start with `mode: "plan"`, which exposes repository-read-only
+tools and persists a submitted plan. Plain `SendMessage` feedback keeps the
+same teammate and transcript in plan mode; a lead-only `approve_plan: true`
+message accepts only a successfully completed plan and atomically resumes that
+identity and transcript in code mode. Running, failed, cancelled, non-plan, and
+teammate-originated approvals fail without changing state.
 
 `VA1-RESUME` also supports machine-wide top-level `--resume` for exact generated
 session IDs and canonical UUIDs. A private atomic index maps only those IDs to

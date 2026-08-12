@@ -56,7 +56,7 @@ class DelegateTaskObservation:
     iterations: int
     tool_calls: list[str]
     message: str
-    mode: Literal["explore", "code"] = "explore"
+    mode: Literal["explore", "code", "plan"] = "explore"
     agent: str | None = None
     task_id: str | None = None
     background: bool = False
@@ -100,7 +100,7 @@ class SubagentInstance:
     id: str
     task: str
     status: Literal["running", "completed", "failed", "cancelled"]
-    mode: Literal["explore", "code"]
+    mode: Literal["explore", "code", "plan"]
     agent: str | None
     background: bool
     runs: int

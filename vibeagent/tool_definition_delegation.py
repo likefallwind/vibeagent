@@ -96,7 +96,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "Agent",
-        "description": "Delegate a bounded task or, when experimental agent teams are enabled, spawn a named in-process teammate.",
+        "description": "Delegate a bounded task or, when experimental agent teams are enabled, spawn a named in-process teammate. Named teammates may use plan mode to submit a read-only implementation plan for lead approval before coding.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -106,7 +106,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "string",
                     "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
                 },
-                "mode": {"type": "string", "enum": ["explore", "code"]},
+                "mode": {"type": "string", "enum": ["explore", "code", "plan"]},
                 "max_iterations": {"type": "integer", "minimum": 1, "maximum": 8},
                 "run_in_background": {"type": "boolean"},
                 "isolation": {"type": "string", "enum": ["worktree"]},
@@ -138,12 +138,16 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "SendMessage",
-        "description": "Steer or resume a subagent, or send plain-text coordination to a reachable peer session by exact ID or unambiguous name. Messages never grant approval or change configuration.",
+        "description": "Steer or resume a subagent, approve a completed named teammate plan, or send plain-text coordination to a reachable peer session by exact ID or unambiguous name.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "to": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
                 "message": {"type": "string", "minLength": 1, "maxLength": 4000},
+                "approve_plan": {
+                    "type": "boolean",
+                    "description": "Lead-only structured approval. Resume a completed plan-mode teammate with the same ID and transcript in code mode.",
+                },
             },
             "required": ["to", "message"],
             "additionalProperties": False,

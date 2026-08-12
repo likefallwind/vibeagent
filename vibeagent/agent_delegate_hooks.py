@@ -42,7 +42,11 @@ class DelegateLifecycleHooks:
     def agent_type(self) -> str:
         if self.action.agent:
             return self.action.agent
-        return "Explore" if self.action.mode == "explore" else "general-purpose"
+        if self.action.mode == "explore":
+            return "Explore"
+        if self.action.mode == "plan":
+            return "Plan"
+        return "general-purpose"
 
     def start(self, messages: list[ChatMessage]) -> tuple[HookRunResult, ...]:
         result = self._run(

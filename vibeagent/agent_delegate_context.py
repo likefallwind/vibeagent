@@ -34,6 +34,12 @@ You cannot ask the user or update the parent plan. You may delegate a bounded su
 Verify your changes with focused checks when possible, then return a concise report of changed files, checks, and remaining risks.
 Answer directly when complete, or call finish with the report."""
 
+PLAN_DELEGATE_SYSTEM_PROMPT = """You are a read-only planning teammate in the user's active project.
+Investigate only the delegated task and produce a concrete implementation plan grounded in repository evidence.
+You cannot edit files, run shell commands, or ask the user. Do not claim implementation work was performed.
+Your final response submits the plan to the lead for review. Include affected paths, ordered steps, verification, risks, and unresolved decisions.
+After feedback, revise the plan while remaining read-only. You may implement only after the lead explicitly approves the plan and resumes you in code mode."""
+
 
 DELEGATE_MESSAGE_COMPACT_THRESHOLD = 12
 DELEGATE_MESSAGE_COMPACT_CHAR_THRESHOLD = AGENT_MESSAGE_COMPACT_CHAR_THRESHOLD
@@ -61,7 +67,10 @@ def build_delegate_messages(
     if skill_catalog:
         parts.append(skill_catalog)
     parts.append(f"Workspace snapshot:\n{snapshot}")
-    system_prompt = CODE_DELEGATE_SYSTEM_PROMPT if action.mode == "code" else DELEGATE_SYSTEM_PROMPT
+    system_prompt = {
+        "code": CODE_DELEGATE_SYSTEM_PROMPT,
+        "plan": PLAN_DELEGATE_SYSTEM_PROMPT,
+    }.get(action.mode, DELEGATE_SYSTEM_PROMPT)
     if profile_prompt:
         system_prompt = f"{system_prompt}\n\nAdditional subagent system instructions:\n{profile_prompt}"
     return [

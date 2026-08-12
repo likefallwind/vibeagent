@@ -42,7 +42,7 @@ class NestedDelegateRuntime:
     workspace: RunWorkspace
     subagent_id: str
     depth: int
-    mode: Literal["explore", "code"]
+    mode: Literal["explore", "code", "plan"]
     cancel_requested: Callable[[], bool] | None
     execute_child: NestedDelegateExecutor
     team_member_name: str | None = None
@@ -90,7 +90,7 @@ class NestedDelegateRuntime:
                 tool="Agent",
                 message="Teammates may only run their own subagents in the foreground.",
             )
-        if self.mode == "explore" and action.mode == "code":
+        if self.mode in {"explore", "plan"} and action.mode == "code":
             return ToolErrorObservation(
                 kind="tool_error",
                 tool="delegate_task",

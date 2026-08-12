@@ -292,7 +292,7 @@ def _parse_action(value: dict[str, object]) -> DelegateTaskAction:
         or isinstance(max_iterations, bool)
         or not isinstance(max_iterations, int)
         or not 1 <= max_iterations <= MAX_AGENT_TURNS
-        or mode not in {"explore", "code"}
+        or mode not in {"explore", "code", "plan"}
         or agent is not None and not isinstance(agent, str)
         or not isinstance(background, bool)
         or isolation not in {None, "worktree"}

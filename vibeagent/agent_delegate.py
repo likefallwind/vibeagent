@@ -113,7 +113,7 @@ def execute_delegate_task_action(
         profile.workspace or workspace,
         maintain_shell_cwd=False,
     )
-    if profile.mode is not None:
+    if profile.mode is not None and action.mode != "plan":
         action = replace(action, mode=profile.mode)
     parent_approval_policy = approval_policy
     approval_policy, permissions = resolve_profile_permissions(
@@ -124,7 +124,7 @@ def execute_delegate_task_action(
     if (
         profile.permission_mode == "plan"
         and parent_approval_policy != "plan"
-        and action.mode != "explore"
+        and action.mode == "code"
     ):
         action = replace(action, mode="explore")
     hooks = merge_project_hooks(hooks, subagent_project_hooks(profile.hooks))

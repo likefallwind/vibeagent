@@ -5,7 +5,11 @@ from dataclasses import replace
 from .auto_mode import AutoModeRuntime
 from .agent_action_logging import log_action
 from .agent_approval import build_approval_request
-from .background_delegate_runtime import send_background_delegate_message, start_background_delegate_task
+from .background_delegate_runtime import (
+    background_delegate_task_is_running,
+    send_background_delegate_message,
+    start_background_delegate_task,
+)
 from .agent_delegate import execute_delegate_task_action
 from .agent_delegate_profile import resolve_profile_action
 from .deep_review_runtime import execute_deep_review_action
@@ -15,6 +19,7 @@ from .agent_hooks import (
     HookWrappedToolResult,
     run_hooks_around_tool,
 )
+from .agent_plan_approval import PlanApprovalError, prepare_plan_approval
 from .agent_hook_prompt import HookModelRuntime
 from .agent_runtime_utils import append_session_event
 from .agent_team_runtime import teammate_spawn_error
@@ -178,7 +183,17 @@ def _execute_special_tool(
         step = start_task_step(workspace, steps, iteration, action, logger)
         log_action(logger, action)
         try:
-            delivered = send_background_delegate_message(workspace, action.to, action.message)
+            if action.approve_plan and background_delegate_task_is_running(
+                workspace, action.to
+            ):
+                raise PlanApprovalError(
+                    f"Teammate {action.to} plan cannot be approved while its status is running."
+                )
+            delivered = (
+                None
+                if action.approve_plan
+                else send_background_delegate_message(workspace, action.to, action.message)
+            )
             if delivered is not None:
                 append_session_event(
                     workspace.session_dir,
@@ -188,7 +203,15 @@ def _execute_special_tool(
                 complete_task_step(workspace, step, delivered, iteration, logger)
                 return delivered
             transcript = read_subagent_transcript(workspace, action.to)
-            resumed_action = replace(transcript.action, run_in_background=True)
+            resume_transcript = transcript
+            followup_message = action.message
+            if action.approve_plan:
+                resumed_action, resume_transcript, followup_message = prepare_plan_approval(
+                    transcript,
+                    action.message,
+                )
+            else:
+                resumed_action = replace(transcript.action, run_in_background=True)
             delegate_observation = start_background_delegate_task(
                 workspace,
                 resumed_action,
@@ -209,8 +232,8 @@ def _execute_special_tool(
                     hooks=hooks,
                     permissions=permissions,
                     cancel_requested=cancel_requested,
-                    resume_transcript=transcript,
-                    followup_message=action.message,
+                    resume_transcript=resume_transcript,
+                    followup_message=followup_message,
                     inbound_messages=inbound_messages,
                     depth=transcript.depth,
                     parent_subagent_id=transcript.parent_id,
@@ -224,10 +247,24 @@ def _execute_special_tool(
             )
             append_session_event(
                 workspace.session_dir,
-                "subagent_message_sent",
+                "subagent_plan_approved" if action.approve_plan else "subagent_message_sent",
                 {"subagent_id": action.to, "resumed": True},
             )
+        except PlanApprovalError as error:
+            delegate_observation = ToolErrorObservation(
+                kind="tool_error", tool="SendMessage", message=str(error)
+            )
+        except ValueError as error:
+            delegate_observation = ToolErrorObservation(
+                kind="tool_error", tool="SendMessage", message=str(error)
+            )
         except SubagentTranscriptError as error:
+            if action.approve_plan:
+                delegate_observation = ToolErrorObservation(
+                    kind="tool_error", tool="SendMessage", message=str(error)
+                )
+                complete_task_step(workspace, step, delegate_observation, iteration, logger)
+                return delegate_observation
             try:
                 delivery = send_peer_message(action.to, action.message)
             except PeerMessagingError as peer_error:

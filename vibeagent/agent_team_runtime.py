@@ -62,6 +62,8 @@ def execute_teammate_coordination_action(
     teammate_name: str,
 ) -> Observation | None:
     if isinstance(action, SendMessageAction):
+        if action.approve_plan:
+            return _error("SendMessage", "Only the lead agent can approve teammate plans.")
         if action.to == teammate_name:
             return _error("SendMessage", "A teammate cannot send a message to itself.")
         if action.to == "lead":

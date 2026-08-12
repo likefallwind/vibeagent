@@ -35,7 +35,15 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
         message = message.strip()
         if len(message) > 4_000:
             raise ActionParseError("send_message action message must contain at most 4000 characters.", raw)
-        return SendMessageAction(type="send_message", to=recipient.strip(), message=message)
+        approve_plan = value.get("approve_plan", False)
+        if not isinstance(approve_plan, bool):
+            raise ActionParseError("send_message action approve_plan must be a boolean.", raw)
+        return SendMessageAction(
+            type="send_message",
+            to=recipient.strip(),
+            message=message,
+            approve_plan=approve_plan,
+        )
 
     if action_type == "task_output":
         task_id = parse_task_id(value, raw, "task_output")
@@ -76,8 +84,8 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
         raise ActionParseError("delegate_task action max_iterations must be between 1 and 8.", raw)
 
     mode = value.get("mode", "explore")
-    if mode not in {"explore", "code"}:
-        raise ActionParseError("delegate_task action mode must be explore or code.", raw)
+    if mode not in {"explore", "code", "plan"}:
+        raise ActionParseError("delegate_task action mode must be explore, code, or plan.", raw)
 
     agent = value.get("agent")
     if agent is not None and (not isinstance(agent, str) or not AGENT_REFERENCE_PATTERN.fullmatch(agent.strip())):
@@ -99,6 +107,8 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
     teammate_name = teammate_name.strip() if isinstance(teammate_name, str) else None
     if teammate_name == "lead":
         raise ActionParseError("delegate_task action teammate_name cannot use the reserved name lead.", raw)
+    if mode == "plan" and teammate_name is None:
+        raise ActionParseError("delegate_task action plan mode requires a named teammate.", raw)
     if teammate_name is not None:
         run_in_background = True
     return DelegateTaskAction(

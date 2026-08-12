@@ -422,7 +422,8 @@ class DelegationTests(unittest.TestCase):
         for name in ("Task", "Agent"):
             with self.subTest(name=name):
                 schema = tools[name]["input_schema"]
-                self.assertEqual(schema["properties"]["mode"]["enum"], ["explore", "code"])
+                expected = ["explore", "code", "plan"] if name == "Agent" else ["explore", "code"]
+                self.assertEqual(schema["properties"]["mode"]["enum"], expected)
                 self.assertNotIn("mode", schema["required"])
 
     def test_delegate_tool_catalog_excludes_mutation_execution_and_recursion(self) -> None:

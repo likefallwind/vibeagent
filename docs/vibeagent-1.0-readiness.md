@@ -500,6 +500,9 @@ The automated suite currently covers these 1.0 surfaces:
   creates one atomically persisted `session-<id>` team; teammates have
   independent background contexts, stable identities, shared task ownership
   and dependencies, peer and lead mailboxes, and automatic lead delivery.
+  Named teammates can submit repository-read-only plans, receive revision
+  feedback under the same identity, and resume the same persisted transcript in
+  code mode only after a completed plan receives structured lead approval.
   Teardown cancels remaining teammates and cleans up team state. Historical
   `TeamCreate` and `TeamDelete` actions remain parseable but are not advertised
   model tools. `--teammate-mode in-process` and `auto` use the built-in panel;

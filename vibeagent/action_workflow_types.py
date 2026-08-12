@@ -83,7 +83,7 @@ class DelegateTaskAction:
     task: str
     context: str | None = None
     max_iterations: int = 4
-    mode: Literal["explore", "code"] = "explore"
+    mode: Literal["explore", "code", "plan"] = "explore"
     agent: str | None = None
     run_in_background: bool = False
     isolation: Literal["worktree"] | None = None
@@ -108,6 +108,7 @@ class SendMessageAction:
     type: Literal["send_message"]
     to: str
     message: str
+    approve_plan: bool = False
 
 
 @dataclass(frozen=True)

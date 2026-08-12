@@ -145,6 +145,14 @@ def send_background_delegate_message(
     )
 
 
+def background_delegate_task_is_running(
+    workspace: RunWorkspace,
+    task_id: str,
+) -> bool:
+    task = _find_task(workspace, task_id)
+    return task is not None and not task.done_event.is_set()
+
+
 def execute_background_task_action(
     workspace: RunWorkspace,
     action: object,
