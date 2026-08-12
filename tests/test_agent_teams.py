@@ -314,12 +314,12 @@ class AgentTeamTests(unittest.TestCase):
             marker = root / "idle.checked"
             command = (
                 'python3 -c "import json,sys,pathlib; d=json.load(sys.stdin); '
-                "assert d['teammate_name']=='reviewer'; assert d['team_name']=='session-team'; "
+                "assert d['teammate_name']=='reviewer'; assert d['team_name']=='session-team-hoo'; "
                 f"p=pathlib.Path({str(marker)!r}); first=not p.exists(); p.touch(); "
                 "print('Run one more check.', file=sys.stderr) if first else None; "
                 "raise SystemExit(2 if first else 0)\""
             )
-            workspace = create_run_workspace(root)
+            workspace = create_run_workspace(root, "team-hook")
             client = TeamClient(
                 [
                     [{"type": "text", "text": "Initial review complete."}],

@@ -131,11 +131,11 @@ def build_messages(
     if agent_teams_enabled():
         chunks.append(
             "Experimental agent teams are enabled. For work that materially benefits from peer coordination, "
-            "create one session team with TeamCreate, then use Agent with a stable name to request each approved "
-            "background teammate. Teammates share the "
+            "use Agent with a stable name to request each approved background teammate; the first named teammate "
+            "automatically creates the session team. Teammates share the "
             "session TaskCreate/TaskList/TaskUpdate graph and can message each other by name with SendMessage. "
-            "Only the lead may manage the team; avoid overlapping file ownership, wait for every teammate to stop, "
-            "then call TeamDelete before finishing."
+            "Only the lead may spawn teammates; avoid overlapping file ownership and wait for every teammate to "
+            "stop before finishing. Team runtime state is cleaned automatically when the session exits."
         )
     if approval_policy == "plan":
         chunks.append(

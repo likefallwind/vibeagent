@@ -17,8 +17,9 @@ from vibeagent.background_delegate_runtime import (
     execute_background_task_action,
     start_background_delegate_task,
 )
-from vibeagent.team_state import IMPLICIT_TEAM_NAME, read_team_state, team_state_path
+from vibeagent.team_state import implicit_team_name, read_team_state, team_state_path
 from vibeagent.tool_definition_team import TEAM_TOOL_DEFINITIONS
+from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
 from vibeagent.types import (
     AssistantResponse,
     DelegateTaskAction,
@@ -43,30 +44,25 @@ class TeamLifecycleClient:
 
 
 class AgentTeamLifecycleTests(unittest.TestCase):
-    def test_agent_runs_explicit_team_lifecycle_through_model_tools(self) -> None:
+    def test_removed_team_lifecycle_tools_are_not_advertised_to_model(self) -> None:
         client = TeamLifecycleClient(
             [
-                [{"type": "tool_call", "id": "create-1", "name": "TeamCreate", "input": {
-                    "team_name": "review-team", "description": "Coordinate review work"
-                }}],
-                [{"type": "tool_call", "id": "delete-1", "name": "TeamDelete", "input": {}}],
-                [{"type": "text", "text": "Team lifecycle completed."}],
+                [{"type": "text", "text": "No team lifecycle setup is required."}],
             ]
         )
         with tempfile.TemporaryDirectory(prefix="vibeagent-team-") as base:
             project = Path(base)
             with patch.dict("os.environ", {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}, clear=True):
                 result = run_agent(
-                    "Create and clean up a review team", client, base_dir=project, max_iterations=3
+                    "Inspect team availability", client, base_dir=project, max_iterations=1
                 )
             team_files = list((project / ".vibeagent" / "sessions").glob("*/team.json"))
 
         self.assertTrue(result.success)
-        self.assertEqual([item.kind for item in result.observations], ["team_create", "team_delete"])
-        self.assertTrue({"TeamCreate", "TeamDelete"}.issubset(client.tool_names[0]))
+        self.assertTrue({"TeamCreate", "TeamDelete"}.isdisjoint(client.tool_names[0]))
         self.assertEqual(team_files, [])
 
-    def test_team_tools_match_claude_protocol_and_follow_feature_flag(self) -> None:
+    def test_removed_team_tools_remain_parseable_but_are_always_hidden(self) -> None:
         create = parse_tool_action(
             "TeamCreate", {"team_name": "review-team", "description": "Coordinate review work"}
         )
@@ -79,6 +75,11 @@ class AgentTeamLifecycleTests(unittest.TestCase):
         self.assertEqual(
             TEAM_TOOL_DEFINITIONS[0]["input_schema"]["required"], ["team_name", "description"]
         )
+        self.assertTrue(
+            {"TeamCreate", "TeamDelete"}.isdisjoint(
+                {tool["name"] for tool in AGENT_TOOL_DEFINITIONS}
+            )
+        )
         with patch.dict("os.environ", {}, clear=True):
             disabled = {tool["name"] for tool in agent_tool_definitions(initial_agent_tool_names())}
             prepared = prepare_action_for_visibility(
@@ -88,10 +89,20 @@ class AgentTeamLifecycleTests(unittest.TestCase):
                 searched = execute_action(create_run_workspace(Path(base)), prepared)
         with patch.dict("os.environ", {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}, clear=True):
             enabled = {tool["name"] for tool in agent_tool_definitions(initial_agent_tool_names())}
+            with tempfile.TemporaryDirectory(prefix="vibeagent-team-") as base:
+                searched_enabled = execute_action(
+                    create_run_workspace(Path(base)),
+                    prepare_action_for_visibility(
+                        parse_tool_action("ToolSearch", {"query": "TeamCreate", "max_results": 5})
+                    ),
+                )
 
         self.assertTrue({"TeamCreate", "TeamDelete"}.isdisjoint(disabled))
         self.assertFalse(any(match["name"] in {"TeamCreate", "TeamDelete"} for match in searched.matches))
-        self.assertTrue({"TeamCreate", "TeamDelete"}.issubset(enabled))
+        self.assertTrue({"TeamCreate", "TeamDelete"}.isdisjoint(enabled))
+        self.assertFalse(
+            any(match["name"] in {"TeamCreate", "TeamDelete"} for match in searched_enabled.matches)
+        )
 
     def test_explicit_team_lifecycle_is_persisted_and_one_per_session(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-team-") as base:
@@ -167,7 +178,7 @@ class AgentTeamLifecycleTests(unittest.TestCase):
         self.assertIn("are running", active.message)
         self.assertTrue(deleted.ok)
 
-    def test_named_agent_compatibility_creates_implicit_team_state(self) -> None:
+    def test_named_agent_creates_session_derived_team_state(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-team-") as base:
             workspace = create_run_workspace(Path(base))
             with patch.dict("os.environ", {"VIBEAGENT_EXPERIMENTAL_AGENT_TEAMS": "1"}, clear=True):
@@ -175,7 +186,8 @@ class AgentTeamLifecycleTests(unittest.TestCase):
                 state = read_team_state(workspace)
 
         self.assertIsNone(error)
-        self.assertEqual(state.name, IMPLICIT_TEAM_NAME)
+        self.assertEqual(state.name, implicit_team_name(workspace))
+        self.assertTrue(state.name.startswith("session-"))
         self.assertFalse(state.explicit)
 
 

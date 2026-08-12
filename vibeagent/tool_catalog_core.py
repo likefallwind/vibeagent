@@ -150,8 +150,6 @@ def tool_category(name: str) -> str:
         "TaskGet",
         "TaskList",
         "TaskUpdate",
-        "TeamCreate",
-        "TeamDelete",
         "memory_list",
         "memory_read",
         "session_summary",

@@ -8,7 +8,6 @@ from .action_tool_aliases import CLAUDE_MCP_TOOL_NAME_PATTERN, tool_name_is_rest
 from .agent_core_tools import CORE_AGENT_TOOL_NAMES
 from .agent_runtime_utils import append_session_event
 from .scheduled_task_store import CRON_TOOL_NAMES, scheduled_tasks_enabled
-from .agent_team_runtime import agent_teams_enabled
 from .tool_catalog_core import tool_name_requires_approval
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
 from .types import ApprovalPolicy, Observation, ToolSearchAction
@@ -66,16 +65,12 @@ def _effective_excluded_names(excluded_names: frozenset[str]) -> frozenset[str]:
     effective = excluded_names
     if not scheduled_tasks_enabled():
         effective = effective | CRON_TOOL_NAMES
-    if not agent_teams_enabled():
-        effective = effective | TEAM_TOOL_NAMES
+    effective = effective | TEAM_TOOL_NAMES
     return effective
 
 
 def initial_agent_tool_names() -> set[str]:
-    names = set(CORE_AGENT_TOOL_NAMES)
-    if agent_teams_enabled():
-        names.update(TEAM_TOOL_NAMES)
-    return names
+    return set(CORE_AGENT_TOOL_NAMES)
 
 
 def tool_available_for_policy(

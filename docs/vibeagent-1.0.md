@@ -39,6 +39,15 @@ connects only when exactly one fresh authenticated descriptor matches `--cwd`.
 Missing, ambiguous, stale, public, symlinked, or mismatched state fails before a
 provider request; discovery never launches a GUI or contacts a remote service.
 
+`VA1-DELEGATE` uses the current automatic team lifecycle: the first named
+`Agent` creates a private session-derived team and normal teardown cancels its
+remaining teammates and clears coordination state. `TeamCreate` and
+`TeamDelete` remain historical action formats but are absent from the model
+catalog. Claude-compatible `--teammate-mode in-process` and `auto` select the
+built-in status panel; `tmux` and `iterm2` are rejected before a provider call
+until VibeAgent can provide independent interactive pane control. This note
+supersedes the legacy lifecycle wording in the capability table above.
+
 ## Current Evidence
 
 - `tests.test_cli_stream_protocol`, `tests.test_cli_stream_output`, and

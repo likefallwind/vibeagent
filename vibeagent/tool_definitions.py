@@ -16,7 +16,6 @@ from .tool_definition_process_control import PROCESS_CONTROL_TOOL_DEFINITIONS
 from .tool_definition_project_runtime import PROJECT_RUNTIME_TOOL_DEFINITIONS
 from .tool_definition_reading import READING_TOOL_DEFINITIONS
 from .tool_definition_sessions import SESSION_TOOL_DEFINITIONS
-from .tool_definition_team import TEAM_TOOL_DEFINITIONS
 
 
 AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = (
@@ -30,7 +29,6 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = (
     + MEMORY_TOOL_DEFINITIONS
     + PROJECT_RUNTIME_TOOL_DEFINITIONS
     + DELEGATION_TOOL_DEFINITIONS
-    + TEAM_TOOL_DEFINITIONS
     + SESSION_TOOL_DEFINITIONS
     + CRON_TOOL_DEFINITIONS
     + FILE_EDITING_TOOL_DEFINITIONS

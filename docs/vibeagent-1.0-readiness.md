@@ -269,7 +269,7 @@ The automated suite currently covers these 1.0 surfaces:
   content.
 - Claude-compatible tool aliases: `Read`, `Edit`, `MultiEdit`, `Write`,
   `NotebookRead`, `NotebookEdit`, `Bash`, `PowerShell`, `BashOutput`, `KillBash`, `Monitor`,
-  `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TeamCreate`, `TeamDelete`, `TodoWrite`, `TodoRead`,
+  `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TodoWrite`, `TodoRead`,
   `CronCreate`, `CronList`, `CronDelete`, `WebFetch`, `Task`, `TaskOutput`,
   `TaskStop`, `Agent`, `EnterPlanMode`, and `ExitPlanMode`, including
   approval-mode selection, keep-planning feedback, and forced-plan locking.
@@ -468,12 +468,14 @@ The automated suite currently covers these 1.0 surfaces:
   The rendered channel is separate from transcripts, resumed conversations,
   model context, goal evidence, and canonical machine-result text; failed hooks
   fall back to the original display.
-- Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
-  `TeamDelete`, one atomically persisted private session team, active-teammate
-  cleanup refusal, approved named teammates, independent background contexts,
-  stable session identities, shared task ownership and dependencies, peer and
-  lead mailboxes, automatic lead delivery, compatibility creation for legacy
-  named spawns, and teardown cancellation and cleanup.
+- Experimental agent teams: the first approved named `Agent` automatically
+  creates one atomically persisted `session-<id>` team; teammates have
+  independent background contexts, stable identities, shared task ownership
+  and dependencies, peer and lead mailboxes, and automatic lead delivery.
+  Teardown cancels remaining teammates and cleans up team state. Historical
+  `TeamCreate` and `TeamDelete` actions remain parseable but are not advertised
+  model tools. `--teammate-mode in-process` and `auto` use the built-in panel;
+  unsupported split-pane modes fail before a provider request.
 - Session scheduling: standard local-time cron expressions, deterministic
   jitter, one-shot and recurring delivery, idle CLI wakeups, seven-day expiry,
   no-catch-up behavior, atomic persistence, and filtered resume restoration.

@@ -13,7 +13,6 @@ from .workspace_core import RunWorkspace
 TEAM_STATE_FILE = "team.json"
 TEAM_STATE_VERSION = 1
 TEAM_STATE_MAX_BYTES = 8_192
-IMPLICIT_TEAM_NAME = "session-team"
 
 
 class TeamStateError(ValueError):
@@ -76,12 +75,20 @@ def ensure_implicit_team_state(workspace: RunWorkspace) -> tuple[TeamState, bool
     return (
         create_team_state(
             workspace,
-            IMPLICIT_TEAM_NAME,
-            "Compatibility team created for named Agent teammates.",
+            implicit_team_name(workspace),
+            "Session team created automatically for named Agent teammates.",
             explicit=False,
         ),
         True,
     )
+
+
+def implicit_team_name(workspace: RunWorkspace) -> str:
+    prefix = "".join(
+        character if character.isalnum() else "-"
+        for character in workspace.run_id[:8]
+    ).strip("-")
+    return f"session-{prefix or 'agent'}"
 
 
 def delete_team_state(workspace: RunWorkspace) -> TeamState | None:
@@ -138,7 +145,7 @@ def _parse_team_state(value: object) -> TeamState:
 
 
 __all__ = [
-    "IMPLICIT_TEAM_NAME",
+    "implicit_team_name",
     "TeamState",
     "TeamStateError",
     "create_team_state",

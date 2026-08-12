@@ -63,6 +63,7 @@ class InteractiveStartupContext:
     disable_slash_commands: bool = False
     verbose: bool = False
     browser_mode: BrowserMode = "auto"
+    teammate_mode: str | None = None
     setting_sources: tuple[str, ...] = ("user", "project", "local")
     settings_override_json: str | None = None
     invocation_plugin_dirs: tuple[Path, ...] = ()
@@ -112,6 +113,7 @@ def resolve_interactive_startup_context(
         "disable_slash_commands": getattr(args, "disable_slash_commands", False),
         "verbose": getattr(args, "verbose", False),
         "browser_mode": getattr(args, "browser_mode", "auto"),
+        "teammate_mode": getattr(args, "teammate_mode", None),
         "setting_sources": (
             ()
             if getattr(args, "bare", False)

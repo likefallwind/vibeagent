@@ -16,7 +16,7 @@ from .types import (
 from .workspace_core import RunWorkspace
 from .workspace_hooks import HookEvent, ProjectHooks
 from .workspace_permissions import ProjectPermissions
-from .team_state import TeamStateError, read_team_state
+from .team_state import TeamStateError, implicit_team_name, read_team_state
 
 
 MAX_SUBAGENT_STOP_CONTINUATIONS = 8
@@ -88,7 +88,7 @@ class DelegateLifecycleHooks:
             "TeammateIdle",
             {
                 "teammate_name": teammate_name,
-                "team_name": team.name if team is not None else "session-team",
+                "team_name": team.name if team is not None else implicit_team_name(self.workspace),
             },
             iteration=iteration,
         )

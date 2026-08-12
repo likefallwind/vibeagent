@@ -114,6 +114,7 @@ from .monitor_runtime import (
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import ProjectPermissions, read_project_permissions
 from .workspace_view_mode import resolve_verbose_mode
+from .workspace_teammate_mode import resolve_teammate_mode
 from .cli_verbose_output import VerboseTranscriptRenderer
 from .model_streaming import supports_model_streaming
 from .session_event_observers import observe_session_events
@@ -173,6 +174,7 @@ def run_interactive_loop(
     initial_disable_slash_commands: bool = False,
     initial_verbose: bool = False,
     initial_browser_mode: BrowserMode = "auto",
+    initial_teammate_mode: str | None = None,
     initial_setting_sources: tuple[str, ...] = ("user", "project", "local"),
     initial_settings_override_json: str | None = None,
     initial_invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -279,6 +281,10 @@ def run_interactive_loop(
             invocation_plugin_dirs=invocation_plugin_dirs,
         )
         verbose_mode = resolve_verbose_mode(settings_workspace, explicit=verbose)
+        teammate_mode = resolve_teammate_mode(
+            settings_workspace,
+            explicit=initial_teammate_mode,
+        )
         if active_workspace is None and (debug_runtime.enabled or verbose_mode):
             active_workspace = create_run_workspace(
                 Path.cwd(),
@@ -306,6 +312,7 @@ def run_interactive_loop(
             safe_mode=safe_mode,
             workspace=notification_workspace,
             brief=brief,
+            teammate_mode=teammate_mode,
         )
         panel.authorize_custom(approval_handler, approval_policy)
         initial_panel_error = panel.config_error

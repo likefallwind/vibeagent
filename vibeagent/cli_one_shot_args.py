@@ -112,6 +112,11 @@ def add_one_shot_arguments(
         help="Connect to the unique active VibeAgent VS Code workspace matching --cwd.",
     )
     parser.add_argument(
+        "--teammate-mode",
+        choices=("in-process", "auto", "tmux", "iterm2"),
+        help="Set agent-team teammate display mode for this session.",
+    )
+    parser.add_argument(
         "--provider",
         choices=("minimax", "anthropic", "deepseek", "openai-compatible"),
         help="Temporarily override the model provider for this command.",

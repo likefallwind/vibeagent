@@ -45,11 +45,13 @@ class SubagentPanel:
         safe_mode: bool = False,
         workspace: RunWorkspace | None = None,
         brief: bool = False,
+        teammate_mode: str = "in-process",
     ) -> None:
         self.project_root = project_root.resolve()
         self.stream = stream or sys.stdout
         self.enabled = getattr(self.stream, "isatty", lambda: False)() is True
         self.brief = brief
+        self.teammate_mode = teammate_mode
         self.workspace: RunWorkspace | None = None
         self.config: ResolvedSubagentStatusLine | None = None
         self.config_error: str | None = None
