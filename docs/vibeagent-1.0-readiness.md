@@ -489,6 +489,11 @@ The automated suite currently covers these 1.0 surfaces:
   metadata, and skill tools while retaining hooks, MCP, permissions, agents,
   instructions, and other project configuration. The boundary propagates
   through one-shot, interactive, resumed, ephemeral, and background runs.
+- Transcript visibility: Claude-compatible `--verbose` and
+  `viewMode: "verbose"` show bounded redacted model and tool turns without
+  exposing thinking or contaminating one-shot machine stdout. Explicit CLI
+  selection overrides `default` and `focus`, safe mode ignores the setting,
+  and interactive background handoff retains the flag.
 - Invocation settings: Claude-compatible `--settings` accepts a bounded inline
   JSON object or file, while `--setting-sources` selects user, project, and local
   files. One immutable override reaches provider environment, permissions,

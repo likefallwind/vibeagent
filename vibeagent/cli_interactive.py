@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import replace
 import os
 from pathlib import Path
+import sys
 from threading import Lock
 from typing import Any, Literal, cast
 
@@ -108,6 +110,10 @@ from .monitor_runtime import (
 )
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import read_project_permissions
+from .workspace_view_mode import resolve_verbose_mode
+from .cli_verbose_output import VerboseTranscriptRenderer
+from .model_streaming import supports_model_streaming
+from .session_event_observers import observe_session_events
 from .workspace_agents import format_project_agent_catalog
 from .workspace_prompt_commands import format_project_prompt_commands
 from .workspace_skills import format_project_skill_catalog
@@ -157,6 +163,7 @@ def run_interactive_loop(
     initial_bare_mode: bool = False,
     initial_brief: bool = False,
     initial_disable_slash_commands: bool = False,
+    initial_verbose: bool = False,
     initial_setting_sources: tuple[str, ...] = ("user", "project", "local"),
     initial_settings_override_json: str | None = None,
     initial_invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -179,6 +186,7 @@ def run_interactive_loop(
     bare_mode = initial_bare_mode
     brief = initial_brief
     disable_slash_commands = initial_disable_slash_commands
+    verbose = initial_verbose
     setting_sources = initial_setting_sources
     settings_override_json = initial_settings_override_json
     invocation_plugin_dirs = initial_invocation_plugin_dirs
@@ -229,7 +237,19 @@ def run_interactive_loop(
         nonlocal conversation_messages, approval_policy, approval_handler
         execution_config = resolve_execution_config(Path.cwd())
         active_workspace = pending_workspace
-        if active_workspace is None and debug_runtime.enabled:
+        settings_workspace = active_workspace or create_local_workspace(
+            Path.cwd(),
+            resume_run_id or "view-mode",
+            additional_roots=additional_directories,
+            safe_mode=safe_mode,
+            bare_mode=bare_mode,
+            disable_slash_commands=disable_slash_commands,
+            setting_sources=setting_sources,
+            settings_override_json=settings_override_json,
+            invocation_plugin_dirs=invocation_plugin_dirs,
+        )
+        verbose_mode = resolve_verbose_mode(settings_workspace, explicit=verbose)
+        if active_workspace is None and (debug_runtime.enabled or verbose_mode):
             active_workspace = create_run_workspace(
                 Path.cwd(),
                 additional_roots=additional_directories,
@@ -240,17 +260,7 @@ def run_interactive_loop(
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
             )
-        notification_workspace = active_workspace or create_local_workspace(
-            Path.cwd(),
-            resume_run_id or "pending-directory-hooks",
-            additional_roots=additional_directories,
-            safe_mode=safe_mode,
-            bare_mode=bare_mode,
-            disable_slash_commands=disable_slash_commands,
-            setting_sources=setting_sources,
-            settings_override_json=settings_override_json,
-            invocation_plugin_dirs=invocation_plugin_dirs,
-        )
+        notification_workspace = active_workspace or settings_workspace
         if safe_mode:
             turn_append_system_prompt, directory_hook_errors = append_system_prompt, ()
         else:
@@ -291,12 +301,31 @@ def run_interactive_loop(
         elif debug_runtime.logger is not None:
             panel_kwargs = {"logger": debug_runtime.logger}
         source_run_id = resume_run_id
-        try:
-            with debug_runtime.event_scope(active_workspace), terminal_model_stream_scope(
-                client,
+        verbose_renderer = (
+            VerboseTranscriptRenderer(
+                sys.stdout,
+                show_model_text=not supports_model_streaming(client),
                 on_display_start=panel.pause,
                 on_display_end=panel.resume,
-            ) as stream_renderer:
+            )
+            if verbose_mode
+            else None
+        )
+        verbose_scope = (
+            observe_session_events(active_workspace.session_dir, verbose_renderer.observe)
+            if active_workspace is not None and verbose_renderer is not None
+            else nullcontext()
+        )
+        try:
+            with (
+                debug_runtime.event_scope(active_workspace),
+                verbose_scope,
+                terminal_model_stream_scope(
+                    client,
+                    on_display_start=panel.pause,
+                    on_display_end=panel.resume,
+                ) as stream_renderer,
+            ):
                 result = run_agent_func(
                     task,
                     client=client,
@@ -778,6 +807,7 @@ def run_interactive_loop(
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
+                verbose=verbose,
                 attached_agent_id=initial_attached_background_agent_id,
             )
         if command and command.type in {"model", "effort", "btw", "recap"}:

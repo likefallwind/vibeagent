@@ -60,6 +60,9 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_disable_slash_commands` covers built-in and custom command
   rejection, command and skill discovery suppression, model tool visibility
   and direct-call enforcement, session evidence, and background propagation.
+- `tests.test_verbose_output` covers CLI and `viewMode` precedence, safe-mode
+  isolation, bounded redacted model/tool transcripts, streaming deduplication,
+  one-shot stderr isolation, and interactive background propagation.
 - `tests.test_debug_runtime` and
   `tests.test_cli_background_agents.CliBackgroundAgentTests.test_background_persists_debug_options_for_worker`
   cover Claude-compatible equals-form category filtering, separator and task-text

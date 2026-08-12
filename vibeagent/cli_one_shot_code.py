@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
+import sys
 
 from .agent_result import AgentResult
 from .cli_context import OneShotPriorContext, SessionContextGetter
@@ -51,6 +52,8 @@ from .permission_prompt_mcp import resolve_permission_prompt_tool
 from .debug_runtime import DebugOptions, DebugRuntime, combine_event_observers
 from .cli_brief_output import brief_message_observer
 from .prompt_suggestions import PromptSuggestionResult, try_generate_prompt_suggestion
+from .cli_verbose_output import VerboseTranscriptRenderer
+from .model_streaming import supports_model_streaming
 
 
 def run_one_shot_code(
@@ -71,6 +74,7 @@ def run_one_shot_code(
     bare_mode: bool = False,
     brief: bool = False,
     disable_slash_commands: bool = False,
+    verbose: bool = False,
     prompt_suggestions: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
@@ -179,6 +183,14 @@ def run_one_shot_code(
         client,  # type: ignore[arg-type]
         ModelEffortSetting(effort, locked=effort_locked),
     )
+    verbose_renderer = (
+        VerboseTranscriptRenderer(
+            sys.stderr,
+            show_model_text=not supports_model_streaming(client),
+        )
+        if verbose
+        else None
+    )
     resumed_workspace = (
         ephemeral_workspace
         or (
@@ -227,6 +239,7 @@ def run_one_shot_code(
         event_observer=combine_event_observers(
             debug_runtime.observe_event if debug_runtime.enabled else None,
             brief_message_observer() if brief and not output_mode.machine else None,
+            verbose_renderer.observe if verbose_renderer is not None else None,
         ),
         provider_env=provider_env,
     )

@@ -851,6 +851,12 @@ skills for the coding session. Skill metadata is omitted from prompts, the
 boundary is retained by resumed, ephemeral, and background runs. Unlike
 `--safe-mode` or `--bare`, other project configuration such as hooks, MCP,
 permissions, agents, and instructions remains enabled.
+`--verbose` shows the complete coding turn sequence: non-streaming assistant
+text plus each redacted, bounded tool call and result. Interactive sessions
+write the transcript to the terminal; one-shot sessions use stderr so text,
+JSON, and stream-JSON stdout remain machine-readable. The selected
+`viewMode: "verbose"` setting enables the same behavior, while an explicit
+`--verbose` overrides `default` or `focus`; safe mode ignores the setting.
 `-p --prompt-suggestions[=true|false]` makes one tool-free, non-retrying model
 request after a successful completed coding turn to predict a concise next user
 prompt. The request reuses the completed conversation, active model/fallback,

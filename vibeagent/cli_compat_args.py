@@ -42,6 +42,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Disable slash commands and skills for this coding session.",
     )
     parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show complete turn-by-turn model and tool output for this session.",
+    )
+    parser.add_argument(
         "--prompt-suggestions",
         nargs="?",
         const=True,

@@ -397,6 +397,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_bare_mode=context.bare_mode,
         initial_brief=context.brief,
         initial_disable_slash_commands=context.disable_slash_commands,
+        initial_verbose=context.verbose,
         initial_setting_sources=context.setting_sources,
         initial_settings_override_json=context.settings_override_json,
         initial_invocation_plugin_dirs=context.invocation_plugin_dirs,
