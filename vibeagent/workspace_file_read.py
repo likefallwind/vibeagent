@@ -26,6 +26,7 @@ from .workspace_output_contexts import (
     read_output_contexts_result,
     read_output_diagnostics_result,
 )
+from .command_output_artifacts import resolve_command_output_artifact
 from .workspace_resolve import resolve_inside_run
 
 
@@ -59,7 +60,9 @@ def read_project_file_result(
         raise ValueError("max_bytes must be at least 1.")
     if max_bytes > 200_000:
         raise ValueError("max_bytes must be at most 200000.")
-    target = resolve_inside_run(workspace, relative_path)
+    target = resolve_command_output_artifact(workspace, relative_path)
+    if target is None:
+        target = resolve_inside_run(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     content = read_utf8_text_file(target, relative_path)

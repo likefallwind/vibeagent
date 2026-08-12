@@ -26,6 +26,11 @@ class CommandResult:
     previous_cwd: str | None = None
     final_cwd: str | None = None
     cwd_reset: bool = False
+    stdout_path: str | None = None
+    stderr_path: str | None = None
+    stdout_total_bytes: int = 0
+    stderr_total_bytes: int = 0
+    output_artifact_error: str | None = None
     output_contexts: list[OutputContextResult] = field(default_factory=list)
     output_context_total_refs: int = 0
     output_contexts_truncated: bool = False

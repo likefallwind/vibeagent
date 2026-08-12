@@ -10,6 +10,7 @@ from .local_runtime_reports import (
     sum_command_result_duration_ms,
     validate_run_output_context_options,
 )
+from .local_runtime_report_formatting import format_command_output_artifact_lines
 from .session import build_session_verification_report, get_last_session_id
 from .session_audit_formatting import format_session_verification_report_text as _format_session_verification_report_text
 from .session_input import normalize_optional_run_id
@@ -286,6 +287,7 @@ def format_run_session_verification_report_text(report: dict[str, object]) -> st
                     f"      stderrTruncated: {'yes' if bool(result.get('stderrTruncated')) else 'no'}",
                 ]
             )
+            lines.extend(format_command_output_artifact_lines(result, spaces=6))
             lines.extend(format_structured_command_output_analysis_lines(analysis, spaces=6))
             stdout = str(result.get("stdout") or "")
             stderr = str(result.get("stderr") or "")

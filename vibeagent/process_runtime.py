@@ -189,6 +189,7 @@ def execute_run_command_item(
             sandboxed=launch.sandboxed,
             sandbox_warning=launch.warning,
             environment=launch.environment,
+            output_workspace=workspace,
         )
         result = finalize_shell_cwd(workspace, cwd_context, result)
     finally:

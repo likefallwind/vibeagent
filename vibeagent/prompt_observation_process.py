@@ -238,6 +238,7 @@ def format_process_observation(index: int, observation: object) -> str | None:
                 f"maxOutputChars: {result.max_output_chars}",
                 f"stdoutTruncated: {str(result.stdout_truncated).lower()}",
                 f"stderrTruncated: {str(result.stderr_truncated).lower()}",
+                *_format_command_output_artifacts(result),
                 f"signal: {result.signal or 'none'}",
                 f"stdout:\n{truncate(result.stdout)}",
                 f"stderr:\n{truncate(result.stderr)}",
@@ -319,6 +320,7 @@ def _format_multi_command_observation(index: int, observation: object) -> str:
                 f"durationMs: {result.duration_ms}",
                 f"maxOutputChars: {result.max_output_chars}",
                 f"stdoutTruncated: {str(result.stdout_truncated).lower()} stderrTruncated={str(result.stderr_truncated).lower()} signal={result.signal or 'none'}",
+                *_format_command_output_artifacts(result),
                 f"stdout:\n{truncate(result.stdout)}",
                 f"stderr:\n{truncate(result.stderr)}",
                 format_command_output_diagnostics(result),
@@ -326,6 +328,23 @@ def _format_multi_command_observation(index: int, observation: object) -> str:
             ]
         )
     return "\n".join(parts)
+
+
+def _format_command_output_artifacts(result: object) -> list[str]:
+    lines = [
+        f"stdoutTotalBytes: {int(getattr(result, 'stdout_total_bytes', 0) or 0)}",
+        f"stderrTotalBytes: {int(getattr(result, 'stderr_total_bytes', 0) or 0)}",
+    ]
+    stdout_path = getattr(result, "stdout_path", None)
+    stderr_path = getattr(result, "stderr_path", None)
+    artifact_error = getattr(result, "output_artifact_error", None)
+    if stdout_path:
+        lines.append(f"stdoutPath: {stdout_path}")
+    if stderr_path:
+        lines.append(f"stderrPath: {stderr_path}")
+    if artifact_error:
+        lines.append(f"outputArtifactError: {artifact_error}")
+    return lines
 
 
 __all__ = ["format_process_observation"]

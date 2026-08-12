@@ -8,6 +8,21 @@ def indent_block(value: str, spaces: int = 2) -> str:
     return "\n".join(f"{indent}{line}" if line else "" for line in value.splitlines())
 
 
+def format_command_output_artifact_lines(result: dict[str, object], spaces: int) -> list[str]:
+    indent = " " * spaces
+    lines = [
+        f"{indent}stdoutTotalBytes: {int(result.get('stdoutTotalBytes', 0) or 0)}",
+        f"{indent}stderrTotalBytes: {int(result.get('stderrTotalBytes', 0) or 0)}",
+    ]
+    if result.get("stdoutPath"):
+        lines.append(f"{indent}stdoutPath: {result['stdoutPath']}")
+    if result.get("stderrPath"):
+        lines.append(f"{indent}stderrPath: {result['stderrPath']}")
+    if result.get("outputArtifactError"):
+        lines.append(f"{indent}outputArtifactError: {result['outputArtifactError']}")
+    return lines
+
+
 def format_command_check_report_text(report: dict[str, object]) -> str:
     message = str(report.get("message") or "")
     if message.startswith("Usage:"):
@@ -52,6 +67,7 @@ def format_run_report_text(report: dict[str, object]) -> str:
         f"  stdoutTruncated: {'yes' if bool(report.get('stdoutTruncated')) else 'no'}",
         f"  stderrTruncated: {'yes' if bool(report.get('stderrTruncated')) else 'no'}",
     ]
+    lines.extend(format_command_output_artifact_lines(report, spaces=2))
     stdout = str(report.get("stdout") or "")
     stderr = str(report.get("stderr") or "")
     if stdout:
@@ -108,6 +124,7 @@ def format_run_sequence_report_text(report: dict[str, object]) -> str:
                     f"      stderrTruncated: {'yes' if bool(result.get('stderrTruncated')) else 'no'}",
                 ]
             )
+            lines.extend(format_command_output_artifact_lines(result, spaces=6))
             stdout = str(result.get("stdout") or "")
             stderr = str(result.get("stderr") or "")
             if stdout:

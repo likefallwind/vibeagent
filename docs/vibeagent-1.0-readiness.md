@@ -331,7 +331,9 @@ The automated suite currently covers these 1.0 surfaces:
   event persistence, and interactive, one-shot, resume, and compact restoration
   are covered directly.
 - Provider-free interactive `!` shell mode with bounded execution, hard command
-  blocks, redacted resumable output, and pre-execution session-path validation.
+  blocks, redacted resumable output, pre-execution session-path validation, and
+  exact private artifact references when finite output exceeds the inline
+  bound.
 - User and project integrations: `~/.claude/settings.json`, trusted project and
   local settings environments, user/local MCP scopes in `~/.claude.json`,
   `.mcp.json`, provider-free scoped MCP management, strict MCP config,
@@ -466,6 +468,11 @@ The automated suite currently covers these 1.0 surfaces:
   Claude-compatible `--safe-mode` diagnostic boundary that suppresses custom
   instructions, agents, skills, commands, plugins, hooks, MCP, LSP, workflows,
   status-line customization, and auto-memory without weakening permissions.
+- Recoverable command output: truncated finite Bash and PowerShell streams are
+  retained as private current-session artifacts with exact `read_file`
+  references and total byte counts. Invalid references, cross-session paths,
+  symbolic links, and unrelated protected runtime files fail closed, while
+  artifact write errors preserve the actual command result.
 
 The source of truth for exact test names and gates is
 [`docs/vibeagent-1.0.md`](vibeagent-1.0.md).

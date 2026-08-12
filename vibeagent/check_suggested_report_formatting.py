@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .check_report_helpers import format_structured_command_checks, indent_block as _indent_block
+from .local_runtime_report_formatting import format_command_output_artifact_lines
 from .local_runtime_commands import format_structured_command_output_analysis_lines
 from .runner_report_helpers import format_selected_not_run_command_lines, selected_not_run_command_items
 
@@ -99,6 +100,7 @@ def format_run_suggested_checks_report_text(report: dict[str, object]) -> str:
                     f"      stderrTruncated: {'yes' if bool(result.get('stderrTruncated')) else 'no'}",
                 ]
             )
+            lines.extend(format_command_output_artifact_lines(result, spaces=6))
             stdout = str(result.get("stdout") or "")
             stderr = str(result.get("stderr") or "")
             if stdout:

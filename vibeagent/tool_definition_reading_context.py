@@ -6,7 +6,7 @@ from typing import Any
 READING_CONTEXT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "read_file",
-        "description": "Read a UTF-8 text file from the project, optionally starting at a 1-based line number.",
+        "description": "Read a UTF-8 text file from the project, optionally starting at a 1-based line number. Exact complete-output paths returned by foreground command tools are also readable for the current session.",
         "input_schema": {
             "type": "object",
             "properties": {

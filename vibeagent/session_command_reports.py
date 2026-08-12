@@ -51,6 +51,13 @@ def format_session_command_entry(entry: dict[str, Any], max_output_chars: int) -
     lines = [header, f"      command: {compact(command, 500) if isinstance(command, str) else 'unknown'}"]
     lines.extend(format_session_command_stream("stdout", result.get("stdout"), result.get("stdout_truncated"), max_output_chars))
     lines.extend(format_session_command_stream("stderr", result.get("stderr"), result.get("stderr_truncated"), max_output_chars))
+    for label, key in (("stdoutPath", "stdout_path"), ("stderrPath", "stderr_path")):
+        value = result.get(key)
+        if isinstance(value, str) and value:
+            lines.append(f"      {label}: {value}")
+    artifact_error = result.get("output_artifact_error")
+    if isinstance(artifact_error, str) and artifact_error:
+        lines.append(f"      outputArtifactError: {artifact_error}")
     return lines
 
 
@@ -96,6 +103,11 @@ def serialize_session_command_with_output(entry: dict[str, Any], max_output_char
         "signal": signal if isinstance(signal, str) and signal else None,
         "stdout": command_output_tail(stdout if isinstance(stdout, str) else "", max_output_chars),
         "stdoutStoredTruncated": result.get("stdout_truncated") is True,
+        "stdoutPath": result.get("stdout_path") if isinstance(result.get("stdout_path"), str) else None,
+        "stdoutTotalBytes": result.get("stdout_total_bytes") if isinstance(result.get("stdout_total_bytes"), int) else 0,
         "stderr": command_output_tail(stderr if isinstance(stderr, str) else "", max_output_chars),
         "stderrStoredTruncated": result.get("stderr_truncated") is True,
+        "stderrPath": result.get("stderr_path") if isinstance(result.get("stderr_path"), str) else None,
+        "stderrTotalBytes": result.get("stderr_total_bytes") if isinstance(result.get("stderr_total_bytes"), int) else 0,
+        "outputArtifactError": result.get("output_artifact_error") if isinstance(result.get("output_artifact_error"), str) else None,
     }

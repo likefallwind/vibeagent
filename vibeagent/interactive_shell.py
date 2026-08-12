@@ -88,6 +88,12 @@ def format_interactive_shell_result(result: CommandResult) -> str:
         sections.append(result.stderr.rstrip("\n"))
     if result.stdout_truncated or result.stderr_truncated:
         sections.append("[output truncated]")
+    if result.stdout_path:
+        sections.append(f"[complete stdout: {result.stdout_path}]")
+    if result.stderr_path:
+        sections.append(f"[complete stderr: {result.stderr_path}]")
+    if result.output_artifact_error:
+        sections.append(f"[output artifact warning: {result.output_artifact_error}]")
     if result.sandbox_warning:
         sections.append(f"[sandbox warning: {result.sandbox_warning}]")
 

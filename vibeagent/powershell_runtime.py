@@ -137,6 +137,7 @@ def execute_powershell_action(
             sandboxed=launch.sandboxed,
             sandbox_warning=launch.warning,
             environment=launch.environment,
+            output_workspace=workspace,
         )
         result = finalize_shell_cwd(workspace, cwd_context, result)
     finally:

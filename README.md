@@ -3040,7 +3040,14 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `cwd` for package or service subdirectories; `run_command`, `run_commands`, `run_focused_test_commands`, and `run_suggested_checks` accept
   optional per-command `timeout_ms` up to 10 minutes for slower tests or builds,
   and bounded stdout/stderr via `max_output_chars` so large logs do not flood
-  the next model turn. Finite command reports include per-command `durationMs`,
+  the next model turn. When a foreground Bash or PowerShell stream is truncated,
+  its complete UTF-8 output is saved as an owner-only artifact under the current
+  session and the result includes `stdoutPath` or `stderrPath` plus the original
+  byte count. The model can pass that exact path to `read_file`; guessed paths,
+  artifacts from another session, symbolic links, and all other protected
+  `.vibeagent` files remain unreadable. Short output creates no artifact, and an
+  artifact-storage failure is reported separately without replacing the command's
+  real exit result. Finite command reports include per-command `durationMs`,
   and batch command reports also include aggregate `durationMs`. Failed finite commands automatically attach diagnostic
   summaries and source context when stdout/stderr contains recognizable
   file:line references. `run_command`, `run_suggested_checks`, `run_focused_test_commands`, and each `run_commands` item can set

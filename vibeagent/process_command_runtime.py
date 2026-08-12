@@ -6,9 +6,11 @@ import subprocess
 import time
 from pathlib import Path
 
+from .command_output_artifacts import persist_truncated_command_outputs
 from .process_lifecycle import signal_name as _signal_name
 from .process_lifecycle import terminate_process as _terminate_process
 from .types import CommandResult
+from .workspace_core import RunWorkspace
 
 
 def run_command(
@@ -21,6 +23,7 @@ def run_command(
     sandboxed: bool = False,
     sandbox_warning: str | None = None,
     environment: dict[str, str] | None = None,
+    output_workspace: RunWorkspace | None = None,
 ) -> CommandResult:
     # Run shell command in controlled cwd, capture stdout/stderr, and enforce execution timeout.
     timed_out = False
@@ -50,6 +53,17 @@ def run_command(
     if sandbox_warning:
         stderr_text = f"{sandbox_warning}\n{stderr_text}".rstrip() + "\n"
     stderr_value, stderr_truncated = truncate_command_output(stderr_text, max_output_chars)
+    stdout_path = None
+    stderr_path = None
+    artifact_error = None
+    if output_workspace is not None:
+        stdout_path, stderr_path, artifact_error = persist_truncated_command_outputs(
+            output_workspace,
+            stdout or "",
+            stderr_text,
+            stdout_truncated=stdout_truncated,
+            stderr_truncated=stderr_truncated,
+        )
     return CommandResult(
         command=command,
         exit_code=process.returncode,
@@ -65,6 +79,11 @@ def run_command(
         duration_ms=duration_ms,
         sandboxed=sandboxed,
         sandbox_warning=sandbox_warning,
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+        stdout_total_bytes=len((stdout or "").encode("utf-8")),
+        stderr_total_bytes=len(stderr_text.encode("utf-8")),
+        output_artifact_error=artifact_error,
     )
 
 

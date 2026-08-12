@@ -66,6 +66,11 @@ def serialize_command_result(result: object, index: int | None = None) -> dict[s
         "stderr": str(getattr(result, "stderr", "") or ""),
         "stdoutTruncated": bool(getattr(result, "stdout_truncated", False)),
         "stderrTruncated": bool(getattr(result, "stderr_truncated", False)),
+        "stdoutPath": getattr(result, "stdout_path", None),
+        "stderrPath": getattr(result, "stderr_path", None),
+        "stdoutTotalBytes": int(getattr(result, "stdout_total_bytes", 0) or 0),
+        "stderrTotalBytes": int(getattr(result, "stderr_total_bytes", 0) or 0),
+        "outputArtifactError": getattr(result, "output_artifact_error", None),
         "analysis": serialize_command_output_analysis(result),
     }
     if index is not None:
