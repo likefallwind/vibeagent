@@ -154,6 +154,34 @@ class CliBackgroundAgentTests(unittest.TestCase):
         separator = persisted.index("--")
         self.assertEqual(persisted[separator - 2 : separator], ["--plugin-dir", cached.as_posix()])
 
+    def test_background_persists_debug_options_for_worker(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
+            root = Path(base).resolve()
+            view = _view(root)
+            debug_path = root / "debug.jsonl"
+            argv = [
+                "--bg",
+                "--cwd",
+                root.as_posix(),
+                "--debug=api,!mcp",
+                "--debug-file",
+                debug_path.as_posix(),
+                "--",
+                "inspect",
+            ]
+            args = parse_args(argv)
+            with (
+                patch(
+                    "vibeagent.cli_background_agent_launch.launch_background_agent",
+                    return_value=view,
+                ) as launch,
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = launch_background_agent_from_cli(argv, args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(launch.call_args.args[2], argv)
+
     def test_local_list_log_stop_and_remove_reports(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
             root = Path(base).resolve()

@@ -31,6 +31,7 @@ from .providers import create_chat_client
 from .types import ApprovalPolicy
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .background_agent_config import BackgroundAgentConfig
+from .debug_runtime import DebugOptions
 
 
 def run_one_shot(
@@ -93,6 +94,7 @@ def run_one_shot(
     tool_names: frozenset[str] | None = None,
     permission_overrides=None,
     permission_prompt_tool: str | None = None,
+    debug_options: DebugOptions = DebugOptions(),
     provider_args: argparse.Namespace | None = None,
     background_agent_config: BackgroundAgentConfig | None = None,
     create_chat_client_func=create_chat_client,
@@ -165,6 +167,7 @@ def run_one_shot(
                 effort=effort,
                 effort_locked=effort_locked,
                 include_partial_messages=include_partial_messages,
+                debug_options=debug_options,
                 create_chat_client_func=create_chat_client_func,
                 run_chat_func=run_chat_func,
             )
@@ -196,6 +199,7 @@ def run_one_shot(
                 trust_project_permissions=trust_project_permissions,
                 permission_overrides=permission_overrides,
                 permission_prompt_tool=permission_prompt_tool,
+                debug_options=debug_options,
                 resolved_mcp_config_paths=resolved_mcp_config_paths,
                 strict_mcp_config=strict_mcp_config,
                 safe_mode=safe_mode,

@@ -11,6 +11,7 @@ from .cli_local_flag_detection import (
     has_local_flag as _has_local_flag,
 )
 from .cli_output_args import normalize_output_arguments
+from .debug_runtime import normalize_debug_arguments
 
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -20,7 +21,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         allow_abbrev=False,
     )
     add_cli_arguments(parser)
-    values = normalize_background_agent_command_arguments(argv)
+    values = normalize_debug_arguments(normalize_background_agent_command_arguments(argv))
     return normalize_output_arguments(normalize_compat_arguments(parser.parse_args(values)))
 
 

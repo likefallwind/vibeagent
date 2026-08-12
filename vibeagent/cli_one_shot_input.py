@@ -25,6 +25,7 @@ from .model_effort import resolve_model_effort_setting
 from .invocation_settings import parse_invocation_settings, parse_setting_sources
 from .invocation_plugins import resolve_invocation_plugin_dirs
 from .structured_output import parse_structured_output_schema
+from .debug_runtime import resolve_debug_options
 
 
 def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
@@ -147,6 +148,12 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "tool_names": parse_cli_tool_names(args.tools),
         "permission_overrides": build_permission_overrides(args),
         "permission_prompt_tool": args.permission_prompt_tool,
+        "debug_options": resolve_debug_options(
+            args.debug,
+            args._debug_filter,
+            args.debug_file,
+            invocation_root=invocation_root,
+        ),
         "provider_args": args,
         "background_agent_config": background_agent_worker_config(args),
     }

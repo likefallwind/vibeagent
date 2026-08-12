@@ -473,6 +473,12 @@ The automated suite currently covers these 1.0 surfaces:
   files. One immutable override reaches provider environment, permissions,
   hooks, sandbox, agents, plugins, resume, fork, background, and subagents
   without recording setting contents in session events.
+- Selective debugging: Claude-compatible `--debug` emits redacted categorized
+  status and session-event records to stderr, equals-form filters include or
+  exclude bounded categories, and `--debug-file` writes owner-only bounded
+  JSONL without changing stdout. Invalid or symbolic-link paths fail before a
+  provider call, while later write failures warn once and leave task results
+  intact across interactive, one-shot, resumed, and background runs.
 - Invocation plugins: repeatable `--plugin-dir` validates up to 20 local
   non-symlink plugin roots or ZIP archives and loads their skills, commands,
   agents, hooks, MCP, LSP, monitors, executables, and default settings without

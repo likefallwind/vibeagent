@@ -47,6 +47,27 @@ class CliOneShotStreamTests(unittest.TestCase):
         with scope.event_scope:
             pass
 
+    def test_debug_observer_forces_workspace_without_machine_stream(self) -> None:
+        workspace = SimpleNamespace(session_dir=Path("/project/.vibeagent/sessions/run-debug"))
+        debug_events: list[tuple[Path, object]] = []
+        observed: list[tuple[object, ...]] = []
+
+        def debug_observer(session_dir, event):
+            debug_events.append((session_dir, event))
+
+        scope = build_one_shot_stream_scope(
+            None,
+            project_root=Path("/project"),
+            mcp_config_paths=(),
+            strict_mcp_config=False,
+            event_observer=debug_observer,
+            create_workspace_func=lambda *args, **kwargs: workspace,
+            observe_events_func=lambda *args: observed.append(args) or nullcontext(),
+        )
+
+        self.assertIs(scope.workspace, workspace)
+        self.assertEqual(observed, [(workspace.session_dir, debug_observer)])
+
     def test_stream_scope_creates_workspace_and_event_observer(self) -> None:
         stream = JsonEventStream()
         project_root = Path("/project")

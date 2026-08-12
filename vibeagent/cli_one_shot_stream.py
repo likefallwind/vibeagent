@@ -9,6 +9,8 @@ from .cli_stream_output import JsonEventStream
 from .cli_subagent_forwarding import SubagentStreamForwarder
 from .session_event_observers import observe_session_events
 from .workspace_core import RunWorkspace, create_run_workspace
+from .debug_runtime import combine_event_observers
+from .session_event_observers import SessionEventObserver
 
 
 @dataclass(frozen=True)
@@ -31,10 +33,11 @@ def build_one_shot_stream_scope(
     force_workspace: bool = False,
     workspace: RunWorkspace | None = None,
     forward_subagent_text: bool = False,
+    event_observer: SessionEventObserver | None = None,
     create_workspace_func: Callable[..., RunWorkspace] = create_run_workspace,
     observe_events_func: Callable[..., AbstractContextManager[None]] = observe_session_events,
 ) -> OneShotStreamScope:
-    if stream is None and not force_workspace and workspace is None:
+    if stream is None and event_observer is None and not force_workspace and workspace is None:
         return OneShotStreamScope(workspace=None, event_scope=nullcontext())
 
     workspace_kwargs: dict[str, object] = {
@@ -52,16 +55,18 @@ def build_one_shot_stream_scope(
     if additional_roots:
         workspace_kwargs["additional_roots"] = additional_roots
     workspace = workspace or create_workspace_func(project_root, **workspace_kwargs)
+    stream_observer = (
+        SubagentStreamForwarder(stream, enabled=True)
+        if stream is not None and forward_subagent_text
+        else (stream.session_event if stream is not None else None)
+    )
+    observer = combine_event_observers(stream_observer, event_observer)
     event_scope = (
         observe_events_func(
             workspace.session_dir,
-            (
-                SubagentStreamForwarder(stream, enabled=True)
-                if forward_subagent_text
-                else stream.session_event
-            ),
+            observer,
         )
-        if stream is not None
+        if observer is not None
         else nullcontext()
     )
     return OneShotStreamScope(workspace=workspace, event_scope=event_scope)

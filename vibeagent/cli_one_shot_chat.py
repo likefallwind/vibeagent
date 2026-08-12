@@ -6,6 +6,8 @@ from .cli_one_shot_output import build_one_shot_chat_payload, emit_one_shot_chat
 from .cli_stream_output import JsonEventStream
 from .config import ExecutionConfig
 from .model_effort import ModelEffortSetting, configure_model_effort
+from .debug_runtime import DebugOptions, DebugRuntime
+from .redaction import redact_sensitive_text
 
 
 def run_one_shot_chat(
@@ -22,9 +24,11 @@ def run_one_shot_chat(
     effort: str | None = None,
     effort_locked: bool = False,
     include_partial_messages: bool = False,
+    debug_options: DebugOptions = DebugOptions(),
     create_chat_client_func: Callable[[dict[str, str | None]], object],
     run_chat_func: Callable[..., str],
 ) -> int:
+    debug_runtime = DebugRuntime(debug_options)
     client = configure_model_effort(
         create_chat_client_func(provider_env),  # type: ignore[arg-type]
         ModelEffortSetting(effort, locked=effort_locked),
@@ -34,18 +38,28 @@ def run_one_shot_chat(
         if stream is None:
             raise ValueError("Partial messages require stream-json output.")
         run_kwargs["model_stream_handler"] = stream.chat_stream_event
-    response = run_chat_func(
-        task,
-        client=client,
-        history=[],
-        max_output_tokens=execution_config.max_output_tokens,
-        model_retries=execution_config.model_retries,
-        model_retry_delay_ms=execution_config.model_retry_delay_ms,
-        model_timeout_ms=execution_config.model_timeout_ms,
-        system_prompt=system_prompt,
-        append_system_prompt=append_system_prompt,
-        **run_kwargs,
-    )
+    debug_runtime.emit("api", "chat_request", {"inputChars": len(task)})
+    try:
+        response = run_chat_func(
+            task,
+            client=client,
+            history=[],
+            max_output_tokens=execution_config.max_output_tokens,
+            model_retries=execution_config.model_retries,
+            model_retry_delay_ms=execution_config.model_retry_delay_ms,
+            model_timeout_ms=execution_config.model_timeout_ms,
+            system_prompt=system_prompt,
+            append_system_prompt=append_system_prompt,
+            **run_kwargs,
+        )
+    except Exception as error:
+        debug_runtime.emit(
+            "api",
+            "chat_error",
+            {"type": type(error).__name__, "message": redact_sensitive_text(str(error))},
+        )
+        raise
+    debug_runtime.emit("api", "chat_response", {"outputChars": len(response)})
     payload = build_one_shot_chat_payload(
         response,
         machine_output=machine_output,

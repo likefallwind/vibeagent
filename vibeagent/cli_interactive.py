@@ -124,6 +124,7 @@ from .session_lifecycle_hooks import (
     run_interactive_session_hook,
 )
 from .workspace_core import RunWorkspace
+from .debug_runtime import DebugOptions, DebugRuntime, combine_agent_loggers
 
 
 def run_interactive_loop(
@@ -156,6 +157,7 @@ def run_interactive_loop(
     initial_setting_sources: tuple[str, ...] = ("user", "project", "local"),
     initial_settings_override_json: str | None = None,
     initial_invocation_plugin_dirs: tuple[Path, ...] = (),
+    initial_debug_options: DebugOptions = DebugOptions(),
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print(f"VibeAgent {__version__}")
@@ -174,6 +176,7 @@ def run_interactive_loop(
     setting_sources = initial_setting_sources
     settings_override_json = initial_settings_override_json
     invocation_plugin_dirs = initial_invocation_plugin_dirs
+    debug_runtime = DebugRuntime(initial_debug_options)
     approval_handler = build_approval_handler(approval_policy)
     project_runtime = InteractiveProjectRuntime(
         Path.cwd(),
@@ -218,7 +221,17 @@ def run_interactive_loop(
         nonlocal client, resume_run_id, resume_context, pending_workspace, pending_branch_source_run_id
         nonlocal conversation_messages, approval_policy, approval_handler
         execution_config = resolve_execution_config(Path.cwd())
-        notification_workspace = pending_workspace or create_local_workspace(
+        active_workspace = pending_workspace
+        if active_workspace is None and debug_runtime.enabled:
+            active_workspace = create_run_workspace(
+                Path.cwd(),
+                additional_roots=additional_directories,
+                safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
+            )
+        notification_workspace = active_workspace or create_local_workspace(
             Path.cwd(),
             resume_run_id or "pending-directory-hooks",
             additional_roots=additional_directories,
@@ -254,15 +267,16 @@ def run_interactive_loop(
         selected_user_input_handler = prompt_user_input
         if panel.enabled:
             panel_kwargs = {
-                "logger": panel.log,
+                "logger": combine_agent_loggers(panel.log, debug_runtime.logger),
                 "workspace_observer": panel.bind,
             }
             selected_approval_handler = panel.wrap_approval_handler(approval_handler)
             selected_user_input_handler = panel.wrap_user_input_handler(prompt_user_input)
+        elif debug_runtime.logger is not None:
+            panel_kwargs = {"logger": debug_runtime.logger}
         source_run_id = resume_run_id
-        active_workspace = pending_workspace
         try:
-            with terminal_model_stream_scope(
+            with debug_runtime.event_scope(active_workspace), terminal_model_stream_scope(
                 client,
                 on_display_start=panel.pause,
                 on_display_end=panel.resume,
@@ -1266,23 +1280,33 @@ def run_interactive_loop(
                 )
             )
             if request_mode == "chat":
+                debug_runtime.emit("api", "chat_request", {"inputChars": len(task)})
                 with terminal_model_stream_scope(client) as stream_renderer:
-                    response = run_chat_func(
-                        task,
-                        client=client,
-                        history=chat_history,
-                        max_output_tokens=execution_config.max_output_tokens,
-                        model_retries=execution_config.model_retries,
-                        model_retry_delay_ms=execution_config.model_retry_delay_ms,
-                        model_timeout_ms=execution_config.model_timeout_ms,
-                        system_prompt=system_prompt,
-                        append_system_prompt=append_system_prompt,
-                        **(
-                            {"model_stream_handler": stream_renderer.chat_event}
-                            if stream_renderer is not None
-                            else {}
-                        ),
-                    )
+                    try:
+                        response = run_chat_func(
+                            task,
+                            client=client,
+                            history=chat_history,
+                            max_output_tokens=execution_config.max_output_tokens,
+                            model_retries=execution_config.model_retries,
+                            model_retry_delay_ms=execution_config.model_retry_delay_ms,
+                            model_timeout_ms=execution_config.model_timeout_ms,
+                            system_prompt=system_prompt,
+                            append_system_prompt=append_system_prompt,
+                            **(
+                                {"model_stream_handler": stream_renderer.chat_event}
+                                if stream_renderer is not None
+                                else {}
+                            ),
+                        )
+                    except Exception as error:
+                        debug_runtime.emit(
+                            "api",
+                            "chat_error",
+                            {"type": type(error).__name__, "message": format_error(error)},
+                        )
+                        raise
+                debug_runtime.emit("api", "chat_response", {"outputChars": len(response)})
                 chat_history.extend(
                     [
                         ChatMessage(role="user", content=task),

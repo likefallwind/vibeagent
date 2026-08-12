@@ -28,6 +28,7 @@ from .session_names import name_session, normalize_session_name
 from .session_conversation import load_session_conversation
 from .types import ApprovalPolicy, ChatMessage
 from .workspace_core import RunWorkspace, create_local_workspace, create_run_workspace
+from .debug_runtime import DebugOptions, resolve_debug_options
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,7 @@ class InteractiveStartupContext:
     setting_sources: tuple[str, ...] = ("user", "project", "local")
     settings_override_json: str | None = None
     invocation_plugin_dirs: tuple[Path, ...] = ()
+    debug_options: DebugOptions = DebugOptions()
 
 
 def resolve_interactive_startup_context(
@@ -96,6 +98,12 @@ def resolve_interactive_startup_context(
             getattr(args, "plugin_dir", None),
             invocation_root=Path.cwd(),
             plugin_urls=getattr(args, "plugin_url", None),
+        ),
+        "debug_options": resolve_debug_options(
+            getattr(args, "debug", False),
+            getattr(args, "_debug_filter", None),
+            getattr(args, "debug_file", None),
+            invocation_root=Path.cwd(),
         ),
     }
     session_resume = args.resume if args.resume is not None else args.session_id

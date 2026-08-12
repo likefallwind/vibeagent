@@ -48,6 +48,7 @@ from .agent_runtime_utils import append_session_event, format_exception
 from .model_effort import ModelEffortSetting, configure_model_effort
 from .background_agent_config import BackgroundAgentConfig
 from .permission_prompt_mcp import resolve_permission_prompt_tool
+from .debug_runtime import DebugOptions, DebugRuntime
 
 
 def run_one_shot_code(
@@ -113,6 +114,7 @@ def run_one_shot_code(
     run_agent_func: Callable[..., AgentResult],
     background_agent_config: BackgroundAgentConfig | None = None,
     permission_prompt_tool: str | None = None,
+    debug_options: DebugOptions = DebugOptions(),
     get_resume_context_func: SessionContextGetter,
     get_compact_context_func: SessionContextGetter,
     generate_structured_output_func: Callable[..., StructuredOutputResult] = generate_structured_output,
@@ -139,6 +141,7 @@ def run_one_shot_code(
     )
     if prior_context.error is not None:
         return 1, prior_context
+    debug_runtime = DebugRuntime(debug_options)
 
     restored_directories = restore_session_additional_directories(project_root, prior_context.run_id)
     try:
@@ -204,9 +207,11 @@ def run_one_shot_code(
             or session_name is not None
             or ephemeral_workspace is not None
             or permission_prompt_tool is not None
+            or debug_runtime.enabled
         ),
         workspace=resumed_workspace,
         forward_subagent_text=forward_subagent_text,
+        event_observer=(debug_runtime.observe_event if debug_runtime.enabled else None),
     )
     resolved_permission_prompt_tool = None
     if permission_prompt_tool is not None:
@@ -270,6 +275,7 @@ def run_one_shot_code(
         ),
         background_agent_config=background_agent_config,
         permission_prompt_tool=resolved_permission_prompt_tool,
+        logger=debug_runtime.logger,
     )
     continuing_source_session = (
         ephemeral_workspace is None

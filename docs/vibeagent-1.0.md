@@ -35,6 +35,12 @@ local changes when asked, and resume from recorded session context.
 
 ## Current Evidence
 
+- `tests.test_debug_runtime` and
+  `tests.test_cli_background_agents.CliBackgroundAgentTests.test_background_persists_debug_options_for_worker`
+  cover Claude-compatible equals-form category filtering, separator and task-text
+  preservation, stderr isolation, redaction, owner-only bounded JSONL, path and
+  symbolic-link rejection, non-blocking write failures, and interactive,
+  one-shot, and background-worker propagation.
 - `tests.test_command_output_artifacts.CommandOutputArtifactTests` runs real
   finite commands with oversized stdout and stderr, verifies private complete
   artifacts and exact-path `read_file` recovery, covers ephemeral sessions and

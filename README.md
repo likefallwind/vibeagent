@@ -626,6 +626,14 @@ model MCP calls, while project permission rules, hard command blocks, approval
 events, background runs, and resumed turns retain their normal boundaries. Use
 `--strict-mcp-config --mcp-config PATH` when automation must trust only an
 explicit MCP configuration.
+`--debug` emits redacted real-time diagnostics to stderr without changing normal
+stdout or machine output. Use the equals form, such as
+`--debug='api,mcp,!tools'`, to include or exclude `api`, `tools`, `mcp`, `hooks`,
+`permissions`, `agents`, `startup`, and `session` categories; a space-separated
+value remains task text for Claude CLI compatibility. `--debug-file PATH`
+implicitly enables debugging and appends owner-only JSONL records to a regular,
+non-symlink file. Debug file failures warn once without replacing the task
+result, and the same options remain active for resumed and background runs.
 `-p --max-budget-usd AMOUNT` stops a one-shot coding task when the shared
 provider-cost estimate reaches the positive USD limit. Configure at least
 `VIBEAGENT_INPUT_USD_PER_MILLION` and

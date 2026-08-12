@@ -397,6 +397,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_setting_sources=context.setting_sources,
         initial_settings_override_json=context.settings_override_json,
         initial_invocation_plugin_dirs=context.invocation_plugin_dirs,
+        initial_debug_options=context.debug_options,
     )
 if __name__ == "__main__":
     import sys

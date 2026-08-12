@@ -5,7 +5,7 @@ from pathlib import Path
 from .cli_output import build_approval_handler, prompt_user_input
 from .config import ExecutionConfig
 from .project_trust import is_project_permissions_trusted
-from .types import ApprovalHandler, ApprovalPolicy
+from .types import AgentLogger, ApprovalHandler, ApprovalPolicy
 from .workspace_core import RunWorkspace
 from .workspace_permissions import ProjectPermissions
 from .peer_runtime import PeerSessionRuntime
@@ -53,6 +53,7 @@ def build_one_shot_agent_kwargs(
     model_stream_handler: AgentModelStreamHandler | None = None,
     background_agent_config: BackgroundAgentConfig | None = None,
     permission_prompt_tool: PermissionPromptTool | None = None,
+    logger: AgentLogger | None = None,
 ) -> dict[str, object]:
     approval_handler = _build_one_shot_approval_handler(
         approval_policy=approval_policy,
@@ -108,6 +109,8 @@ def build_one_shot_agent_kwargs(
         kwargs["peer_runtime"] = peer_runtime
     if model_stream_handler is not None:
         kwargs["model_stream_handler"] = model_stream_handler
+    if logger is not None:
+        kwargs["logger"] = logger
     return kwargs
 
 

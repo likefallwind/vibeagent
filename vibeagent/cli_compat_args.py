@@ -143,6 +143,17 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         action="store_true",
         help="Run Setup hooks with the maintenance matcher before a print-mode task.",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable redacted debug logging; use --debug='api,mcp' to filter categories.",
+    )
+    parser.add_argument(
+        "--debug-file",
+        metavar="PATH",
+        help="Write owner-only JSONL debug logs to PATH; implicitly enables debug mode.",
+    )
+    parser.add_argument("--_debug-filter", help=argparse.SUPPRESS)
 
 
 def normalize_compat_arguments(args: argparse.Namespace) -> argparse.Namespace:
