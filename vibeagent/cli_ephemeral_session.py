@@ -26,6 +26,7 @@ def ephemeral_session_scope(
     safe_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    invocation_plugin_dirs: tuple[Path, ...] = (),
 ) -> Iterator[EphemeralSessionScope]:
     with TemporaryDirectory(prefix="vibeagent-ephemeral-") as temporary:
         record_root = Path(temporary).resolve()
@@ -40,6 +41,7 @@ def ephemeral_session_scope(
             safe_mode=safe_mode,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
+            invocation_plugin_dirs=invocation_plugin_dirs,
         )
         yield EphemeralSessionScope(workspace=workspace, record_root=record_root)
 

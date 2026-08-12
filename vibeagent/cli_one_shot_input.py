@@ -23,6 +23,7 @@ from .context_compaction import resolve_autocompact_tokens
 from .dynamic_agent_profiles import parse_dynamic_agent_profiles
 from .model_effort import resolve_model_effort_setting
 from .invocation_settings import parse_invocation_settings, parse_setting_sources
+from .invocation_plugins import resolve_invocation_plugin_dirs
 from .structured_output import parse_structured_output_schema
 
 
@@ -107,6 +108,10 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
             args.settings,
             invocation_root=invocation_root,
         ),
+        "invocation_plugin_dirs": resolve_invocation_plugin_dirs(
+            args.plugin_dir,
+            invocation_root=invocation_root,
+        ),
         "system_prompt": system_prompt,
         "append_system_prompt": append_system_prompt,
         "append_subagent_system_prompt": (
@@ -155,6 +160,7 @@ def resolve_one_shot_code_task(
     request_mode: str,
     project_root: Path,
     safe_mode: bool = False,
+    invocation_plugin_dirs: tuple[Path, ...] = (),
     expand_project_command_func: Callable[[Path, str], tuple[str, dict[str, object] | None]] = (
         expand_one_shot_project_command
     ),
@@ -163,6 +169,18 @@ def resolve_one_shot_code_task(
         return task, None
     if safe_mode:
         return expand_project_command_func(project_root, task, safe_mode=True)
+    if invocation_plugin_dirs:
+        from .workspace_core import create_local_workspace
+
+        return expand_project_command_func(
+            project_root,
+            task,
+            workspace=create_local_workspace(
+                project_root,
+                "plugin-command-expansion",
+                invocation_plugin_dirs=invocation_plugin_dirs,
+            ),
+        )
     return expand_project_command_func(project_root, task)
 
 

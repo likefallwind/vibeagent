@@ -31,6 +31,7 @@ def build_one_shot_agent_kwargs(
     safe_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    invocation_plugin_dirs: tuple[Path, ...] = (),
     machine_output: bool,
     stream_json: bool,
     print_mode: bool = False,
@@ -80,6 +81,7 @@ def build_one_shot_agent_kwargs(
         "safe_mode": safe_mode,
         "setting_sources": setting_sources,
         "settings_override_json": settings_override_json,
+        "invocation_plugin_dirs": invocation_plugin_dirs,
         "user_input_handler": (
             BackgroundUserInputPrompt(background_agent_config)
             if background_agent_config is not None

@@ -117,6 +117,13 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Comma-separated settings sources: user, project, local.",
     )
     parser.add_argument(
+        "--plugin-dir",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="Load a local plugin directory for this invocation; repeat for multiple plugins.",
+    )
+    parser.add_argument(
         "--maintenance",
         action="store_true",
         help="Run Setup hooks with the maintenance matcher before a print-mode task.",

@@ -84,6 +84,7 @@ def prepare_agent_run(
     safe_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    invocation_plugin_dirs: tuple[Path, ...] = (),
     system_prompt: str | None,
     append_system_prompt: str | None,
     append_subagent_system_prompt: str | None = None,
@@ -101,6 +102,7 @@ def prepare_agent_run(
         safe_mode,
         setting_sources,
         settings_override_json,
+        invocation_plugin_dirs,
         trust_project_permissions,
         additional_directories,
         dynamic_agent_profiles,
@@ -218,6 +220,12 @@ def prepare_agent_run(
                 "sources": list(current_workspace.setting_sources),
                 "override": current_workspace.settings_override_json is not None,
             },
+        )
+    if current_workspace.invocation_plugin_dirs:
+        append_session_event(
+            current_workspace.session_dir,
+            "invocation_plugins_loaded",
+            {"count": len(current_workspace.invocation_plugin_dirs)},
         )
     _append_task_event(
         current_workspace,
@@ -360,6 +368,7 @@ def _prepare_workspace(
     safe_mode: bool,
     setting_sources: tuple[str, ...],
     settings_override_json: str | None,
+    invocation_plugin_dirs: tuple[Path, ...],
     trust_project_permissions: bool,
     additional_directories: tuple[Path, ...],
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...],
@@ -374,6 +383,7 @@ def _prepare_workspace(
         safe_mode=safe_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
+        invocation_plugin_dirs=invocation_plugin_dirs,
     )
     if workspace is not None and additional_directories:
         merged_roots = normalize_additional_roots(
@@ -392,6 +402,8 @@ def _prepare_workspace(
         current_workspace = replace(current_workspace, setting_sources=setting_sources)
     if workspace is not None and settings_override_json != current_workspace.settings_override_json:
         current_workspace = replace(current_workspace, settings_override_json=settings_override_json)
+    if workspace is not None and invocation_plugin_dirs != current_workspace.invocation_plugin_dirs:
+        current_workspace = replace(current_workspace, invocation_plugin_dirs=invocation_plugin_dirs)
     if safe_mode:
         current_workspace = replace(
             current_workspace,

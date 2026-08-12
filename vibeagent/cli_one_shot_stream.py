@@ -27,6 +27,7 @@ def build_one_shot_stream_scope(
     safe_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    invocation_plugin_dirs: tuple[Path, ...] = (),
     force_workspace: bool = False,
     workspace: RunWorkspace | None = None,
     forward_subagent_text: bool = False,
@@ -46,6 +47,8 @@ def build_one_shot_stream_scope(
         workspace_kwargs["setting_sources"] = setting_sources
     if settings_override_json is not None:
         workspace_kwargs["settings_override_json"] = settings_override_json
+    if invocation_plugin_dirs:
+        workspace_kwargs["invocation_plugin_dirs"] = invocation_plugin_dirs
     if additional_roots:
         workspace_kwargs["additional_roots"] = additional_roots
     workspace = workspace or create_workspace_func(project_root, **workspace_kwargs)

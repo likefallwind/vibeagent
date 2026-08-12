@@ -108,6 +108,9 @@ from .monitor_runtime import (
 )
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import read_project_permissions
+from .workspace_agents import format_project_agent_catalog
+from .workspace_prompt_commands import format_project_prompt_commands
+from .workspace_skills import format_project_skill_catalog
 from .session_additional_directories import (
     merge_additional_directories,
     record_session_additional_directories,
@@ -152,6 +155,7 @@ def run_interactive_loop(
     initial_safe_mode: bool = False,
     initial_setting_sources: tuple[str, ...] = ("user", "project", "local"),
     initial_settings_override_json: str | None = None,
+    initial_invocation_plugin_dirs: tuple[Path, ...] = (),
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print(f"VibeAgent {__version__}")
@@ -169,6 +173,7 @@ def run_interactive_loop(
     safe_mode = initial_safe_mode
     setting_sources = initial_setting_sources
     settings_override_json = initial_settings_override_json
+    invocation_plugin_dirs = initial_invocation_plugin_dirs
     approval_handler = build_approval_handler(approval_policy)
     project_runtime = InteractiveProjectRuntime(
         Path.cwd(),
@@ -177,6 +182,7 @@ def run_interactive_loop(
         safe_mode=safe_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
+        invocation_plugin_dirs=invocation_plugin_dirs,
     )
     chat_history: list[ChatMessage] = []
     conversation_messages: list[ChatMessage] = list(initial_conversation_messages)
@@ -219,6 +225,7 @@ def run_interactive_loop(
             safe_mode=safe_mode,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
+            invocation_plugin_dirs=invocation_plugin_dirs,
         )
         if safe_mode:
             turn_append_system_prompt, directory_hook_errors = append_system_prompt, ()
@@ -237,7 +244,7 @@ def run_interactive_loop(
                 settings_override_json=settings_override_json,
             )
         )
-        panel = SubagentPanel(Path.cwd(), safe_mode=safe_mode)
+        panel = SubagentPanel(Path.cwd(), safe_mode=safe_mode, workspace=notification_workspace)
         panel.authorize_custom(approval_handler, approval_policy)
         initial_panel_error = panel.config_error
         if panel.config_error:
@@ -295,6 +302,7 @@ def run_interactive_loop(
                     safe_mode=safe_mode,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
+                    invocation_plugin_dirs=invocation_plugin_dirs,
                     **(
                         {"model_stream_handler": stream_renderer.agent_event}
                         if stream_renderer is not None
@@ -337,6 +345,7 @@ def run_interactive_loop(
             safe_mode=safe_mode,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
+            invocation_plugin_dirs=invocation_plugin_dirs,
         )
         project_runtime.register_session(result.run_id)
         pending_branch_source_run_id = None
@@ -444,6 +453,7 @@ def run_interactive_loop(
                 safe_mode=safe_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
             )
             async_hook_notifications = (
                 []
@@ -483,6 +493,7 @@ def run_interactive_loop(
                 safe_mode=safe_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
             )
             due = collect_due_scheduled_tasks(workspace)
             if due:
@@ -524,6 +535,7 @@ def run_interactive_loop(
                 safe_mode=safe_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
             )
             if resume_run_id is not None
             else create_run_workspace(
@@ -532,6 +544,7 @@ def run_interactive_loop(
                 safe_mode=safe_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
             )
         )
         if initial_dynamic_agent_profiles:
@@ -673,7 +686,19 @@ def run_interactive_loop(
                 print("Custom commands and skill invocations are disabled by safe mode.")
                 continue
             try:
-                custom_command = expand_code_task_project_command(Path.cwd(), task)
+                custom_command = expand_code_task_project_command(
+                    Path.cwd(),
+                    task,
+                    workspace=pending_workspace or create_local_workspace(
+                        Path.cwd(),
+                        resume_run_id or "plugin-command-expansion",
+                        additional_roots=additional_directories,
+                        safe_mode=safe_mode,
+                        setting_sources=setting_sources,
+                        settings_override_json=settings_override_json,
+                        invocation_plugin_dirs=invocation_plugin_dirs,
+                    ),
+                )
             except ValueError as error:
                 print(str(error))
                 continue
@@ -708,6 +733,7 @@ def run_interactive_loop(
                 safe_mode=safe_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
                 attached_agent_id=initial_attached_background_agent_id,
             )
         if command and command.type in {"model", "effort", "btw", "recap"}:
@@ -742,9 +768,32 @@ def run_interactive_loop(
                 recap_states[mode].record_success()
             print(update.text)
             continue
+        project_command_namespace = command_namespace
+        if command and invocation_plugin_dirs and command.type in {"custom_commands", "agents", "skills"}:
+            catalog_workspace = pending_workspace or create_local_workspace(
+                Path.cwd(),
+                resume_run_id or "plugin-catalog",
+                additional_roots=additional_directories,
+                safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
+            )
+            project_command_namespace = dict(command_namespace)
+            project_command_namespace["get_custom_commands_text"] = lambda: format_project_prompt_commands(
+                Path.cwd(), workspace=catalog_workspace
+            )
+            project_command_namespace["get_agents_text"] = lambda max_agents=20: (
+                format_project_agent_catalog(catalog_workspace, max_agents=max_agents)
+                or "No project agent profiles found."
+            )
+            project_command_namespace["get_skills_text"] = lambda max_skills=20: (
+                format_project_skill_catalog(catalog_workspace, max_skills=max_skills)
+                or "No project skills found."
+            )
         if command and (
             project_text := run_interactive_project_command(
-                command, command_namespace, approval_policy, Path.cwd(), safe_mode=safe_mode
+                command, project_command_namespace, approval_policy, Path.cwd(), safe_mode=safe_mode
             )
         ) is not None:
             print(project_text)
@@ -871,7 +920,16 @@ def run_interactive_loop(
             from .lsp_runtime import close_project_lsp
 
             close_project_lsp(Path.cwd())
-            print(reload_plugins_text(Path.cwd()))
+            plugin_workspace = pending_workspace or create_local_workspace(
+                Path.cwd(),
+                resume_run_id or "plugin-reload",
+                additional_roots=additional_directories,
+                safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
+            )
+            print(reload_plugins_text(Path.cwd(), workspace=plugin_workspace))
             continue
         if command and command.type == "list_agents_local":
             print(get_peer_sessions_text())
@@ -913,6 +971,7 @@ def run_interactive_loop(
                         safe_mode=safe_mode,
                         setting_sources=setting_sources,
                         settings_override_json=settings_override_json,
+                        invocation_plugin_dirs=invocation_plugin_dirs,
                     )
                 project_runtime.close_workflow()
                 try:
@@ -937,6 +996,7 @@ def run_interactive_loop(
                                 safe_mode=safe_mode,
                                 setting_sources=setting_sources,
                                 settings_override_json=settings_override_json,
+                                invocation_plugin_dirs=invocation_plugin_dirs,
                             )
                         hooks = read_project_hooks(pending_workspace)
                         permissions = read_project_permissions(pending_workspace)
@@ -975,6 +1035,7 @@ def run_interactive_loop(
                     safe_mode=safe_mode,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
+                    invocation_plugin_dirs=invocation_plugin_dirs,
                 )
             except (OSError, ValueError) as error:
                 print(f"Cannot change project directory: {format_error(error)}")
@@ -994,6 +1055,7 @@ def run_interactive_loop(
                     safe_mode=safe_mode,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
+                    invocation_plugin_dirs=invocation_plugin_dirs,
                 )
                 continue
 
@@ -1010,6 +1072,7 @@ def run_interactive_loop(
                 safe_mode=safe_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
             )
             file_changed_runtime = None
             config_change_runtime = None
@@ -1121,6 +1184,7 @@ def run_interactive_loop(
                     safe_mode=safe_mode,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
+                    invocation_plugin_dirs=invocation_plugin_dirs,
                 )
                 if command.type == "resume" and selected is not None
                 else None
@@ -1153,6 +1217,7 @@ def run_interactive_loop(
                 safe_mode=safe_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
             )
             pending_branch_source_run_id = branch.source_run_id
             resume_run_id = branch.workspace.run_id

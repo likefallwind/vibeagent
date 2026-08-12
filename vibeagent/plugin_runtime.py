@@ -126,7 +126,13 @@ def resolve_plugin_component_user_config(
     manifest = read_plugin_manifest(component.plugin_root)
     if manifest.name != component.plugin:
         raise ValueError(f"Plugin component identity mismatch: {component.plugin}")
-    return resolve_plugin_user_config(workspace.root, manifest, workspace=workspace)
+    invocation_roots = {path.resolve() for path in workspace.invocation_plugin_dirs}
+    return resolve_plugin_user_config(
+        workspace.root,
+        manifest,
+        plugin_id=manifest.name if manifest.root in invocation_roots else None,
+        workspace=workspace,
+    )
 
 
 def plugin_component_for_path(

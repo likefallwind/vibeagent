@@ -70,6 +70,7 @@ def run_one_shot(
     safe_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    invocation_plugin_dirs: tuple[Path, ...] = (),
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
     append_subagent_system_prompt: str | None = None,
@@ -122,13 +123,15 @@ def run_one_shot(
             return emit_error("User message replay requires stream-json coding output.", exit_code=2)
         project_root = resolve_project_root(base_dir) or Path.cwd()
         try:
-            project_setup = resolve_one_shot_project_setup(
-                task,
-                request_mode=request_mode,
-                project_root=project_root,
-                mcp_config_paths=mcp_config_paths,
-                safe_mode=safe_mode,
-            )
+            project_setup_kwargs: dict[str, object] = {
+                "request_mode": request_mode,
+                "project_root": project_root,
+                "mcp_config_paths": mcp_config_paths,
+                "safe_mode": safe_mode,
+            }
+            if invocation_plugin_dirs:
+                project_setup_kwargs["invocation_plugin_dirs"] = invocation_plugin_dirs
+            project_setup = resolve_one_shot_project_setup(task, **project_setup_kwargs)
         except ValueError as error:
             return emit_error(str(error), exit_code=2)
         task = project_setup.task
@@ -176,6 +179,7 @@ def run_one_shot(
                 safe_mode=safe_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
             )
         )
         with session_scope as ephemeral:
@@ -193,6 +197,9 @@ def run_one_shot(
                 resolved_mcp_config_paths=resolved_mcp_config_paths,
                 strict_mcp_config=strict_mcp_config,
                 safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
                 output_mode=output_mode,
                 output_json=output_json,
                 print_mode=print_mode,

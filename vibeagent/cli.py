@@ -62,6 +62,7 @@ from .interactive_background import (
     format_interactive_background_started,
     launch_interactive_background_request,
 )
+from .invocation_plugins import resolve_invocation_plugin_dirs
 from .cli_main_args import normalize_task_bound_diff_args
 from .cli_runner import (
     build_one_shot_kwargs_from_args,
@@ -234,6 +235,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     root=source_root,
                     run_id="cli-worktree",
                     session_dir=source_root / ".vibeagent" / "sessions" / "cli-worktree",
+                    invocation_plugin_dirs=resolve_invocation_plugin_dirs(
+                        args.plugin_dir,
+                        invocation_root=Path.cwd(),
+                    ),
                 )
                 startup_policy = args.approval or "ask"
                 startup_approval_handler = (
@@ -390,6 +395,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_safe_mode=context.safe_mode,
         initial_setting_sources=context.setting_sources,
         initial_settings_override_json=context.settings_override_json,
+        initial_invocation_plugin_dirs=context.invocation_plugin_dirs,
     )
 if __name__ == "__main__":
     import sys

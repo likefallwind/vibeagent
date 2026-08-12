@@ -12,6 +12,7 @@ from .plugin_manifest import read_plugin_manifest
 from .plugin_monitor_config import monitor_count_for_manifest
 from .plugin_scope_settings import PluginScope, validate_plugin_scope
 from .plugin_store import (
+    enabled_plugin_manifests,
     install_local_plugin,
     list_installed_plugins,
     read_installed_plugin_manifest,
@@ -140,10 +141,14 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
         return PluginCommandResult(f"Plugin error: {error}")
 
 
-def reload_plugins_text(project_root: Path) -> str:
+def reload_plugins_text(
+    project_root: Path,
+    *,
+    workspace=None,
+) -> str:
     plugins = list_installed_plugins(project_root)
-    enabled = [plugin for plugin in plugins if plugin.enabled and plugin.error is None]
     errors = [plugin for plugin in plugins if plugin.error is not None]
+    manifests = enabled_plugin_manifests(project_root, workspace=workspace)
     totals = {
         "skills": 0,
         "commands": 0,
@@ -155,8 +160,7 @@ def reload_plugins_text(project_root: Path) -> str:
         "monitors": 0,
         "default agents": 0,
     }
-    for plugin in enabled:
-        manifest = read_installed_plugin_manifest(project_root, plugin.name)
+    for manifest in manifests:
         totals["skills"] += len(manifest.skill_files)
         totals["commands"] += len(manifest.command_files)
         totals["agents"] += len(manifest.agent_files)
@@ -167,7 +171,7 @@ def reload_plugins_text(project_root: Path) -> str:
         totals["monitors"] += monitor_count_for_manifest(manifest)
         totals["default agents"] += 1 if manifest.default_agent is not None else 0
     counts = ", ".join(f"{name}={count}" for name, count in totals.items())
-    return f"Reloaded {len(enabled)} enabled plugin(s): {counts}; errors={len(errors)}."
+    return f"Reloaded {len(manifests)} enabled plugin(s): {counts}; errors={len(errors)}."
 
 
 def format_plugin_list(plugins: list[InstalledPlugin]) -> str:

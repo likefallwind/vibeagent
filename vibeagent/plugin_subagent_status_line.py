@@ -32,10 +32,14 @@ class ResolvedSubagentStatusLine:
     sensitive_values: tuple[str, ...] = ()
 
 
-def resolve_subagent_status_line(project_root: Path) -> ResolvedSubagentStatusLine | None:
+def resolve_subagent_status_line(
+    project_root: Path,
+    *,
+    workspace: RunWorkspace | None = None,
+) -> ResolvedSubagentStatusLine | None:
     selected = [
         manifest
-        for manifest in enabled_plugin_manifests(project_root)
+        for manifest in enabled_plugin_manifests(project_root, workspace=workspace)
         if manifest.subagent_status_line is not None
     ]
     if not selected:
@@ -44,7 +48,17 @@ def resolve_subagent_status_line(project_root: Path) -> ResolvedSubagentStatusLi
         names = ", ".join(manifest.name for manifest in selected)
         raise ValueError(f"Multiple enabled plugins define subagentStatusLine: {names}.")
     manifest = selected[0]
-    user_config = resolve_plugin_user_config(project_root, manifest)
+    invocation_roots = (
+        {path.resolve() for path in workspace.invocation_plugin_dirs}
+        if workspace is not None
+        else set()
+    )
+    user_config = resolve_plugin_user_config(
+        project_root,
+        manifest,
+        plugin_id=manifest.name if manifest.root in invocation_roots else None,
+        workspace=workspace,
+    )
     plugin_data = project_root / ".vibeagent" / "plugin-data" / manifest.name
     raw_command = manifest.subagent_status_line.command
     command = (

@@ -18,6 +18,7 @@ from .context_compaction import resolve_autocompact_tokens
 from .dynamic_agent_profiles import DynamicAgentProfile, parse_dynamic_agent_profiles
 from .model_effort import resolve_model_effort_setting
 from .invocation_settings import parse_invocation_settings, parse_setting_sources
+from .invocation_plugins import resolve_invocation_plugin_dirs
 from .session_additional_directories import (
     merge_additional_directories,
     restore_session_additional_directories,
@@ -52,6 +53,7 @@ class InteractiveStartupContext:
     safe_mode: bool = False
     setting_sources: tuple[str, ...] = ("user", "project", "local")
     settings_override_json: str | None = None
+    invocation_plugin_dirs: tuple[Path, ...] = ()
 
 
 def resolve_interactive_startup_context(
@@ -88,6 +90,10 @@ def resolve_interactive_startup_context(
         "setting_sources": parse_setting_sources(getattr(args, "setting_sources", None)),
         "settings_override_json": parse_invocation_settings(
             getattr(args, "settings", None),
+            invocation_root=Path.cwd(),
+        ),
+        "invocation_plugin_dirs": resolve_invocation_plugin_dirs(
+            getattr(args, "plugin_dir", None),
             invocation_root=Path.cwd(),
         ),
     }
@@ -165,6 +171,7 @@ def _with_resumed_workspace(
             safe_mode=context.safe_mode,
             setting_sources=context.setting_sources,
             settings_override_json=context.settings_override_json,
+            invocation_plugin_dirs=context.invocation_plugin_dirs,
         ),
     )
 
@@ -216,6 +223,7 @@ def _with_forked_session(
             safe_mode=context.safe_mode,
             setting_sources=context.setting_sources,
             settings_override_json=context.settings_override_json,
+            invocation_plugin_dirs=context.invocation_plugin_dirs,
         ),
         branch_source_run_id=branch.source_run_id,
     )
@@ -240,6 +248,7 @@ def _with_requested_name(
                 safe_mode=context.safe_mode,
                 setting_sources=context.setting_sources,
                 settings_override_json=context.settings_override_json,
+                invocation_plugin_dirs=context.invocation_plugin_dirs,
             )
             run_id = workspace.run_id
         name_session(project_root, run_id, normalized)

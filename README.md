@@ -401,6 +401,7 @@ printf '{"prompt":"inspect the change"}\n' | python -m vibeagent --input-format 
 python -m vibeagent --append-system-prompt "Prefer focused tests before broad suites." "inspect the change"
 python -m vibeagent --safe-mode --cwd ../my-project "diagnose startup without project customizations"
 python -m vibeagent --settings ./review-settings.json --setting-sources user,project "inspect the change"
+python -m vibeagent --plugin-dir ./extensions/team-tools "use the local review plugin"
 python -m vibeagent --system-prompt-file ./prompts/reviewer.txt "inspect the change"
 python -m vibeagent --append-system-prompt "Be concise." --append-system-prompt-file ./prompts/project-rules.txt
 python -m vibeagent -p --append-subagent-system-prompt "Cite exact file paths." "delegate the investigation"
@@ -1706,6 +1707,15 @@ command hooks, MCP servers, language servers, background monitors, and executabl
 the Claude-compatible root layout: optional `.claude-plugin/plugin.json`,
 `skills/`, `commands/`, `agents/`, `bin/`, `monitors/monitors.json`,
 `hooks/hooks.json`, `.mcp.json`, and `.lsp.json`.
+Repeat `--plugin-dir PATH` to load up to 20 local plugin roots for one invocation
+without installing or changing settings. Relative paths resolve from the launch
+directory; roots and component paths must be regular non-symlink directories.
+Invocation plugins participate in interactive catalogs, command expansion,
+provider-independent agents, skills, hooks, MCP, LSP, monitors, executables,
+resume, fork, worktree, background, and nested subagent paths. An invocation
+plugin overrides an installed plugin with the same manifest name; duplicate
+invocation names fail before a model request. Session events record only the
+count, not plugin paths or component contents.
 Install a project directory directly or register a local/remote marketplace:
 
 ```text

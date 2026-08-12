@@ -6,15 +6,14 @@ from pathlib import Path
 
 from .command_parsing import parse_local_command
 from .plugin_runtime import (
-    PluginComponentFile,
     enabled_plugin_component_files,
     expand_plugin_path_variables,
+    plugin_component_for_path,
     plugin_component_path_reference,
 )
-from .plugin_store import read_installed_plugin_manifest
 from .scoped_component_selection import select_preferred_components
 from .user_paths import user_home
-from .workspace_core import create_local_workspace
+from .workspace_core import RunWorkspace, create_local_workspace
 from .workspace_metadata_files import has_symlink_component, parse_scalar_frontmatter, read_regular_file_bytes
 from .workspace_skills import discover_project_skill_metadata, read_project_skill
 
@@ -34,10 +33,15 @@ MAX_COMMAND_DEPTH = 4
 MAX_EXPANDED_COMMAND_CHARS = 100_000
 
 
-def read_project_prompt_commands(root: Path, max_commands: int = 100) -> dict[str, object]:
+def read_project_prompt_commands(
+    root: Path,
+    max_commands: int = 100,
+    *,
+    workspace: RunWorkspace | None = None,
+) -> dict[str, object]:
     if max_commands < 1 or max_commands > 500:
         raise ValueError("max_commands must be between 1 and 500.")
-    commands = _discover_project_prompt_commands(root.resolve())
+    commands = _discover_project_prompt_commands(root.resolve(), workspace=workspace)
     shown = commands[:max_commands]
     return {
         "ok": True,
@@ -49,8 +53,13 @@ def read_project_prompt_commands(root: Path, max_commands: int = 100) -> dict[st
     }
 
 
-def format_project_prompt_commands(root: Path, max_commands: int = 100) -> str:
-    report = read_project_prompt_commands(root, max_commands=max_commands)
+def format_project_prompt_commands(
+    root: Path,
+    max_commands: int = 100,
+    *,
+    workspace: RunWorkspace | None = None,
+) -> str:
+    report = read_project_prompt_commands(root, max_commands=max_commands, workspace=workspace)
     lines = [
         "Custom commands:",
         f"  shown: {len(report['commands'])}/{report['total']}",
@@ -69,13 +78,19 @@ def format_project_prompt_commands(root: Path, max_commands: int = 100) -> str:
     return "\n".join(lines)
 
 
-def expand_project_prompt_command(root: Path, invocation: str) -> dict[str, object] | None:
+def expand_project_prompt_command(
+    root: Path,
+    invocation: str,
+    *,
+    workspace: RunWorkspace | None = None,
+) -> dict[str, object] | None:
     match = COMMAND_INVOCATION_PATTERN.fullmatch(invocation.strip())
     if match is None:
         return None
     name = match.group(1)
     arguments = match.group(2) or ""
-    skill = _load_invoked_skill(root.resolve(), name)
+    current_workspace = workspace or create_local_workspace(root, "skill-invocation")
+    skill = _load_invoked_skill(current_workspace, name)
     if skill is not None:
         prompt = _expand_command_body(str(skill["body"]), arguments)
         return {
@@ -87,7 +102,7 @@ def expand_project_prompt_command(root: Path, invocation: str) -> dict[str, obje
             "task_source": "custom_skill",
             "description": skill["description"],
         }
-    command = _load_project_prompt_command(root.resolve(), name)
+    command = _load_project_prompt_command(current_workspace, name)
     if command is None:
         raise ValueError(f"Unknown command: /{name}. Use /skills or /custom-commands to list custom prompts.")
     prompt = _expand_command_body(str(command["body"]), arguments)
@@ -102,8 +117,7 @@ def expand_project_prompt_command(root: Path, invocation: str) -> dict[str, obje
     }
 
 
-def _load_invoked_skill(root: Path, name: str) -> dict[str, object] | None:
-    workspace = create_local_workspace(root, "skill-invocation")
+def _load_invoked_skill(workspace: RunWorkspace, name: str) -> dict[str, object] | None:
     matches = [
         skill
         for skill in discover_project_skill_metadata(workspace)
@@ -121,8 +135,13 @@ def _load_invoked_skill(root: Path, name: str) -> dict[str, object] | None:
     return {**loaded, "body": body.strip()}
 
 
-def _load_project_prompt_command(root: Path, name: str) -> dict[str, object] | None:
-    matches = [command for command in _discover_project_prompt_commands(root) if command["name"] == name]
+def _load_project_prompt_command(workspace: RunWorkspace, name: str) -> dict[str, object] | None:
+    root = workspace.root
+    matches = [
+        command
+        for command in _discover_project_prompt_commands(root, workspace=workspace)
+        if command["name"] == name
+    ]
     if not matches:
         return None
     available = [command for command in matches if command["available"]]
@@ -135,17 +154,22 @@ def _load_project_prompt_command(root: Path, name: str) -> dict[str, object] | N
     metadata, body = _parse_command_content(content)
     source = str(command["source"])
     if source.startswith("plugin:"):
-        plugin = source.removeprefix("plugin:")
-        manifest = read_installed_plugin_manifest(root, plugin)
+        component = plugin_component_for_path(workspace, path, "command")
+        if component is None:
+            raise ValueError(f"Plugin command component is no longer enabled: /{name}")
         body = expand_plugin_path_variables(
             body,
-            PluginComponentFile(plugin, "command", path, manifest.root),
-            create_local_workspace(root, "plugin-command"),
+            component,
+            workspace,
         )
     return {**command, **metadata, "body": body}
 
 
-def _discover_project_prompt_commands(root: Path) -> list[dict[str, object]]:
+def _discover_project_prompt_commands(
+    root: Path,
+    *,
+    workspace: RunWorkspace | None = None,
+) -> list[dict[str, object]]:
     discovered: list[dict[str, object]] = []
     home = user_home()
     roots = [
@@ -177,7 +201,7 @@ def _discover_project_prompt_commands(root: Path) -> list[dict[str, object]]:
         if len(discovered) >= MAX_COMMAND_SCAN:
             break
 
-    workspace = create_local_workspace(root, "plugin-discovery")
+    workspace = workspace or create_local_workspace(root, "plugin-discovery")
     for component in enabled_plugin_component_files(workspace, "command"):
         path = component.path
         relative_path = plugin_component_path_reference(root, path)

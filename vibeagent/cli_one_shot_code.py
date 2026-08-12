@@ -66,6 +66,7 @@ def run_one_shot_code(
     safe_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    invocation_plugin_dirs: tuple[Path, ...] = (),
     output_mode: CliOutputMode,
     output_json: bool,
     print_mode: bool,
@@ -178,6 +179,7 @@ def run_one_shot_code(
                 safe_mode=safe_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
             )
             if prior_context.source == "resume"
             and prior_context.run_id is not None
@@ -194,6 +196,7 @@ def run_one_shot_code(
         safe_mode=safe_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
+        invocation_plugin_dirs=invocation_plugin_dirs,
         force_workspace=fork_session or session_name is not None or ephemeral_workspace is not None,
         workspace=resumed_workspace,
         forward_subagent_text=forward_subagent_text,
@@ -219,6 +222,7 @@ def run_one_shot_code(
         safe_mode=safe_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
+        invocation_plugin_dirs=invocation_plugin_dirs,
         machine_output=output_mode.machine,
         stream_json=output_mode.stream_json,
         print_mode=print_mode,
@@ -264,6 +268,7 @@ def run_one_shot_code(
             safe_mode=safe_mode,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
+            invocation_plugin_dirs=invocation_plugin_dirs,
         )
         if continuing_source_session or ephemeral_workspace is not None:
             deferred_state = read_deferred_tool_state(source_workspace)
@@ -286,6 +291,7 @@ def run_one_shot_code(
             safe_mode=safe_mode,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
+            invocation_plugin_dirs=invocation_plugin_dirs,
         )
 
     def end_session() -> None:

@@ -431,15 +431,24 @@ def enabled_plugin_manifests(
 ) -> list[PluginManifest]:
     if workspace is not None and workspace.safe_mode:
         return []
+    invocation_manifests = (
+        [read_plugin_manifest(path) for path in workspace.invocation_plugin_dirs]
+        if workspace is not None
+        else []
+    )
+    invocation_names = {manifest.name for manifest in invocation_manifests}
     manifests: list[PluginManifest] = []
     for plugin in list_installed_plugins(project_root, workspace=workspace):
         if not plugin.enabled or plugin.error is not None:
+            continue
+        if plugin.name in invocation_names:
             continue
         try:
             store = _resolve_plugin_storage_root(project_root, plugin.name, None)
             manifests.append(_read_installed_plugin_manifest_from_store(store, plugin.name))
         except (OSError, UnicodeError, ValueError):
             continue
+    manifests.extend(invocation_manifests)
     return manifests
 
 

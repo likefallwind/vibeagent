@@ -34,6 +34,7 @@ class RunWorkspace:
     safe_mode: bool = False
     setting_sources: tuple[str, ...] = ("user", "project", "local")
     settings_override_json: str | None = None
+    invocation_plugin_dirs: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,7 @@ def create_run_workspace(
     safe_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    invocation_plugin_dirs: tuple[Path, ...] = (),
 ) -> RunWorkspace:
     # Project mode: work in the caller's directory and store task logs under .vibeagent/sessions/.
     base = Path(base_dir) if base_dir is not None else Path.cwd()
@@ -107,6 +109,7 @@ def create_run_workspace(
         safe_mode=safe_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
+        invocation_plugin_dirs=invocation_plugin_dirs,
     )
 
 
@@ -119,6 +122,7 @@ def create_local_workspace(
     safe_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    invocation_plugin_dirs: tuple[Path, ...] = (),
 ) -> RunWorkspace:
     from .project_trust import is_project_permissions_trusted
 
@@ -134,6 +138,7 @@ def create_local_workspace(
         safe_mode=safe_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
+        invocation_plugin_dirs=invocation_plugin_dirs,
     )
 
 
