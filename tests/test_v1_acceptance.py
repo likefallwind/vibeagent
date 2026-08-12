@@ -164,6 +164,7 @@ EXPECTED_GATES = {
         "tests": {
             "test_run_agent_uses_existing_session_verification_on_resume",
             "test_persisted_conversation_continues_after_result_memory_is_discarded",
+            "test_main_routes_cross_project_resume_before_one_shot_setup",
         },
     },
     "VA1-BACKGROUND": {

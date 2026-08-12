@@ -48,6 +48,14 @@ built-in status panel; `tmux` and `iterm2` are rejected before a provider call
 until VibeAgent can provide independent interactive pane control. This note
 supersedes the legacy lifecycle wording in the capability table above.
 
+`VA1-RESUME` also supports machine-wide top-level `--resume` for exact generated
+session IDs and canonical UUIDs. A private atomic index maps only those IDs to
+their original project roots, and resolution changes project root before
+settings, permissions, conversation, or tool setup. Names remain project-local;
+duplicate IDs fail closed, invalid records are ignored, and ephemeral sessions
+are excluded. Existing project history is indexed through bounded on-demand
+backfill when that project is visited.
+
 ## Current Evidence
 
 - `tests.test_cli_stream_protocol`, `tests.test_cli_stream_output`, and

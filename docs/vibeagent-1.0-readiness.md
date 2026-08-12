@@ -347,6 +347,12 @@ The automated suite currently covers these 1.0 surfaces:
 - Provider-free `--from-pr` resume for strict GitHub, GitLab, and Bitbucket HTTPS
   URLs plus current-local-GitHub numeric selectors, using successful historical
   PR-create events, newest-session selection, and fork association inheritance.
+- Machine-wide top-level exact-ID resume for generated session IDs and canonical
+  UUIDs, using atomic owner-only records that contain no task or transcript text.
+  Resolution switches to the original project before settings and conversation
+  restoration; names remain project-local, duplicate IDs fail as ambiguous,
+  unsafe or stale records are ignored, current-project history is backfilled on
+  demand, and ephemeral sessions are never indexed.
 - Interactive and one-shot system-prompt text/file inputs, including bounded
   UTF-8 reads, deterministic structured-input merging, and machine-readable
   validation failures before provider creation.

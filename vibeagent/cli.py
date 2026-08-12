@@ -48,6 +48,7 @@ from .cli_background_agent_followup import (
     record_background_agent_session_root,
 )
 from .cli_pull_request_resume import prepare_pull_request_resume
+from .cli_machine_resume import prepare_machine_session_resume
 from .cli_ide import prepare_ide_connection
 from .background_agent_approval import background_agent_approval_handler
 from .cli_code_intel_local_flags import run_code_intel_local_flag, run_python_local_flag
@@ -169,6 +170,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             prepare_pull_request_resume(args)
             prepare_background_agent_followup(args)
+            prepare_machine_session_resume(args)
         except (OSError, ValueError) as error:
             return print_error_result(
                 format_error(error),

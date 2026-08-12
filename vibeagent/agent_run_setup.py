@@ -30,6 +30,7 @@ from .powershell_runtime import powershell_tool_availability
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .session_tasks import inherit_task_store
+from .session_machine_index import try_register_machine_session
 from .session_environment import (
     ensure_session_environment_file,
     inherit_session_environment,
@@ -599,6 +600,8 @@ def _append_task_event(
     if task_metadata:
         task_event["metadata"] = redact_jsonable_payload(task_metadata)
     append_session_event(workspace.session_dir, "task", task_event)
+    if workspace.session_persistent:
+        try_register_machine_session(workspace.root, workspace.run_id)
 
 
 def _append_task_restore_event(

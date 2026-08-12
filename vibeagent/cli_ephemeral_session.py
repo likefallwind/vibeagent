@@ -46,6 +46,7 @@ def ephemeral_session_scope(
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
             invocation_plugin_dirs=invocation_plugin_dirs,
+            session_persistent=False,
         )
         yield EphemeralSessionScope(workspace=workspace, record_root=record_root)
 

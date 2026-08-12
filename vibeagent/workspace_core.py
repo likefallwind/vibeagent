@@ -44,6 +44,7 @@ class RunWorkspace:
     settings_override_json: str | None = None
     invocation_plugin_dirs: tuple[Path, ...] = ()
     permission_prompt_tool: str | None = None
+    session_persistent: bool = True
 
 
 @dataclass(frozen=True)

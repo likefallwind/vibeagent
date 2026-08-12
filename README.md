@@ -2047,7 +2047,21 @@ that are still pending or failed are listed by command. Each coding turn records
 The CLI automatically uses the latest run as compact context for the next coding
 turn; `--resume [run-id]`, `--session-id [run-id|latest]` on one-shot tasks,
 and `/resume [run-id|latest]` in the interactive prompt continue the selected
-Session ID with a bounded historical resume context. `--from-pr PR` resolves a
+Session ID with a bounded historical resume context. An exact VibeAgent-generated
+ID or canonical UUID passed to top-level `--resume` can resolve across projects
+on the same machine. VibeAgent switches to the indexed session's original
+project root before loading settings, permissions, conversation state, or file
+tools; session names, `latest`, `/resume`, and `--session-id` remain scoped to
+the current project. The owner-only `~/.vibeagent/session-index/` stores only the
+ID, absolute project root, version, and update time in atomic mode-`0600` records;
+it stores no task text, transcript, credentials, or tool output. New persistent
+sessions register after their first task event, while invoking exact resume in
+an existing project performs a bounded backfill for that project. Projects not
+opened since this feature was installed must be visited once before their older
+sessions become discoverable from elsewhere. Duplicate exact IDs across roots
+are rejected as ambiguous, and stale, malformed, oversized, non-owned,
+symbolic-link, or identity-mismatched records are ignored. Ephemeral
+`--no-session-persistence` runs never enter the index. `--from-pr PR` resolves a
 positive PR number against the current local GitHub repository, or accepts a
 strict GitHub/GitLab/Bitbucket HTTPS PR URL, then resumes the newest local
 session whose successful `github_pr_create` result recorded that identity. It
@@ -2925,6 +2939,9 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
 - `vibeagent/background_agent_changes.py`: validates recorded Git worktrees and
   provides bounded, sensitive-path-aware base/current text for Agent Panel
   change review without mutating either checkout.
+- `vibeagent/session_machine_index.py` and `vibeagent/cli_machine_resume.py`:
+  maintain the private exact-ID-to-project index and switch top-level resume to
+  the original project before provider or workspace setup.
 - `vibeagent/background_agent_integration.py`: applies one exact reviewed
   terminal-agent snapshot to non-conflicting main-worktree paths with bounded
   binary reads, atomic writes, executable-bit preservation, and rollback.
