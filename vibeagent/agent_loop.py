@@ -6,6 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from .auto_mode import AutoModeRuntime
+from .auto_mode_config import default_auto_mode_config, resolve_auto_mode_config
 from .agent_async_hook_notifications import inject_async_hook_notifications
 from .agent_hook_prompt import HookModelRuntime
 from .agent_background_notifications import inject_background_delegate_notifications
@@ -152,6 +153,11 @@ def run_agent_loop(
         model=hook_model_runtime,
         messages_provider=lambda: messages,
         interactive=approval_handler is not None and not defer_tool_calls,
+        config=(
+            resolve_auto_mode_config(current_workspace)
+            if approval_policy == "auto"
+            else default_auto_mode_config()
+        ),
     )
 
     def tool_call_allowed(name: str, action: object) -> bool:

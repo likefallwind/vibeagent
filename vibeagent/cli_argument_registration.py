@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 
+from .cli_auto_mode_args import add_auto_mode_arguments
 from .cli_checkpoint_args import add_checkpoint_local_arguments
 from .cli_background_agent_args import (
     add_background_agent_local_arguments,
@@ -60,6 +61,7 @@ def add_cli_arguments(parser: argparse.ArgumentParser) -> None:
     add_background_agent_local_arguments(local)
     add_status_local_arguments(local)
     add_workflow_local_arguments(local)
+    add_auto_mode_arguments(parser, local)
     add_workflow_option_arguments(parser, positive_int=positive_int)
     add_git_diff_local_arguments(local)
     add_git_diff_option_arguments(

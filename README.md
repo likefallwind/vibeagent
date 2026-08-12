@@ -659,6 +659,29 @@ hook mode updates are rejected unless bypass was available at startup. The
 availability survives resumed workspaces and `/bg` handoff, while VibeAgent hard
 command and protected-path blocks remain active. `--max-turns` maps to
 `--max-iterations`.
+[Auto mode](https://code.claude.com/docs/en/auto-mode-config) uses a separate
+provider-neutral classifier after explicit permission
+`deny`/`ask` rules and hooks. Its effective policy has `environment`, `allow`,
+`soft_deny`, `hard_deny`, and `classifyAllShell` fields. Configure these only in
+trusted user settings (`~/.claude/settings.json`) or invocation-scoped
+`--settings`; project `.claude/settings.json` and `.claude/settings.local.json`
+cannot add Auto Mode rules. A supplied rule list replaces that built-in section
+unless it contains `$defaults`, which expands the built-ins at that position.
+`classifyAllShell: true` suspends permission-rule and sandbox shortcuts for shell
+actions so the classifier sees every approval-requiring command. Inspect the
+policy without contacting a provider:
+
+```sh
+python -m vibeagent auto-mode defaults
+python -m vibeagent auto-mode defaults --label destructive
+python -m vibeagent auto-mode config --cwd ../my-project --json
+python -m vibeagent auto-mode config --settings ./review-settings.json
+```
+
+Hard-deny guidance remains unconditional; an allow rule can override matching
+soft-deny guidance, and exact user intent can override a remaining soft deny.
+Classifier context includes redacted conversation text and assistant tool calls,
+but never tool results.
 For unattended policy decisions, `-p --permission-prompt-tool MCP_TOOL` delegates
 only unresolved `ask` or `auto` prompts to an advertised MCP tool. References may
 use `mcp__SERVER__TOOL`, `SERVER/TOOL`, or a bare name that is unique across all
@@ -749,8 +772,8 @@ plan constraints take precedence. Project profiles cannot use
 `acceptEdits` or `bypassPermissions` until project configuration is trusted,
 and VibeAgent hard command/path blocks remain active even under
 `bypassPermissions`. Profile `auto` uses VibeAgent's provider-neutral conservative
-classifier: workspace-scoped file changes are approved directly, explicit permission
-rules and `PreToolUse` decisions retain priority, and other side effects are evaluated
+classifier: explicit permission rules and `PreToolUse` decisions retain priority,
+while approval-requiring file changes, commands, and other side effects are evaluated
 without exposing tool results to the classifier. Profile MCP uses VibeAgent's
 validated stdio/HTTP transports, and profile hooks use its bounded command-hook
 schema. Under `--strict-mcp-config`, file profiles may reference only explicitly

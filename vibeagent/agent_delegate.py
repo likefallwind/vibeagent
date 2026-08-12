@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import replace
 
 from .auto_mode import AutoModeRuntime
+from .auto_mode_config import default_auto_mode_config, resolve_auto_mode_config
 from .agent_delegate_completion import clip_delegate_summary, delegate_completion_message, finish_delegate_task
 from .agent_delegate_context import (
     CODE_DELEGATE_SYSTEM_PROMPT,
@@ -256,6 +257,11 @@ def execute_delegate_task_action(
             model=hook_model_runtime,
             messages_provider=lambda: messages,
             interactive=approval_handler is not None,
+            config=(
+                resolve_auto_mode_config(delegate_workspace)
+                if approval_policy == "auto"
+                else default_auto_mode_config()
+            ),
         )
         lifecycle = DelegateLifecycleHooks(
             workspace=delegate_workspace,

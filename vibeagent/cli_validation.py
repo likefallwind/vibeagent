@@ -32,6 +32,10 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
             return str(error)
     if args.bare and args.setting_sources is not None:
         return "--bare does not load settings files; pass explicit settings with --settings."
+    if args.auto_mode_label is not None and not (
+        args.auto_mode_defaults or args.auto_mode_config
+    ):
+        return "--auto-mode-label/--label requires auto-mode defaults or auto-mode config."
     if args.safe_mode and (args.agent is not None or args.agents is not None):
         return "--safe-mode cannot be combined with --agent or --agents."
     if args.safe_mode and (args.mcp_config or args.strict_mcp_config):

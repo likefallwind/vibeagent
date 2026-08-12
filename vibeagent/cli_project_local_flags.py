@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 from typing import Any
 
+from .invocation_settings import parse_invocation_settings, parse_setting_sources
 from .cli_local_result import local_text_or_report
 from .cli_project_interactive_commands import (
     run_interactive_project_command,
@@ -34,6 +35,44 @@ def run_project_local_flag(
     commands: dict[str, Any],
 ) -> tuple[str, dict[str, object]] | None:
     root = project_root or "."
+    if args.auto_mode_defaults:
+        return local_text_or_report(
+            args,
+            "autoModeDefaults",
+            lambda: commands["get_auto_mode_defaults_report"](
+                label=args.auto_mode_label
+            ),
+            commands["format_auto_mode_report_text"],
+            lambda: commands["format_auto_mode_report_text"](
+                commands["get_auto_mode_defaults_report"](
+                    label=args.auto_mode_label
+                )
+            ),
+        )
+    if args.auto_mode_config:
+        config_kwargs = {
+            "setting_sources": (
+                () if args.bare else parse_setting_sources(args.setting_sources)
+            ),
+            "settings_override_json": parse_invocation_settings(
+                args.settings, invocation_root=Path.cwd()
+            ),
+            "bare_mode": args.bare,
+            "label": args.auto_mode_label,
+        }
+        return local_text_or_report(
+            args,
+            "autoModeConfig",
+            lambda: commands["get_auto_mode_config_report"](
+                root, **config_kwargs
+            ),
+            commands["format_auto_mode_report_text"],
+            lambda: commands["format_auto_mode_report_text"](
+                commands["get_auto_mode_config_report"](
+                    root, **config_kwargs
+                )
+            ),
+        )
     if args.model is True:
         return local_text_or_report(
             args,

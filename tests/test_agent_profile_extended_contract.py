@@ -424,22 +424,27 @@ PRIVATE_PROFILE_PROMPT
 
     def test_dont_ask_denies_while_auto_allows_scoped_edits(self) -> None:
         for permission_mode in ("dontAsk", "auto"):
-            client = ProfileClient(
+            responses = [
                 [
-                    [
-                        {
-                            "type": "tool_call",
-                            "id": "edit-1",
-                            "name": "Edit",
-                            "input": {
-                                "file_path": "value.py",
-                                "old_string": "VALUE = 1",
-                                "new_string": "VALUE = 2",
-                            },
-                        }
-                    ],
-                    [{"type": "text", "text": "denial observed"}],
-                ]
+                    {
+                        "type": "tool_call",
+                        "id": "edit-1",
+                        "name": "Edit",
+                        "input": {
+                            "file_path": "value.py",
+                            "old_string": "VALUE = 1",
+                            "new_string": "VALUE = 2",
+                        },
+                    }
+                ],
+            ]
+            if permission_mode == "auto":
+                responses.append(
+                    [{"type": "text", "text": '{"allow":true,"reason":"requested edit"}'}]
+                )
+            responses.append([{"type": "text", "text": "denial observed"}])
+            client = ProfileClient(
+                responses
             )
             with self.subTest(permission_mode=permission_mode), tempfile.TemporaryDirectory(
                 prefix="vibeagent-agent-contract-"
@@ -464,7 +469,7 @@ PRIVATE_PROFILE_PROMPT
             self.assertTrue(observation.ok)
             if permission_mode == "auto":
                 self.assertEqual(content, "VALUE = 2\n")
-                self.assertNotIn("approval_denied", str(client.messages[1][-1].content))
+                self.assertNotIn("approval_denied", str(client.messages[2][-1].content))
             else:
                 self.assertEqual(content, "VALUE = 1\n")
                 self.assertIn("approval_denied", str(client.messages[1][-1].content))

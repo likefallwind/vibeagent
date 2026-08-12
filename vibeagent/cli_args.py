@@ -4,6 +4,7 @@ import argparse
 from collections.abc import Sequence
 
 from .cli_argument_registration import add_cli_arguments
+from .cli_auto_mode_args import normalize_auto_mode_command_arguments
 from .cli_background_agent_args import normalize_background_agent_command_arguments
 from .cli_compat_args import normalize_compat_arguments, normalize_prompt_suggestion_arguments
 from .cli_local_flag_detection import (
@@ -24,7 +25,9 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     add_cli_arguments(parser)
     values = normalize_prompt_suggestion_arguments(
         normalize_debug_arguments(
-            normalize_background_agent_command_arguments(normalize_tmux_arguments(argv))
+            normalize_auto_mode_command_arguments(
+                normalize_background_agent_command_arguments(normalize_tmux_arguments(argv))
+            )
         )
     )
     return normalize_output_arguments(normalize_compat_arguments(parser.parse_args(values)))

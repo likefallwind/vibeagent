@@ -22,6 +22,8 @@ from .cli_exit_predicates import (
 LOCAL_RESULT_ARG_NAMES = frozenset(
     {
         "model",
+        "auto_mode_defaults",
+        "auto_mode_config",
         "version",
         "tool",
         "tool_search",

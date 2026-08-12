@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-from .auto_mode import AUTO_APPROVED_WORKSPACE_ACTIONS, AutoModeRuntime
+from .auto_mode import AutoModeRuntime
 from .agent_action_targets import build_action_target
 from .agent_approval import (
     request_approval,
@@ -139,6 +139,9 @@ def authorize_tool_action(
             and not (
                 default_request is not None and approval_policy in {"deny", "plan"}
             )
+            and not _auto_mode_classifies_allow(
+                approval_policy, auto_mode_runtime, default_request
+            )
         ):
             decision = ApprovalDecision(
                 approved=True,
@@ -160,6 +163,9 @@ def authorize_tool_action(
         and (rule_match is None or rule_match.effect != "ask")
         and approval_policy not in {"deny", "dontAsk", "plan"}
         and not _approval_must_repeat(action)
+        and not _auto_mode_classifies_allow(
+            approval_policy, auto_mode_runtime, default_request
+        )
     ):
         decision = ApprovalDecision(
             approved=True,
@@ -188,6 +194,9 @@ def authorize_tool_action(
         and approval_policy not in {"deny", "dontAsk", "plan"}
         and (rule_match is None or rule_match.effect != "ask")
         and hook_permission_decision != "ask"
+        and not _auto_mode_classifies_allow(
+            approval_policy, auto_mode_runtime, request
+        )
     ):
         decision = ApprovalDecision(approved=True, message=auto_approval_reason)
         append_session_event(
@@ -264,13 +273,6 @@ def authorize_tool_action(
             rule_match is not None and rule_match.effect == "ask"
         ) or hook_permission_decision == "ask":
             decision = request_approval(approval_handler, request)
-        elif request.action_type in AUTO_APPROVED_WORKSPACE_ACTIONS:
-            decision = ApprovalDecision(
-                approved=True,
-                message="Approved by auto mode for a workspace-scoped file change.",
-            )
-            if auto_mode_runtime is not None:
-                auto_mode_runtime.record_allowed()
         elif auto_mode_runtime is None:
             decision = ApprovalDecision(
                 approved=False,
@@ -437,3 +439,15 @@ def _record_auto_allow(
 ) -> None:
     if approval_policy == "auto" and runtime is not None:
         runtime.record_allowed()
+
+
+def _auto_mode_classifies_allow(
+    approval_policy: ApprovalPolicy,
+    runtime: AutoModeRuntime | None,
+    request: ApprovalRequest | None,
+) -> bool:
+    return bool(
+        approval_policy == "auto"
+        and runtime is not None
+        and runtime.classifies_permission_allow(request)
+    )

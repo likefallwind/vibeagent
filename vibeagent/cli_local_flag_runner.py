@@ -47,7 +47,11 @@ def run_local_flag(args: argparse.Namespace, command_namespace: dict[str, Any]) 
             else:
                 text = save_project_config_from_args(args, config_root)
         else:
-            provider_env = build_provider_env(args, config_root)
+            provider_env = (
+                {}
+                if args.auto_mode_defaults or args.auto_mode_config
+                else build_provider_env(args, config_root)
+            )
             if (flag_result := dispatch_local_flag(args, project_root, config_root, provider_env, command_namespace)) is not None:
                 text, payload = flag_result
                 payload_extra.update(payload)

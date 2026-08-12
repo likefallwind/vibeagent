@@ -13,6 +13,7 @@ from vibeagent.auto_mode import (
     parse_auto_mode_decision,
     sanitized_auto_mode_context,
 )
+from vibeagent.auto_mode_config import AutoModeConfig
 from vibeagent.agent_hook_results import HookRunResult
 from vibeagent.types import (
     ApprovalDecision,
@@ -23,6 +24,7 @@ from vibeagent.types import (
 )
 from vibeagent.workspace import create_run_workspace
 from vibeagent.workspace_permissions import ProjectPermissions
+from vibeagent.workspace_permissions import ProjectPermissionRule
 
 
 class QueueClient:
@@ -101,6 +103,88 @@ class AutoModeParsingTests(unittest.TestCase):
 
 
 class AutoModeRuntimeTests(unittest.TestCase):
+    def test_classifier_receives_effective_tiered_policy_and_workspace(self) -> None:
+        client = QueueClient([{"allow": True, "reason": "policy permits it"}])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-auto-") as base:
+            workspace = create_run_workspace(base)
+            runtime = _runtime(client, [ChatMessage(role="user", content="run tests")], interactive=False)
+            runtime.config = AutoModeConfig(
+                environment=("env: local",),
+                allow=("tests: run local tests",),
+                soft_deny=("remote: avoid remote effects",),
+                hard_deny=("secret: never exfiltrate",),
+                classify_all_shell=True,
+                customized=True,
+            )
+            result = runtime.authorize(
+                workspace,
+                tool_name="Bash",
+                tool_input={"command": "pytest"},
+                request=_request(),
+                iteration=1,
+            )
+        prompt = str(client.messages[0][0].content)
+        self.assertTrue(result.decision.approved)
+        self.assertIn('"hard_deny": ["secret: never exfiltrate"]', prompt)
+        self.assertIn('"classify_all_shell": true', prompt)
+        self.assertIn(workspace.root.as_posix(), prompt)
+
+    def test_workspace_file_change_uses_classifier(self) -> None:
+        client = QueueClient([{"allow": False, "reason": "not requested"}])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-auto-") as base:
+            workspace = create_run_workspace(base)
+            runtime = _runtime(client, [], interactive=False)
+            with patch("vibeagent.agent_permissions.sandbox_auto_approval_reason", return_value=None):
+                result = authorize_tool_action(
+                    workspace,
+                    ProjectPermissions(),
+                    "Write",
+                    _action(),
+                    1,
+                    None,
+                    "auto",
+                    None,
+                    default_request=ApprovalRequest("write_file", "note.txt", "writes a file"),
+                    auto_mode_runtime=runtime,
+                    tool_input={"path": "note.txt", "content": "data"},
+                )
+        self.assertFalse(result.allowed)
+        self.assertEqual(len(client.messages), 1)
+
+    def test_classify_all_shell_suspends_trusted_allow_rule(self) -> None:
+        client = QueueClient([{"allow": False, "reason": "shell review required"}])
+        allow_rule = ProjectPermissionRule(
+            effect="allow",
+            tool="Bash",
+            specifier="git status",
+            raw="Bash(git status)",
+            source="CLI --allowedTools",
+        )
+        permissions = ProjectPermissions(
+            rules=(allow_rule,),
+            trusted_allow_sources=(allow_rule.source,),
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-auto-") as base:
+            workspace = create_run_workspace(base)
+            runtime = _runtime(client, [], interactive=False)
+            runtime.config = AutoModeConfig(classify_all_shell=True, customized=True)
+            with patch("vibeagent.agent_permissions.sandbox_auto_approval_reason", return_value="sandboxed"):
+                result = authorize_tool_action(
+                    workspace,
+                    permissions,
+                    "Bash",
+                    _action(),
+                    1,
+                    None,
+                    "auto",
+                    None,
+                    default_request=_request(),
+                    auto_mode_runtime=runtime,
+                    tool_input={"command": "git status"},
+                )
+        self.assertFalse(result.allowed)
+        self.assertEqual(len(client.messages), 1)
+
     def test_third_denial_falls_back_only_for_interactive_sessions(self) -> None:
         payloads = [{"allow": False, "reason": "too risky"}] * 6
         with tempfile.TemporaryDirectory(prefix="vibeagent-auto-") as base:
