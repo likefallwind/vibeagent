@@ -86,6 +86,7 @@ from .cli_session_kwargs import (
 )
 from .cli_runtime_local_flags import run_runtime_local_flag
 from .cli_text_edit_local_flags import run_text_edit_local_flag
+from .cli_tmux import ensure_tmux_available, launch_tmux_worktree_session
 from .cli_validation import validate_cli_args
 from .cli_worktree import create_cli_worktree
 from .cli_parse_core import build_focused_tests_kwargs
@@ -230,6 +231,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
         if args.worktree is not None:
             try:
+                if args.tmux is not None:
+                    ensure_tmux_available()
                 source_root = resolve_project_root(args.cwd) or Path.cwd()
                 startup_workspace = RunWorkspace(
                     root=source_root,
@@ -263,6 +266,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             except ValueError as error:
                 return print_error_result(str(error), args.json, exit_code=2, output_format=args.output_format)
             args.cwd = str(worktree.root)
+            if args.tmux is not None:
+                try:
+                    return launch_tmux_worktree_session(list(argv), worktree, mode=args.tmux)
+                except (OSError, ValueError) as error:
+                    return print_error_result(
+                        format_error(error),
+                        args.json,
+                        exit_code=2,
+                        output_format=args.output_format,
+                    )
         if getattr(args, "_background_agent_worker_token", None) is not None:
             try:
                 record_background_agent_session_root(

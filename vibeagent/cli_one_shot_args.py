@@ -94,6 +94,14 @@ def add_one_shot_arguments(
         help="Create an isolated git worktree, run this session there, and preserve it after exit.",
     )
     parser.add_argument(
+        "--tmux",
+        nargs="?",
+        const="auto",
+        choices=("auto", "classic"),
+        metavar="MODE",
+        help="Run the worktree session in tmux; use --tmux=classic to disable terminal-native control mode.",
+    )
+    parser.add_argument(
         "--provider",
         choices=("minimax", "anthropic", "deepseek", "openai-compatible"),
         help="Temporarily override the model provider for this command.",

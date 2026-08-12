@@ -193,6 +193,12 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--no-auto-compact requires a one-shot coding task."
     if args.worktree is not None and (has_local_flag(args) or args.chat):
         return "--worktree requires an interactive or one-shot coding session."
+    if args.tmux is not None and args.worktree is None:
+        return "--tmux requires --worktree."
+    if args.tmux is not None and (args.background or args.print_mode):
+        return "--tmux requires an attached interactive or one-shot coding session."
+    if args.tmux is not None and (args.json or args.output_format != "text"):
+        return "--tmux requires text output."
     if args.fork_session and (has_local_flag(args) or args.chat):
         return "--fork-session requires an interactive or one-shot coding session."
     if args.add_dir and (has_local_flag(args) or args.chat):

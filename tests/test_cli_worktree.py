@@ -1,6 +1,8 @@
 import io
 import json
+import shlex
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -8,7 +10,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from vibeagent import cli as cli_module
-from vibeagent.cli_worktree import create_cli_worktree
+from vibeagent.cli_tmux import launch_tmux_worktree_session
+from vibeagent.cli_worktree import CliWorktree, create_cli_worktree
 
 
 def init_git_repo(root: Path) -> None:
@@ -34,6 +37,40 @@ class CliWorktreeTests(unittest.TestCase):
         self.assertEqual(short.worktree, "short-name")
         self.assertEqual(generated.worktree, "")
         self.assertEqual(generated.task, ["inspect"])
+
+    def test_args_accept_bare_and_classic_tmux_without_consuming_task(self) -> None:
+        automatic = cli_module.parse_args(["--worktree", "feature", "--tmux", "inspect"])
+        classic = cli_module.parse_args(["--worktree", "feature", "--tmux=classic", "inspect"])
+        task_flag = cli_module.parse_args(["--worktree", "--", "--tmux"])
+
+        self.assertEqual(automatic.tmux, "auto")
+        self.assertEqual(automatic.task, ["inspect"])
+        self.assertEqual(classic.tmux, "classic")
+        self.assertEqual(classic.task, ["inspect"])
+        self.assertIsNone(task_flag.tmux)
+        self.assertEqual(task_flag.task, ["--tmux"])
+
+    def test_tmux_validation_requires_worktree_and_attached_text_mode(self) -> None:
+        missing_worktree = cli_module.parse_args(["--tmux", "inspect"])
+        print_mode = cli_module.parse_args(
+            ["--worktree", "feature", "--tmux", "--print", "inspect"]
+        )
+        json_mode = cli_module.parse_args(
+            ["--worktree", "feature", "--tmux", "--json", "inspect"]
+        )
+
+        self.assertEqual(
+            cli_module.validate_cli_args(missing_worktree),
+            "--tmux requires --worktree.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(print_mode),
+            "--tmux requires an attached interactive or one-shot coding session.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(json_mode),
+            "--tmux requires text output.",
+        )
 
     def test_validation_limits_worktree_to_fresh_coding_sessions(self) -> None:
         local = cli_module.parse_args(["--worktree", "feature", "--tools"])
@@ -179,6 +216,112 @@ class CliWorktreeTests(unittest.TestCase):
         isolated_root = root / ".vibeagent" / "worktrees" / "interactive"
         run_interactive.assert_called_once()
         self.assertEqual(Path(run_interactive.call_args.args[0]), isolated_root)
+
+    def test_main_routes_created_worktree_to_tmux(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-worktree-") as base:
+            root = Path(base)
+            init_git_repo(root)
+            with (
+                patch.object(cli_module, "ensure_tmux_available") as ensure_tmux,
+                patch.object(
+                    cli_module,
+                    "launch_tmux_worktree_session",
+                    return_value=7,
+                ) as launch,
+            ):
+                exit_code = cli_module.main(
+                    ["--cwd", str(root), "--worktree", "terminal", "--tmux", "inspect"]
+                )
+
+        self.assertEqual(exit_code, 7)
+        ensure_tmux.assert_called_once_with()
+        self.assertEqual(launch.call_args.kwargs["mode"], "auto")
+        self.assertEqual(launch.call_args.args[1].name, "terminal")
+
+    def test_missing_tmux_fails_before_worktree_creation(self) -> None:
+        with io.StringIO() as stdout, redirect_stdout(stdout):
+            with (
+                patch.object(
+                    cli_module,
+                    "ensure_tmux_available",
+                    side_effect=ValueError("tmux missing"),
+                ),
+                patch.object(cli_module, "create_cli_worktree") as create_worktree,
+            ):
+                exit_code = cli_module.main(["--worktree", "terminal", "--tmux"])
+
+        self.assertEqual(exit_code, 2)
+        create_worktree.assert_not_called()
+
+    def test_tmux_launcher_reenters_worktree_without_recursive_flags(self) -> None:
+        worktree = CliWorktree(
+            source_root=Path("/repo"),
+            root=Path("/repo/.vibeagent/worktrees/feature"),
+            branch="vibeagent/feature",
+            name="feature/name",
+        )
+        with patch("vibeagent.cli_tmux.subprocess.run") as run:
+            run.return_value.returncode = 0
+            exit_code = launch_tmux_worktree_session(
+                [
+                    "--cwd",
+                    "/repo",
+                    "--worktree",
+                    "feature",
+                    "--tmux=classic",
+                    "--",
+                    "inspect",
+                    "--tmux",
+                ],
+                worktree,
+                mode="classic",
+                environ={"TERM_PROGRAM": "iTerm.app"},
+            )
+
+        self.assertEqual(exit_code, 0)
+        command = run.call_args.args[0]
+        self.assertEqual(command[:6], [
+            "tmux",
+            "new-session",
+            "-s",
+            "vibeagent-feature-name",
+            "-c",
+            str(worktree.root),
+        ])
+        self.assertEqual(len(command), 7)
+        self.assertEqual(
+            shlex.split(command[-1]),
+            [
+                sys.executable,
+                "-m",
+                "vibeagent",
+                "--cwd",
+                str(worktree.root),
+                "--",
+                "inspect",
+                "--tmux",
+            ],
+        )
+        self.assertNotIn("--tmux=classic", command[-1])
+        run.assert_called_once_with(command, cwd=worktree.root, check=False)
+
+    def test_tmux_auto_mode_uses_iterm_control_mode(self) -> None:
+        worktree = CliWorktree(
+            source_root=Path("/repo"),
+            root=Path("/repo/.vibeagent/worktrees/feature"),
+            branch="vibeagent/feature",
+            name="feature",
+        )
+        with patch("vibeagent.cli_tmux.subprocess.run") as run:
+            run.return_value.returncode = 0
+            launch_tmux_worktree_session(
+                ["--worktree=feature", "--tmux"],
+                worktree,
+                mode="auto",
+                environ={"TERM_PROGRAM": "iTerm.app"},
+            )
+
+        self.assertEqual(run.call_args.args[0][:3], ["tmux", "-CC", "new-session"])
 
     def test_non_git_worktree_failure_uses_json_error_contract(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-worktree-") as base:

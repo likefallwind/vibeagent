@@ -425,6 +425,8 @@ python -m vibeagent --mcp-config docs.mcp.json "use the docs MCP server to check
 python -m vibeagent --mcp-config docs.mcp.json --strict-mcp-config "use only this MCP config"
 python -m vibeagent --cwd ../my-project --worktree feature-auth "implement authentication"
 python -m vibeagent --cwd ../my-project -w feature-auth
+python -m vibeagent --cwd ../my-project --worktree feature-auth --tmux
+python -m vibeagent --cwd ../my-project --worktree feature-auth --tmux=classic "implement authentication"
 python -m vibeagent --provider deepseek --model deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
 python -m vibeagent --provider anthropic --effort high "inspect this repo thoroughly"
 python -m vibeagent --autocompact 200k "inspect a large repository"
@@ -629,6 +631,11 @@ per-file, and 64 MiB total limits before copying anything. Custom
 `WorktreeCreate` hooks own their setup and do not process `.worktreeinclude`.
 Worktree launch cannot be combined with chat,
 local inspection commands, resume, continue, or compact modes.
+Add `--tmux` to run the preserved worktree session in an attached tmux session
+named `vibeagent-NAME`. On iTerm2, automatic mode uses tmux control mode for
+native integration; `--tmux=classic` always uses the traditional tmux client.
+Tmux launch requires text output and cannot be combined with `--print` or
+background mode. The executable is checked before the worktree is created.
 `--permission-mode` maps to `--approval`, accepting both VibeAgent values
 (`ask`, `allow`, `auto`, `deny`, `dontAsk`, `plan`) and Claude-style values (`default` -> `ask`,
 `acceptEdits` -> `ask` plus automatic `Write`, `Edit`, `MultiEdit`, and `NotebookEdit` allow rules,
