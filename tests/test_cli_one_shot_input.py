@@ -388,6 +388,26 @@ class CliOneShotInputTests(unittest.TestCase):
         self.assertEqual(kwargs["system_prompt"], "You are a release engineer.")
         self.assertEqual(kwargs["append_system_prompt"], "Prefer focused tests.")
 
+    def test_build_one_shot_kwargs_excludes_dynamic_sections_only_for_default_prompt(self) -> None:
+        default_args = cli_module.parse_args(
+            ["-p", "--exclude-dynamic-system-prompt-sections", "inspect"]
+        )
+        custom_args = cli_module.parse_args(
+            [
+                "-p",
+                "--exclude-dynamic-system-prompt-sections",
+                "--system-prompt",
+                "Custom system.",
+                "inspect",
+            ]
+        )
+
+        default_kwargs = cli_module.build_one_shot_kwargs_from_args(default_args)
+        custom_kwargs = cli_module.build_one_shot_kwargs_from_args(custom_args)
+
+        self.assertTrue(default_kwargs["exclude_dynamic_system_prompt_sections"])
+        self.assertFalse(custom_kwargs["exclude_dynamic_system_prompt_sections"])
+
     def test_build_one_shot_kwargs_includes_subagent_forwarding(self) -> None:
         args = cli_module.parse_args(
             ["-p", "--output-format", "stream-json", "--forward-subagent-text", "inspect"]

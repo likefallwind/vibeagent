@@ -479,6 +479,21 @@ class CliArgsValidationTests(unittest.TestCase):
         self.assertIsNone(cli_module.validate_cli_args(text_args))
         self.assertIsNone(cli_module.validate_cli_args(file_args))
 
+    def test_cli_limits_dynamic_system_section_exclusion_to_print_mode(self) -> None:
+        valid = cli_module.parse_args(
+            ["-p", "--exclude-dynamic-system-prompt-sections", "inspect"]
+        )
+        no_print = cli_module.parse_args(
+            ["--exclude-dynamic-system-prompt-sections", "inspect"]
+        )
+        chat = cli_module.parse_args(
+            ["-p", "--chat", "--exclude-dynamic-system-prompt-sections", "inspect"]
+        )
+
+        self.assertIsNone(cli_module.validate_cli_args(valid))
+        self.assertIn("one-shot coding task with --print", cli_module.validate_cli_args(no_print) or "")
+        self.assertIn("one-shot coding task with --print", cli_module.validate_cli_args(chat) or "")
+
     def test_cli_validates_additional_directory_session_scope(self) -> None:
         interactive_args = cli_module.parse_args(["--add-dir", "../shared"])
         one_shot_args = cli_module.parse_args(["--add-dir", "../shared", "inspect"])

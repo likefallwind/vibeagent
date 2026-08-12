@@ -109,6 +109,9 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "disable_slash_commands": args.disable_slash_commands,
         "verbose": args.verbose,
         "browser_mode": args.browser_mode,
+        "exclude_dynamic_system_prompt_sections": (
+            args.exclude_dynamic_system_prompt_sections and system_prompt is None
+        ),
         "prompt_suggestions": args.prompt_suggestions and not _environment_flag_disabled(
             "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION"
         ),

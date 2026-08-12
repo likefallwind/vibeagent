@@ -63,6 +63,14 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Disable all browser tools for this coding session.",
     )
     parser.add_argument(
+        "--exclude-dynamic-system-prompt-sections",
+        action="store_true",
+        help=(
+            "Move machine-specific default prompt sections into the first user message "
+            "to improve cross-machine prompt-cache reuse (print mode only)."
+        ),
+    )
+    parser.add_argument(
         "--prompt-suggestions",
         nargs="?",
         const=True,

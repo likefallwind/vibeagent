@@ -103,6 +103,7 @@ def build_messages(
     append_system_prompt: str | None = None,
     auto_memory: AutoMemorySnapshot | None = None,
     prompt_file_context: PromptFileContext | None = None,
+    exclude_dynamic_system_prompt_sections: bool | None = None,
 ) -> list[ChatMessage]:
     # Assemble initial context for the model: goal and current workspace state.
     snapshot = read_workspace_snapshot(workspace)
@@ -116,6 +117,17 @@ def build_messages(
     memory = auto_memory if auto_memory is not None else read_auto_memory(workspace)
     ide_context = read_ide_context(workspace)
     chunks = [f"User task:\n{task}"]
+    exclude_dynamic_sections = (
+        workspace.exclude_dynamic_system_prompt_sections
+        if exclude_dynamic_system_prompt_sections is None
+        else exclude_dynamic_system_prompt_sections
+    )
+    if (
+        exclude_dynamic_sections
+        and system_prompt is None
+        and workspace.browser_mode != "disabled"
+    ):
+        chunks.append(BROWSER_SYSTEM_PROMPT)
     if agent_teams_enabled():
         chunks.append(
             "Experimental agent teams are enabled. For work that materially benefits from peer coordination, "
@@ -216,7 +228,10 @@ def build_messages(
     )
     content = "\n\n".join(chunks)
     default_system_prompt = SYSTEM_PROMPT
-    if workspace.browser_mode != "disabled":
+    if (
+        workspace.browser_mode != "disabled"
+        and not (exclude_dynamic_sections and system_prompt is None)
+    ):
         default_system_prompt = f"{default_system_prompt}\n{BROWSER_SYSTEM_PROMPT}"
     messages = [
         ChatMessage(

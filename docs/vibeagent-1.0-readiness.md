@@ -339,6 +339,9 @@ The automated suite currently covers these 1.0 surfaces:
 - Interactive and one-shot system-prompt text/file inputs, including bounded
   UTF-8 reads, deterministic structured-input merging, and machine-readable
   validation failures before provider creation.
+- Claude-compatible print-mode dynamic system-section exclusion, preserving all
+  machine-specific context in the first user message while keeping the default
+  system prompt stable for cross-machine prompt-cache reuse.
 - Interactive and one-shot additional working directories, including
   invocation-relative CLI resolution, model-visible absolute roots, core file
   and command execution, configuration isolation, sandbox mounts, and rejection

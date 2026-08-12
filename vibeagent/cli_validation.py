@@ -99,6 +99,10 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--verbose is available for coding sessions only."
     if args.browser_mode != "auto" and (args.chat or has_local_flag(args)):
         return "--chrome and --no-chrome are available for coding sessions only."
+    if args.exclude_dynamic_system_prompt_sections and (
+        not args.print_mode or not args.task or has_local_flag(args) or args.chat
+    ):
+        return "--exclude-dynamic-system-prompt-sections requires a one-shot coding task with --print."
     if args.prompt_suggestions and (
         not args.print_mode or not args.task or has_local_flag(args) or args.chat
     ):

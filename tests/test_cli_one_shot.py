@@ -668,6 +668,39 @@ class CliOneShotTests(unittest.TestCase):
         self.assertIsNone(run_agent.call_args.kwargs["system_prompt"])
         self.assertEqual(run_agent.call_args.kwargs["append_system_prompt"], "Prefer focused tests.")
 
+    def test_main_passes_dynamic_system_section_exclusion_to_code_agent(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(
+                    [
+                        "-p",
+                        "--cwd",
+                        base,
+                        "--exclude-dynamic-system-prompt-sections",
+                        "inspect",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(
+            run_agent.call_args.kwargs["exclude_dynamic_system_prompt_sections"]
+        )
+
     def test_main_passes_mcp_config_paths_to_one_shot_code_task(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             root = Path(base)

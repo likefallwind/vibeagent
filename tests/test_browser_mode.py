@@ -11,7 +11,7 @@ from vibeagent.agent_delegate import execute_delegate_task_action
 from vibeagent.cli_args import parse_args
 from vibeagent.cli_validation import validate_cli_args
 from vibeagent.interactive_background import create_interactive_background_request
-from vibeagent.prompts import BROWSER_SYSTEM_PROMPT, build_messages
+from vibeagent.prompts import BROWSER_SYSTEM_PROMPT, SYSTEM_PROMPT, build_messages
 from vibeagent.tool_definition_browser import BROWSER_TOOL_NAMES
 from vibeagent.types import AssistantResponse, DelegateTaskAction
 from vibeagent.workspace_core import create_run_workspace
@@ -150,6 +150,32 @@ class BrowserModeTests(unittest.TestCase):
 
         self.assertIn(BROWSER_SYSTEM_PROMPT, automatic_prompt)
         self.assertNotIn(BROWSER_SYSTEM_PROMPT, disabled_prompt)
+
+    def test_dynamic_system_sections_move_browser_guidance_to_user_message(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-browser-mode-") as base:
+            workspace = create_run_workspace(
+                base,
+                browser_mode="enabled",
+                exclude_dynamic_system_prompt_sections=True,
+            )
+
+            messages = build_messages("Inspect", workspace)
+
+        self.assertEqual(messages[0].content, SYSTEM_PROMPT)
+        self.assertIn(BROWSER_SYSTEM_PROMPT, str(messages[1].content))
+
+    def test_dynamic_system_sections_are_ignored_for_custom_system_prompt(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-browser-mode-") as base:
+            workspace = create_run_workspace(
+                base,
+                browser_mode="enabled",
+                exclude_dynamic_system_prompt_sections=True,
+            )
+
+            messages = build_messages("Inspect", workspace, system_prompt="Custom system.")
+
+        self.assertEqual(messages[0].content, "Custom system.")
+        self.assertNotIn(BROWSER_SYSTEM_PROMPT, str(messages[1].content))
 
     def test_code_subagents_inherit_browser_tool_policy(self) -> None:
         def delegate_tools(mode: str) -> set[str]:

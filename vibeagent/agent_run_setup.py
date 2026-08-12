@@ -88,6 +88,7 @@ def prepare_agent_run(
     bare_mode: bool = False,
     disable_slash_commands: bool = False,
     browser_mode: BrowserMode = "auto",
+    exclude_dynamic_system_prompt_sections: bool = False,
     brief: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
@@ -110,6 +111,7 @@ def prepare_agent_run(
         bare_mode,
         disable_slash_commands,
         browser_mode,
+        exclude_dynamic_system_prompt_sections,
         setting_sources,
         settings_override_json,
         invocation_plugin_dirs,
@@ -211,6 +213,7 @@ def prepare_agent_run(
         append_system_prompt=effective_append_system_prompt,
         auto_memory=auto_memory,
         prompt_file_context=prompt_file_context,
+        exclude_dynamic_system_prompt_sections=exclude_dynamic_system_prompt_sections,
     )
     if prior_messages:
         messages = continue_conversation(prior_messages, messages)
@@ -458,6 +461,7 @@ def _prepare_workspace(
     bare_mode: bool,
     disable_slash_commands: bool,
     browser_mode: BrowserMode,
+    exclude_dynamic_system_prompt_sections: bool,
     setting_sources: tuple[str, ...],
     settings_override_json: str | None,
     invocation_plugin_dirs: tuple[Path, ...],
@@ -476,6 +480,7 @@ def _prepare_workspace(
         bare_mode=bare_mode,
         disable_slash_commands=disable_slash_commands,
         browser_mode=browser_mode,
+        exclude_dynamic_system_prompt_sections=exclude_dynamic_system_prompt_sections,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -505,6 +510,15 @@ def _prepare_workspace(
         )
     if workspace is not None and browser_mode != current_workspace.browser_mode:
         current_workspace = replace(current_workspace, browser_mode=browser_mode)
+    if (
+        workspace is not None
+        and exclude_dynamic_system_prompt_sections
+        != current_workspace.exclude_dynamic_system_prompt_sections
+    ):
+        current_workspace = replace(
+            current_workspace,
+            exclude_dynamic_system_prompt_sections=exclude_dynamic_system_prompt_sections,
+        )
     if workspace is not None and setting_sources != current_workspace.setting_sources:
         current_workspace = replace(current_workspace, setting_sources=setting_sources)
     if workspace is not None and settings_override_json != current_workspace.settings_override_json:

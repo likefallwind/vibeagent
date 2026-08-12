@@ -439,6 +439,9 @@ local changes when asked, and resume from recorded session context.
   UTF-8 files for interactive and one-shot sessions. Replacement forms are
   mutually exclusive, append forms compose, relative file paths resolve from
   the invocation directory, and invalid files fail before a provider call.
+- CLI `-p --exclude-dynamic-system-prompt-sections` moves machine-specific
+  default-prompt guidance into the first user message for cross-machine cache
+  reuse without dropping context, and is ignored for replacement system prompts.
 - CLI `--add-dir` inputs grant interactive and one-shot coding sessions access
   to additional file roots across read, edit, search, code-intelligence,
   prompt-reference, and command-cwd workflows. Added roots remain isolated from

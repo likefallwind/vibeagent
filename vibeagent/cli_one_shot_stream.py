@@ -31,6 +31,7 @@ def build_one_shot_stream_scope(
     bare_mode: bool = False,
     disable_slash_commands: bool = False,
     browser_mode: BrowserMode = "auto",
+    exclude_dynamic_system_prompt_sections: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -58,6 +59,8 @@ def build_one_shot_stream_scope(
         workspace_kwargs["disable_slash_commands"] = True
     if browser_mode != "auto":
         workspace_kwargs["browser_mode"] = browser_mode
+    if exclude_dynamic_system_prompt_sections:
+        workspace_kwargs["exclude_dynamic_system_prompt_sections"] = True
     if setting_sources != ("user", "project", "local"):
         workspace_kwargs["setting_sources"] = setting_sources
     if settings_override_json is not None:

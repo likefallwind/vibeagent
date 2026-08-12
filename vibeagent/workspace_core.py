@@ -38,6 +38,7 @@ class RunWorkspace:
     bare_mode: bool = False
     disable_slash_commands: bool = False
     browser_mode: BrowserMode = "auto"
+    exclude_dynamic_system_prompt_sections: bool = False
     setting_sources: tuple[str, ...] = ("user", "project", "local")
     settings_override_json: str | None = None
     invocation_plugin_dirs: tuple[Path, ...] = ()
@@ -75,6 +76,7 @@ def create_run_workspace(
     bare_mode: bool = False,
     disable_slash_commands: bool = False,
     browser_mode: BrowserMode = "auto",
+    exclude_dynamic_system_prompt_sections: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -122,6 +124,7 @@ def create_run_workspace(
         bare_mode=bare_mode,
         disable_slash_commands=disable_slash_commands,
         browser_mode=browser_mode,
+        exclude_dynamic_system_prompt_sections=exclude_dynamic_system_prompt_sections,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -139,6 +142,7 @@ def create_local_workspace(
     bare_mode: bool = False,
     disable_slash_commands: bool = False,
     browser_mode: BrowserMode = "auto",
+    exclude_dynamic_system_prompt_sections: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -160,6 +164,7 @@ def create_local_workspace(
         bare_mode=bare_mode,
         disable_slash_commands=disable_slash_commands,
         browser_mode=browser_mode,
+        exclude_dynamic_system_prompt_sections=exclude_dynamic_system_prompt_sections,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,

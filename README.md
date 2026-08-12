@@ -771,6 +771,12 @@ project configuration. Relative prompt-file paths are resolved from the
 directory where VibeAgent was invoked, before `--cwd` or `--worktree` changes
 the active project. Prompt files must be non-empty bounded UTF-8 regular files
 and cannot use symbolic links. In print-mode coding tasks,
+`--exclude-dynamic-system-prompt-sections` keeps the default system prompt
+machine-independent by moving runtime-specific guidance into the first user
+message. This improves prompt-cache reuse across machines without removing the
+working directory, permissions, memory, environment, or browser context. As in
+Claude Code, it is ignored when a replacement `--system-prompt` or
+`--system-prompt-file` is supplied. The print-mode-only
 `--append-subagent-system-prompt` adds one invocation-scoped instruction after
 each direct, nested, or resumed subagent's profile and task-specific system prompt. The
 text is not persisted in project configuration or session events.
