@@ -27,7 +27,7 @@ AGENT_MESSAGE_COMPACT_CHAR_THRESHOLD = 96_000
 AGENT_COMPACT_OBSERVATION_LIMIT = 20
 AGENT_COMPACT_CONTEXT_MAX_LENGTH = 12_000
 _SESSION_EVENT_WRITE_LOCK = RLock()
-CompactHookRunner = Callable[[str, str, str | None], None]
+CompactHookRunner = Callable[[str, str, str | None], str | None]
 
 
 def format_exception(error: Exception) -> str:
@@ -87,7 +87,18 @@ def compact_agent_message_history(
 
     trigger = "auto"
     if compact_hook_runner is not None:
-        compact_hook_runner("pre", trigger, None)
+        blocking_message = compact_hook_runner("pre", trigger, None)
+        if blocking_message is not None:
+            append_session_event(
+                workspace.session_dir,
+                "context_compaction_blocked",
+                {
+                    "iteration": iteration,
+                    "trigger": trigger,
+                    "reason": redact_jsonable_payload(blocking_message),
+                },
+            )
+            return messages
 
     prior_context = build_compacted_agent_context(
         observations,

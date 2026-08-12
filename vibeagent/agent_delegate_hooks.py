@@ -103,18 +103,40 @@ class DelegateLifecycleHooks:
         self.idle_continuations += 1
         return "TeammateIdle hook feedback:\n" + result.blocking_message, None
 
+    def compact(
+        self,
+        phase: str,
+        trigger: str,
+        summary: str | None,
+        *,
+        iteration: int,
+    ) -> str | None:
+        event: HookEvent = "PreCompact" if phase == "pre" else "PostCompact"
+        fields: dict[str, object] = {
+            "agent_id": self.subagent_id,
+            "agent_type": self.agent_type,
+            "trigger": trigger,
+        }
+        if event == "PreCompact":
+            fields["custom_instructions"] = ""
+        else:
+            fields["compact_summary"] = summary or ""
+        result = self._run(event, fields, iteration=iteration, matcher_value=trigger)
+        return result.blocking_message if event == "PreCompact" else None
+
     def _run(
         self,
         event: HookEvent,
         fields: dict[str, object],
         *,
         iteration: int,
+        matcher_value: str | None = None,
     ) -> LifecycleHookResult:
         return run_lifecycle_hooks(
             self.workspace,
             self.hooks,
             event,
-            self.agent_type,
+            matcher_value if matcher_value is not None else self.agent_type,
             fields,
             iteration=iteration,
             command_timeout_ms=self.command_timeout_ms,

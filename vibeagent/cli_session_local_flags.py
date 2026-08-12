@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,11 @@ from .cli_session_summary_local_flags import (
 )
 from .cli_local_result import local_text_or_report
 from .session_input import normalize_optional_run_id
+
+
+@dataclass(frozen=True)
+class CompactBlocked:
+    message: str
 
 
 def run_session_local_flag(
@@ -102,9 +108,9 @@ def run_interactive_resume_command(
     command: Any,
     commands: dict[str, Any],
     *,
-    before_compact: Callable[[], None] | None = None,
+    before_compact: Callable[[], str | None] | None = None,
     after_compact: Callable[[str], None] | None = None,
-) -> tuple[str | None, str | None, str] | None:
+) -> tuple[str | None, str | None, str] | CompactBlocked | None:
     if command.type not in {"resume", "compact"}:
         return None
     usage = (
@@ -128,7 +134,9 @@ def run_interactive_resume_command(
         return None, None, error
     getter_name = "get_resume_context" if command.type == "resume" else "get_compact_context"
     if command.type == "compact" and before_compact is not None:
-        before_compact()
+        blocking_message = before_compact()
+        if blocking_message is not None:
+            return CompactBlocked(blocking_message)
     result = commands[getter_name](run_id, **kwargs)
     if command.type == "compact" and result[1] is not None and after_compact is not None:
         after_compact(result[1])

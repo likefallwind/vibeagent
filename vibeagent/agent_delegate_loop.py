@@ -104,16 +104,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 "subagent_id": context.subagent_id,
                 "parent_iteration": context.parent_iteration,
             },
-            recover_context=lambda: recover_delegate_context_limit(
-                context.workspace,
-                context.action,
-                context.messages,
-                context.observations[context.delegate_observation_start :],
-                parent_iteration=context.parent_iteration,
-                child_iteration=child_iteration,
-                subagent_id=context.subagent_id,
-                profile_prompt=context.profile_prompt,
-            ),
+            recover_context=lambda: _recover_context_limit(context, child_iteration),
         )
         if response is None:
             if context.inbox is not None:
@@ -149,16 +140,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
             stop_feedback = _text_stop_feedback(context, child_iteration, assistant_content)
             if stop_feedback is not None:
                 context.messages.append(ChatMessage(role="user", content=stop_feedback))
-                context.messages[:] = compact_delegate_message_history(
-                    context.workspace,
-                    context.action,
-                    context.messages,
-                    context.observations[context.delegate_observation_start :],
-                    parent_iteration=context.parent_iteration,
-                    child_iteration=child_iteration,
-                    subagent_id=context.subagent_id,
-                    profile_prompt=context.profile_prompt,
-                )
+                context.messages[:] = _compact_messages(context, child_iteration)
                 _checkpoint(context)
                 continue
             if context.inbox is not None and context.inbox.append_to(context.messages, final=True):
@@ -180,16 +162,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 )
             if idle_feedback is not None:
                 context.messages.append(ChatMessage(role="user", content=idle_feedback))
-                context.messages[:] = compact_delegate_message_history(
-                    context.workspace,
-                    context.action,
-                    context.messages,
-                    context.observations[context.delegate_observation_start :],
-                    parent_iteration=context.parent_iteration,
-                    child_iteration=child_iteration,
-                    subagent_id=context.subagent_id,
-                    profile_prompt=context.profile_prompt,
-                )
+                context.messages[:] = _compact_messages(context, child_iteration)
                 _checkpoint(context)
                 continue
             return _finish_text_response(context, child_iteration, tool_calls_used, assistant_content)
@@ -398,16 +371,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 logger=context.logger,
             )
         context.messages.append(ChatMessage(role="user", content=tool_results))
-        context.messages[:] = compact_delegate_message_history(
-            context.workspace,
-            context.action,
-            context.messages,
-            context.observations[context.delegate_observation_start :],
-            parent_iteration=context.parent_iteration,
-            child_iteration=child_iteration,
-            subagent_id=context.subagent_id,
-            profile_prompt=context.profile_prompt,
-        )
+        context.messages[:] = _compact_messages(context, child_iteration)
         _checkpoint(context)
 
     if context.inbox is not None:
@@ -432,6 +396,50 @@ def _cancellation_requested(context: DelegateLoopContext) -> bool:
 def _checkpoint(context: DelegateLoopContext) -> None:
     if context.transcript_checkpoint is not None:
         context.transcript_checkpoint(context.messages)
+
+
+def _compact_messages(
+    context: DelegateLoopContext,
+    child_iteration: int,
+) -> list[ChatMessage]:
+    return compact_delegate_message_history(
+        context.workspace,
+        context.action,
+        context.messages,
+        context.observations[context.delegate_observation_start :],
+        parent_iteration=context.parent_iteration,
+        child_iteration=child_iteration,
+        subagent_id=context.subagent_id,
+        profile_prompt=context.profile_prompt,
+        compact_hook_runner=lambda phase, trigger, summary: context.lifecycle.compact(
+            phase,
+            trigger,
+            summary,
+            iteration=child_iteration,
+        ),
+    )
+
+
+def _recover_context_limit(
+    context: DelegateLoopContext,
+    child_iteration: int,
+) -> bool:
+    return recover_delegate_context_limit(
+        context.workspace,
+        context.action,
+        context.messages,
+        context.observations[context.delegate_observation_start :],
+        parent_iteration=context.parent_iteration,
+        child_iteration=child_iteration,
+        subagent_id=context.subagent_id,
+        profile_prompt=context.profile_prompt,
+        compact_hook_runner=lambda phase, trigger, summary: context.lifecycle.compact(
+            phase,
+            trigger,
+            summary,
+            iteration=child_iteration,
+        ),
+    )
 
 
 def _text_stop_feedback(

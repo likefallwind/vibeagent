@@ -446,11 +446,14 @@ The automated suite currently covers these 1.0 surfaces:
   malformed or failed updates fall back to ordinary user approval with bounded
   audit evidence.
 - Claude-compatible compaction and termination hooks: `PreCompact` and
-  `PostCompact` wrap automatic main-agent and interactive manual compaction with
-  trigger and bounded summary input; `SessionEnd` receives the documented exit
-  reason for one-shot termination, interactive exit, clear, resume, and branch
-  paths. These events are non-blocking, reject model handlers, and enforce the
-  shared 1.5-second default session-end budget with a 60-second ceiling.
+  `PostCompact` wrap automatic main-agent, subagent, and interactive manual
+  compaction with trigger, agent identity, and bounded summary input.
+  Synchronous `PreCompact` exit-code, structured-block, and universal-stop
+  decisions preserve exact history and skip summary generation, state reset,
+  and `PostCompact`, with redacted main/subagent audit events. `SessionEnd`
+  remains non-blocking, receives the documented one-shot and interactive exit
+  reasons, and enforces the shared 1.5-second default budget with a 60-second
+  ceiling.
 - Claude-compatible task lifecycle hooks: `TaskCreated` and `TaskCompleted`
   ignore matchers, receive stable task identity and available team context, and
   can block main-agent, subagent, and teammate task transitions before the

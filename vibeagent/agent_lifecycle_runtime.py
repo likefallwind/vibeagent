@@ -241,20 +241,21 @@ class AgentLifecycleRuntime:
         summary: str | None,
         *,
         iteration: int,
-    ) -> None:
+    ) -> str | None:
         event: HookEvent = "PreCompact" if phase == "pre" else "PostCompact"
         fields: dict[str, object] = {"trigger": trigger}
         if event == "PreCompact":
             fields["custom_instructions"] = ""
         else:
             fields["compact_summary"] = summary or ""
-        self._run(
+        result = self._run(
             workspace,
             event,
             trigger,
             fields,
             iteration=iteration,
         )
+        return result.blocking_message if event == "PreCompact" else None
 
     def end(
         self,

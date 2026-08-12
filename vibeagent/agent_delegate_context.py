@@ -8,6 +8,7 @@ from .agent_runtime_utils import (
     AGENT_MESSAGE_COMPACT_CHAR_THRESHOLD,
     AGENT_COMPACT_CONTEXT_MAX_LENGTH,
     AGENT_COMPACT_OBSERVATION_LIMIT,
+    CompactHookRunner,
     append_session_event,
     compaction_threshold_reason,
     compact_session_context,
@@ -15,6 +16,7 @@ from .agent_runtime_utils import (
 )
 from .context_compaction import autocompact_char_threshold, estimate_message_tokens
 from .prompt_observations import format_observations
+from .redaction import redact_jsonable_payload
 from .types import ChatMessage, DelegateTaskAction, Observation
 from .workspace import format_project_skill_catalog, read_project_instructions, read_workspace_snapshot
 from .workspace_core import RunWorkspace
@@ -130,6 +132,7 @@ def compact_delegate_message_history(
     max_context_length: int = AGENT_COMPACT_CONTEXT_MAX_LENGTH,
     force: bool = False,
     reason: str | None = None,
+    compact_hook_runner: CompactHookRunner | None = None,
 ) -> list[ChatMessage]:
     previous_chars = message_history_char_count(messages)
     configured_token_limit = workspace.autocompact_tokens
@@ -138,6 +141,23 @@ def compact_delegate_message_history(
     char_threshold_reached = previous_chars > effective_char_threshold
     if not force and not message_threshold_reached and not char_threshold_reached:
         return messages
+
+    trigger = "auto"
+    if compact_hook_runner is not None:
+        blocking_message = compact_hook_runner("pre", trigger, None)
+        if blocking_message is not None:
+            append_session_event(
+                workspace.session_dir,
+                "subagent_context_compaction_blocked",
+                {
+                    "subagent_id": subagent_id,
+                    "parent_iteration": parent_iteration,
+                    "iteration": child_iteration,
+                    "trigger": trigger,
+                    "reason": redact_jsonable_payload(blocking_message),
+                },
+            )
+            return messages
 
     context = build_compacted_delegate_context(
         action,
@@ -181,6 +201,8 @@ def compact_delegate_message_history(
             "path_instruction_reset_error": reset_error,
         },
     )
+    if compact_hook_runner is not None:
+        compact_hook_runner("post", trigger, context)
     return compacted_messages
 
 
@@ -202,6 +224,7 @@ def recover_delegate_context_limit(
     child_iteration: int,
     subagent_id: str,
     profile_prompt: str | None = None,
+    compact_hook_runner: CompactHookRunner | None = None,
 ) -> bool:
     compacted = compact_delegate_message_history(
         workspace,
@@ -214,6 +237,7 @@ def recover_delegate_context_limit(
         profile_prompt=profile_prompt,
         force=True,
         reason="context_limit_error",
+        compact_hook_runner=compact_hook_runner,
     )
     if compacted is messages:
         return False

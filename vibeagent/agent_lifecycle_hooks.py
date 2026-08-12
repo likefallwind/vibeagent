@@ -36,7 +36,7 @@ CONTEXT_EVENTS = frozenset(
 )
 BLOCKING_EVENTS = frozenset(
     {
-        "ConfigChange", "Elicitation", "ElicitationResult", "PostToolBatch", "Stop", "SubagentStop", "TaskCompleted",
+        "ConfigChange", "Elicitation", "ElicitationResult", "PostToolBatch", "PreCompact", "Stop", "SubagentStop", "TaskCompleted",
         "TaskCreated", "TeammateIdle", "UserPromptExpansion", "UserPromptSubmit",
     }
 )

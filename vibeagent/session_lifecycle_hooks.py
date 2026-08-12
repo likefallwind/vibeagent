@@ -100,7 +100,7 @@ def run_compact_hooks(
     approval_handler: ApprovalHandler | None,
     approval_policy: ApprovalPolicy,
     logger: AgentLogger | None = None,
-) -> None:
+) -> str | None:
     if phase not in {"pre", "post"}:
         raise ValueError(f"Unsupported compact hook phase: {phase}.")
     runtime = _runtime(
@@ -110,7 +110,7 @@ def run_compact_hooks(
         approval_policy=approval_policy,
         logger=logger,
     )
-    runtime.compact(workspace, phase, trigger, summary, iteration=0)
+    return runtime.compact(workspace, phase, trigger, summary, iteration=0)
 
 
 def run_interactive_session_hook(
@@ -125,7 +125,7 @@ def run_interactive_session_hook(
     command_timeout_ms: int,
     approval_handler: ApprovalHandler | None,
     approval_policy: ApprovalPolicy,
-) -> None:
+) -> str | None:
     workspace = _interactive_workspace(
         project_root,
         run_id,
@@ -133,7 +133,7 @@ def run_interactive_session_hook(
         additional_roots,
     )
     if workspace is None:
-        return
+        return None
     if event == "session_end":
         run_session_end_hooks(
             workspace,
@@ -142,8 +142,8 @@ def run_interactive_session_hook(
             approval_handler=approval_handler,
             approval_policy=approval_policy,
         )
-        return
-    run_compact_hooks(
+        return None
+    return run_compact_hooks(
         workspace,
         "pre" if event == "pre_compact" else "post",
         trigger=value,

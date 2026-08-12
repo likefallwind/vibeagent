@@ -2412,14 +2412,21 @@ copying any local ignored files; `.worktreeinclude` runs only for the built-in
 Git backend.
 
 `PreCompact` and `PostCompact` match `manual` or `auto`. Automatic main-agent
-context reduction emits both events around a successful compact operation;
-interactive `/compact` does the same around the bounded handoff summary.
+and subagent context reduction emits both events around a successful compact
+operation; interactive `/compact` does the same around the bounded handoff summary.
 `PreCompact` receives `trigger` and empty `custom_instructions`, while
-`PostCompact` receives `trigger` and `compact_summary`. `SessionEnd` matches
+`PostCompact` receives `trigger` and `compact_summary`. A synchronous
+`PreCompact` handler can stop the operation with exit code 2,
+`{"decision":"block"}`, or `{"continue":false}`. Blocking preserves the exact
+message history, skips summary generation, instruction-state reset, and
+`PostCompact`, and records a redacted audit event. A blocked context-limit
+recovery may therefore end with the original provider limit error rather than
+discard protected context. `PostCompact` cannot roll back completed compaction.
+`SessionEnd` matches
 `clear`, `resume`, `logout`, `prompt_input_exit`,
 `bypass_permissions_disabled`, or `other`; VibeAgent emits it for one-shot
 termination, interactive exit/EOF, `/clear`, session switching, and branching.
-These events cannot block compaction or termination. Session-end handlers share
+`SessionEnd` cannot block termination. Session-end handlers share
 a 1.5-second default budget, configurable up to 60 seconds through an explicit
 hook timeout or `CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS`.
 

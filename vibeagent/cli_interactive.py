@@ -56,7 +56,7 @@ from .cli_idle_input import input_with_idle_callback
 from .cli_idle_notification import IdleNotificationTimer
 from .cli_review_local_flags import run_interactive_review_command
 from .cli_runtime_local_flags import run_interactive_runtime_command
-from .cli_session_local_flags import run_interactive_resume_command, run_interactive_session_command
+from .cli_session_local_flags import CompactBlocked, run_interactive_resume_command, run_interactive_session_command
 from .cli_system_prompt_state import update_system_prompt_state
 from .cli_additional_directory_state import update_additional_directory_state
 from .cli_interactive_cd import resolve_interactive_directory_change
@@ -687,11 +687,11 @@ def run_interactive_loop(
         event: Literal["session_end", "pre_compact", "post_compact"],
         value: str,
         summary: str | None = None,
-    ) -> None:
+    ) -> str | None:
         if safe_mode:
-            return
+            return None
         try:
-            run_interactive_session_hook(
+            return run_interactive_session_hook(
                 Path.cwd(),
                 resume_run_id,
                 pending_workspace,
@@ -707,6 +707,7 @@ def run_interactive_loop(
             )
         except Exception as error:
             print(f"Lifecycle hook warning: {format_error(error)}")
+            return None
 
     while True:
         try:
@@ -1275,6 +1276,9 @@ def run_interactive_loop(
                 ),
             )
         ) is not None:
+            if isinstance(resume_result, CompactBlocked):
+                print(f"Compaction blocked by PreCompact hook: {resume_result.message}")
+                continue
             selected, context, text = resume_result
             restored_directories = restore_session_additional_directories(Path.cwd(), selected)
             try:

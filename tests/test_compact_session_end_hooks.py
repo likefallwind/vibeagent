@@ -125,7 +125,6 @@ class CompactSessionEndHookConfigTests(unittest.TestCase):
         after.assert_not_called()
         getter.assert_not_called()
 
-
 class CompactSessionEndHookRuntimeTests(unittest.TestCase):
     def test_auto_compaction_runs_pre_and_post_with_summary(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-lifecycle-hook-") as base:
@@ -333,6 +332,7 @@ class CompactSessionEndHookRuntimeTests(unittest.TestCase):
                 patch("vibeagent.cli_interactive.Path.cwd", return_value=root),
                 patch("sys.stdout", new_callable=StringIO),
             ):
+                compact_hooks.side_effect = (None, None)
                 exit_code = run_interactive_loop(
                     command_namespace={
                         "parse_interactive_session_detail_argument": (
