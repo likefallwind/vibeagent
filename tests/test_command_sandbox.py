@@ -180,10 +180,10 @@ class SandboxConfigTests(unittest.TestCase):
                 {
                     "enabled": True,
                     "credentials": {
-                        "envVars": [{"name": "API_KEY", "mode": "mask"}]
+                        "envVars": [{"name": "API_KEY", "mode": "reveal"}]
                     },
                 },
-                "only deny is enforced",
+                "use deny or mask",
             ),
             (
                 {

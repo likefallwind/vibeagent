@@ -63,6 +63,10 @@ def get_sandbox_report(root: str | Path = ".") -> dict[str, object]:
         },
         "credentials": {
             "deniedEnvVars": list(config.denied_environment_variables),
+            "maskedEnvVars": list(config.masked_environment_variables),
+            "maskedFiles": [
+                path.as_posix() for path in config.masked_credential_files
+            ],
         },
         "excludedCommands": list(config.excluded_commands),
         "error": config.error,
@@ -113,6 +117,11 @@ def format_sandbox_report_text(report: dict[str, object]) -> str:
         if isinstance(denied_environment, list) and denied_environment:
             lines.append("  deniedCredentialEnvVars:")
             lines.extend(f"    - {value}" for value in denied_environment)
+        for field in ("maskedEnvVars", "maskedFiles"):
+            values = credentials.get(field)
+            if isinstance(values, list) and values:
+                lines.append(f"  {field}:")
+                lines.extend(f"    - {value}" for value in values)
     network = report.get("network")
     if isinstance(network, dict):
         lines.append(

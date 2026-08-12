@@ -73,7 +73,12 @@ trusted-allow execution.
 more-specific and exact-tie denies remain authoritative. Endpoint-managed
 `allowManagedReadPathsOnly` filters non-managed read allows without dropping
 denies. Sandboxed Bash also enforces credential `mode: "deny"` for files and
-environment variables. Credential masking remains outside this claim.
+environment variables. Credential `mode: "mask"` retains launch-time access but
+replaces exact file and environment values before finite output, streaming
+observers, complete-output artifacts, and background logs. Deny wins over mask;
+missing, non-regular, unreadable, and bounded-size violations fail closed. Encoded or
+otherwise transformed values and command-created files remain outside this
+claim.
 
 `VA1-SAFETY` includes the Claude-compatible unsandboxed retry escape hatch for
 finite, batched, and background Bash commands. An explicit

@@ -15,8 +15,8 @@ from .sandbox_seccomp_filter import unix_socket_filter_available
 from .workspace_core import RunWorkspace
 from .workspace_permissions import read_project_permissions
 from .workspace_sandbox_credentials import (
-    MAX_SANDBOX_CREDENTIAL_ENTRIES,
-    parse_sandbox_credential_denies,
+    SandboxCredentialAccumulator,
+    parse_sandbox_credentials,
 )
 from .workspace_sandbox_values import (
     MergedSandboxValues,
@@ -66,6 +66,8 @@ class SandboxConfig:
     deny_read: tuple[Path, ...] = ()
     allow_managed_read_paths_only: bool = False
     denied_environment_variables: tuple[str, ...] = ()
+    masked_credential_files: tuple[Path, ...] = ()
+    masked_environment_variables: tuple[str, ...] = ()
     excluded_commands: tuple[str, ...] = ()
     sources: tuple[str, ...] = ()
     bwrap_path: str | None = None
@@ -94,8 +96,7 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
     }
     allow_read_values: list[tuple[str, bool, bool]] = []
     allowed_unix_sockets: list[str] = []
-    denied_environment_variables: list[str] = []
-    credential_entry_count = 0
+    credential_accumulator = SandboxCredentialAccumulator()
     managed_domains_only = False
     allow_managed_read_paths_only = False
     sources: list[str] = []
@@ -181,15 +182,16 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
                     raise ValueError(f"Unsupported sandbox.filesystem setting(s): {names}.")
             credentials = sandbox.get("credentials")
             if credentials is not None:
-                credential_files, credential_environment = parse_sandbox_credential_denies(
+                credential_settings = parse_sandbox_credentials(
                     credentials,
                     source=config.source,
                 )
                 array_values["denyRead"].extend(
-                    (value, config.trusted) for value in credential_files
+                    credential_accumulator.add(
+                        credential_settings,
+                        trusted=config.trusted,
+                    )
                 )
-                denied_environment_variables.extend(credential_environment)
-                credential_entry_count += len(credential_files) + len(credential_environment)
             network = sandbox.get("network")
             if isinstance(network, bool):
                 merged["networkDisabled"] = (not network, config.trusted)
@@ -374,12 +376,10 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
         deny_read = resolve_sandbox_paths(workspace, array_values["denyRead"], "denyRead")
         deny_write = tuple(dict.fromkeys((*deny_write, *permission_deny_write)))
         deny_read = tuple(dict.fromkeys((*deny_read, *permission_deny_read)))
-        denied_environment = tuple(dict.fromkeys(denied_environment_variables))
-        if credential_entry_count > MAX_SANDBOX_CREDENTIAL_ENTRIES:
-            raise ValueError(
-                "sandbox.credentials exceeds "
-                f"{MAX_SANDBOX_CREDENTIAL_ENTRIES} merged entries."
-            )
+        resolved_credentials = credential_accumulator.resolve(
+            workspace,
+            denied_files=deny_read,
+        )
         scoped_exclusions = deduplicate_scoped_values(array_values["excludedCommands"])
         excluded_commands = tuple(value for value, _trusted in scoped_exclusions)
         if len(excluded_commands) > MAX_SANDBOX_EXCLUDED_COMMANDS:
@@ -416,7 +416,9 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             deny_write=deny_write,
             deny_read=deny_read,
             allow_managed_read_paths_only=allow_managed_read_paths_only,
-            denied_environment_variables=denied_environment,
+            denied_environment_variables=resolved_credentials.denied_environment,
+            masked_credential_files=resolved_credentials.masked_files,
+            masked_environment_variables=resolved_credentials.masked_environment,
             excluded_commands=excluded_commands,
             sources=tuple(sources),
             bwrap_path=bwrap_path,
@@ -459,7 +461,9 @@ def format_workspace_sandbox_for_prompt(workspace: RunWorkspace) -> str:
         f"{escape}"
         "Sandboxed commands can write the project and isolated /tmp only, plus trusted allowWrite paths. "
         f"Read policy has {len(config.allow_read)} exception(s); "
-        f"{len(config.denied_environment_variables)} credential environment variable(s) are removed."
+        f"{len(config.denied_environment_variables)} credential environment variable(s) are removed; "
+        f"{len(config.masked_environment_variables) + len(config.masked_credential_files)} "
+        "credential source(s) are masked from command output."
     )
 
 

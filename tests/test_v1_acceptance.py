@@ -460,6 +460,14 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("`allowAllUnixSockets: true`", readme)
         self.assertIn("cannot enable that escape without explicit", readme)
 
+    def test_readme_documents_credential_output_masking(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn('entries with `mode: "mask"` remain available', readme)
+        self.assertIn("before streaming observers", readme)
+        self.assertIn("background logs", readme)
+        self.assertIn("transformed or encoded secrets", readme)
+
     def test_readme_documents_permission_backed_sandbox_paths(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
 

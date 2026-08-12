@@ -11,7 +11,15 @@ from unittest.mock import patch
 
 from vibeagent.actions import execute_action
 from vibeagent.command_sandbox import prepare_command_launch
-from vibeagent.types import RunCommandAction
+from vibeagent.sandbox_commands import get_sandbox_report
+from vibeagent.command_output_artifacts import resolve_command_output_artifact
+from vibeagent.command_output_observers import observe_command_output
+from vibeagent.types import (
+    RunCommandAction,
+    StartCommandAction,
+    StopProcessAction,
+    WaitProcessAction,
+)
 from vibeagent.workspace import create_run_workspace
 from vibeagent.workspace_sandbox import SandboxConfig, read_workspace_sandbox
 
@@ -77,6 +85,63 @@ class SandboxReadCredentialConfigTests(unittest.TestCase):
             ("VIBEAGENT_TEST_SECRET",),
         )
 
+    def test_credential_masks_are_resolved_and_deny_takes_precedence(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-credential-") as base:
+            root = Path(base)
+            secret = root / "secret.txt"
+            secret.write_text("secret", encoding="utf-8")
+            _write_sandbox(
+                root,
+                {
+                    "enabled": True,
+                    "credentials": {
+                        "files": [
+                            {"path": "secret.txt", "mode": "mask"},
+                            {"path": "secret.txt", "mode": "deny"},
+                        ],
+                        "envVars": [
+                            {"name": "MASK_ONLY", "mode": "mask"},
+                            {"name": "DENY_WINS", "mode": "mask"},
+                            {"name": "DENY_WINS", "mode": "deny"},
+                        ],
+                    },
+                },
+            )
+            config = read_workspace_sandbox(create_run_workspace(root))
+
+        self.assertIsNone(config.error)
+        self.assertEqual(config.deny_read, (secret.resolve(),))
+        self.assertEqual(config.masked_credential_files, ())
+        self.assertEqual(config.denied_environment_variables, ("DENY_WINS",))
+        self.assertEqual(config.masked_environment_variables, ("MASK_ONLY",))
+
+    def test_sandbox_report_exposes_mask_sources_without_values(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-credential-") as base:
+            root = Path(base)
+            secret = root / "secret.txt"
+            secret.write_text("report-secret-value", encoding="utf-8")
+            _write_sandbox(
+                root,
+                {
+                    "enabled": True,
+                    "credentials": {
+                        "files": [{"path": "secret.txt", "mode": "mask"}],
+                        "envVars": [{"name": "MASKED_NAME", "mode": "mask"}],
+                    },
+                },
+            )
+            with patch.dict(os.environ, {"MASKED_NAME": "environment-report-secret"}):
+                report = get_sandbox_report(root)
+            serialized = json.dumps(report)
+
+        credentials = report["credentials"]
+        self.assertIsInstance(credentials, dict)
+        assert isinstance(credentials, dict)
+        self.assertEqual(credentials["maskedEnvVars"], ["MASKED_NAME"])
+        self.assertEqual(credentials["maskedFiles"], [secret.resolve().as_posix()])
+        self.assertNotIn("report-secret-value", serialized)
+        self.assertNotIn("environment-report-secret", serialized)
+
     def test_environment_is_scrubbed_only_for_sandboxed_launches(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-env-") as base:
             root = Path(base)
@@ -108,6 +173,45 @@ class SandboxReadCredentialConfigTests(unittest.TestCase):
             (fallback.environment or {}).get("VIBEAGENT_TEST_SECRET"),
             "host-secret",
         )
+
+    def test_mask_wrapper_remains_active_for_fallback_and_escape_launches(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-mask-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root)
+            base_config = SandboxConfig(
+                enabled=True,
+                masked_environment_variables=("VIBEAGENT_TEST_SECRET",),
+            )
+            with patch(
+                "vibeagent.command_sandbox.read_workspace_sandbox",
+                return_value=base_config,
+            ):
+                fallback = prepare_command_launch(workspace, "true", root)
+            with patch(
+                "vibeagent.command_sandbox.read_workspace_sandbox",
+                return_value=replace(
+                    base_config,
+                    available=True,
+                    bwrap_path="/usr/bin/bwrap",
+                    allow_unsandboxed_commands=True,
+                ),
+            ):
+                escape = prepare_command_launch(
+                    workspace,
+                    "true",
+                    root,
+                    dangerously_disable_sandbox=True,
+                )
+
+        for launch in (fallback, escape):
+            self.assertIn("vibeagent.sandbox_credential_launcher", launch.argv)
+            serialized = " ".join(launch.argv)
+            self.assertIn("VIBEAGENT_TEST_SECRET", serialized)
+            self.assertNotIn("host-secret", serialized)
+        self.assertFalse(fallback.sandboxed)
+        self.assertIn("unavailable", fallback.warning or "")
+        self.assertFalse(escape.sandboxed)
+        self.assertIn("dangerouslyDisableSandbox", escape.warning or "")
 
 
 @unittest.skipUnless(_sandbox_available(), "bubblewrap sandbox is unavailable")
@@ -214,6 +318,123 @@ class SandboxReadCredentialExecutionTests(unittest.TestCase):
                 )
 
         self.assertEqual(result.result.exit_code, 0)
+
+    def test_masked_credentials_never_reach_results_or_truncated_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-mask-") as base:
+            root = Path(base)
+            secret_file = root / "secret.txt"
+            secret_file.write_text("file-secret-value\n", encoding="utf-8")
+            _write_sandbox(
+                root,
+                {
+                    "enabled": True,
+                    "failIfUnavailable": True,
+                    "credentials": {
+                        "files": [{"path": "secret.txt", "mode": "mask"}],
+                        "envVars": [
+                            {"name": "VIBEAGENT_TEST_SECRET", "mode": "mask"}
+                        ],
+                    },
+                },
+            )
+            workspace = create_run_workspace(root)
+            command = (
+                "python3 -c \"import os,pathlib; "
+                "value=os.environ['VIBEAGENT_TEST_SECRET']+'|'+"
+                "pathlib.Path('secret.txt').read_text().strip(); "
+                "print((value+'\\n')*100)\""
+            )
+            streamed: list[str] = []
+            with patch.dict(
+                os.environ,
+                {"VIBEAGENT_TEST_SECRET": "environment-secret-value"},
+            ), observe_command_output(
+                lambda stdout, stderr: streamed.append(stdout + stderr)
+            ):
+                result = execute_action(
+                    workspace,
+                    RunCommandAction(
+                        type="run_command",
+                        command=command,
+                        max_output_chars=1_000,
+                    ),
+                )
+            artifact = resolve_command_output_artifact(
+                workspace,
+                result.result.stdout_path or "",
+            )
+            artifact_text = artifact.read_text(encoding="utf-8") if artifact else ""
+
+        self.assertEqual(result.result.exit_code, 0)
+        self.assertTrue(result.result.stdout_truncated)
+        self.assertIn("[MASKED_CREDENTIAL]", result.result.stdout)
+        self.assertNotIn("environment-secret-value", result.result.stdout)
+        self.assertNotIn("file-secret-value", result.result.stdout)
+        self.assertNotIn("environment-secret-value", "".join(streamed))
+        self.assertNotIn("file-secret-value", "".join(streamed))
+        self.assertIsNotNone(artifact)
+        self.assertNotIn("environment-secret-value", artifact_text)
+        self.assertNotIn("file-secret-value", artifact_text)
+
+    def test_background_logs_are_masked_before_persistence(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-mask-bg-") as base:
+            root = Path(base)
+            secret_file = root / "secret.txt"
+            secret_file.write_text("background-file-secret", encoding="utf-8")
+            _write_sandbox(
+                root,
+                {
+                    "enabled": True,
+                    "failIfUnavailable": True,
+                    "credentials": {
+                        "files": [{"path": "secret.txt", "mode": "mask"}],
+                        "envVars": [
+                            {"name": "VIBEAGENT_TEST_SECRET", "mode": "mask"}
+                        ],
+                    },
+                },
+            )
+            workspace = create_run_workspace(root)
+            command = (
+                "python3 -c \"import os,pathlib,sys; "
+                "sys.stdout.write(os.environ['VIBEAGENT_TEST_SECRET']); "
+                "sys.stderr.write(pathlib.Path('secret.txt').read_text())\""
+            )
+            with patch.dict(
+                os.environ,
+                {"VIBEAGENT_TEST_SECRET": "background-env-secret"},
+            ):
+                started = execute_action(
+                    workspace,
+                    StartCommandAction(type="start_command", command=command),
+                )
+                try:
+                    waited = execute_action(
+                        workspace,
+                        WaitProcessAction(
+                            type="wait_process",
+                            process_id=started.process_id,
+                            timeout_ms=5_000,
+                        ),
+                    )
+                finally:
+                    if started.process_id:
+                        execute_action(
+                            workspace,
+                            StopProcessAction(
+                                type="stop_process",
+                                process_id=started.process_id,
+                            ),
+                        )
+            stdout_log = Path(started.stdout_path).read_text(encoding="utf-8")
+            stderr_log = Path(started.stderr_path).read_text(encoding="utf-8")
+
+        self.assertTrue(started.ok)
+        self.assertEqual(waited.exit_code, 0)
+        self.assertEqual(waited.stdout, "[MASKED_CREDENTIAL]")
+        self.assertEqual(waited.stderr, "[MASKED_CREDENTIAL]")
+        self.assertEqual(stdout_log, "[MASKED_CREDENTIAL]")
+        self.assertEqual(stderr_log, "[MASKED_CREDENTIAL]")
 
 
 if __name__ == "__main__":

@@ -775,6 +775,12 @@ def _append_sandbox_event(workspace: RunWorkspace, sandbox_config: SandboxConfig
             "denied_environment_variables": list(
                 sandbox_config.denied_environment_variables
             ),
+            "masked_credential_files": [
+                path.as_posix() for path in sandbox_config.masked_credential_files
+            ],
+            "masked_environment_variables": list(
+                sandbox_config.masked_environment_variables
+            ),
             "fail_if_unavailable": sandbox_config.fail_if_unavailable,
             "auto_allow_bash_if_sandboxed": sandbox_config.auto_allow_bash_if_sandboxed,
             "allow_unsandboxed_commands": sandbox_config.allow_unsandboxed_commands,

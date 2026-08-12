@@ -552,7 +552,10 @@ The automated suite currently covers these 1.0 surfaces:
   `denyRead` mounts support narrow read exceptions while exact ties resolve to
   deny. Endpoint-managed `allowManagedReadPathsOnly` filters non-managed
   allows, and sandboxed commands deny configured credential files and remove
-  configured credential environment variables. Credential masking remains
+  configured credential environment variables. `mode: "mask"` keeps exact
+  launch-time values available while replacing them before finite and streamed
+  results, full-output artifacts, and background logs; deny wins over mask and
+  invalid or oversized files fail closed. Encoded or transformed output remains
   outside this claim.
 - Controlled unsandboxed retries: finite, batched, and background commands can
   explicitly request `dangerouslyDisableSandbox` after sandbox incompatibility.

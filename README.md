@@ -2587,7 +2587,10 @@ disabled by default and can be enabled globally through the `sandbox` object in
     },
     "credentials": {
       "files": [{"path": "~/.aws/credentials", "mode": "deny"}],
-      "envVars": [{"name": "AWS_SECRET_ACCESS_KEY", "mode": "deny"}]
+      "envVars": [
+        {"name": "AWS_SECRET_ACCESS_KEY", "mode": "deny"},
+        {"name": "GITHUB_TOKEN", "mode": "mask"}
+      ]
     },
     "network": {
       "allowedDomains": ["github.com", "*.npmjs.org"],
@@ -2633,7 +2636,15 @@ allow; an exact allow/deny tie resolves to deny. Endpoint-managed
 while retaining read denies from every source. Credential file entries with
 `mode: "deny"` join `denyRead`, and denied credential environment variables are
 removed only from commands that actually enter the sandbox. Credential
-`mode: "mask"` fails closed because response masking is not implemented.
+entries with `mode: "mask"` remain available to the child command while a
+private launcher replaces their exact launch-time values in stdout and stderr
+before streaming observers, result truncation, complete-output artifacts, or
+background logs can persist them. File masks require readable regular files no
+larger than 128 KB each and 1 MB total; missing, non-regular, unreadable, or oversized
+inputs fail closed. A deny for the same file or variable takes precedence over
+mask. Masking covers exact raw values, including a credential file's stripped
+form; it cannot detect transformed or encoded secrets, secrets written by the
+command to unrelated files, or file values created after launch.
 Explicit `sandbox.filesystem` paths must be exact; glob paths remain unsupported
 there. Network domains are normalized through IDNA, support exact hosts and leading `*.`
 wildcards, and `deniedDomains` takes precedence. Endpoint-managed

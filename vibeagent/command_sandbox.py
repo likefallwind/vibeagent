@@ -102,6 +102,10 @@ def prepare_command_launch(
             environment,
             error=f"Sandbox configuration error: {config.error}",
         )
+    if config.enabled and (
+        config.masked_credential_files or config.masked_environment_variables
+    ):
+        command_argv = _masked_credential_argv(config, command_argv)
     if not config.enabled:
         return CommandLaunch(command_argv, False, config, environment)
     if any(wildcard_matches(pattern, command, path_mode=False) for pattern in config.excluded_commands):
@@ -148,6 +152,7 @@ def prepare_command_launch(
             *config.allow_read,
             *config.deny_write,
             *config.deny_read,
+            *config.masked_credential_files,
         )
         if not path.exists()
     ]
@@ -272,4 +277,26 @@ def prepare_command_launch(
         config,
         sandbox_environment,
         warning=network_warning,
+    )
+
+
+def _masked_credential_argv(
+    config: SandboxConfig,
+    command_argv: tuple[str, ...],
+) -> tuple[str, ...]:
+    mask_config = json.dumps(
+        {
+            "env": list(config.masked_environment_variables),
+            "files": [path.as_posix() for path in config.masked_credential_files],
+        },
+        separators=(",", ":"),
+    )
+    return (
+        sys.executable,
+        "-m",
+        "vibeagent.sandbox_credential_launcher",
+        "--config-json",
+        mask_config,
+        "--",
+        *command_argv,
     )
