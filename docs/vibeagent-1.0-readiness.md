@@ -277,7 +277,10 @@ The automated suite currently covers these 1.0 surfaces:
   filtering, opt-in `--brief` progress messages with a default-hidden
   `SendUserMessage` tool, control-safe bounded durable output, immediate
   interactive/text display, clean machine-output boundaries, and direct-call,
-  search, tool-ceiling, profile, and deny enforcement, optional SDK-compatible
+  search, tool-ceiling, profile, and deny enforcement, plus SDK-compatible
+  post-result prompt suggestions with a UUID/session schema, bounded redacted
+  tool-free generation, shared fallback and budget accounting, an environment
+  kill switch, and non-blocking failure behavior, optional SDK-compatible
   hook started/progress/response lifecycle
   records with stable IDs and bounded redacted output, default Setup/SessionStart
   visibility, synchronous and asynchronous completion ordering, resume, compact,

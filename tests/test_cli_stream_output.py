@@ -16,7 +16,8 @@ from vibeagent.agent_result import AgentResult
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
-from vibeagent.runtime_types import AssistantResponse, ChatMessage
+from vibeagent.runtime_types import AssistantResponse, ChatMessage, ModelUsage
+from vibeagent.prompt_suggestions import PromptSuggestionResult
 from vibeagent.session_event_observers import observe_session_events
 
 
@@ -64,6 +65,21 @@ class SequenceClient:
         return AssistantResponse(content=content, raw={})
 
 
+class UsageSequenceClient(SequenceClient):
+    def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
+        content = self.responses[self.calls]
+        self.calls += 1
+        return AssistantResponse(
+            content=content,
+            raw={},
+            usage=ModelUsage(
+                input_tokens=10,
+                output_tokens=5,
+                total_tokens=15,
+            ),
+        )
+
+
 def _result(root: Path, run_id: str = "stream-run") -> AgentResult:
     return AgentResult(
         success=True,
@@ -77,6 +93,142 @@ def _result(root: Path, run_id: str = "stream-run") -> AgentResult:
 
 
 class CliOutputFormatTests(unittest.TestCase):
+    def test_prompt_suggestion_streams_after_result_with_sdk_schema(self) -> None:
+        client = SequenceClient(
+            [
+                [{"type": "text", "text": "Implemented the repair."}],
+                [{"type": "text", "text": "Run the focused tests."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-suggestion-stream-") as base:
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "-p",
+                        "--prompt-suggestions",
+                        "--output-format",
+                        "stream-json",
+                        "--cwd",
+                        base,
+                        "repair the issue",
+                    ]
+                )
+
+        records = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        result = records[-2]
+        suggestion = records[-1]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(client.calls, 2)
+        self.assertEqual(result["type"], "result")
+        self.assertNotIn("promptSuggestion", result)
+        self.assertEqual(suggestion["type"], "prompt_suggestion")
+        self.assertEqual(suggestion["suggestion"], "Run the focused tests.")
+        self.assertEqual(suggestion["session_id"], result["session_id"])
+        self.assertRegex(suggestion["uuid"], r"^[0-9a-f-]{36}$")
+        self.assertEqual(suggestion["sequence"], result["sequence"] + 1)
+
+    def test_prompt_suggestion_text_keeps_stdout_and_stderr_compatible(self) -> None:
+        client = SequenceClient(
+            [
+                [{"type": "text", "text": "Implemented the repair."}],
+                [{"type": "text", "text": "Run the focused tests."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-suggestion-text-") as base:
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                redirect_stdout(stdout),
+                redirect_stderr(stderr),
+            ):
+                exit_code = main(["-p", "--prompt-suggestions", "--cwd", base, "repair"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue().strip(), "Implemented the repair.")
+        self.assertEqual(stderr.getvalue(), "")
+
+    def test_prompt_suggestion_json_is_one_result_and_counts_budget_usage(self) -> None:
+        client = UsageSequenceClient(
+            [
+                [{"type": "text", "text": "Implemented the repair."}],
+                [{"type": "text", "text": "Run the focused tests."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-suggestion-json-") as base:
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                patch.dict(
+                    os.environ,
+                    {
+                        "VIBEAGENT_INPUT_USD_PER_MILLION": "1",
+                        "VIBEAGENT_OUTPUT_USD_PER_MILLION": "1",
+                    },
+                ),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "-p",
+                        "--prompt-suggestions",
+                        "--output-format",
+                        "json",
+                        "--max-budget-usd",
+                        "1",
+                        "--cwd",
+                        base,
+                        "repair",
+                    ]
+                )
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(client.calls, 2)
+        self.assertNotIn("promptSuggestion", payload)
+        self.assertNotIn("prompt_suggestion", payload)
+        self.assertEqual(payload["budget"]["usage"], {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30,
+            "cacheCreationTokens": 0,
+            "cacheReadTokens": 0,
+        })
+
+    def test_prompt_suggestion_failure_does_not_change_main_result(self) -> None:
+        client = SequenceClient([[{"type": "text", "text": "Implemented the repair."}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-suggestion-failure-") as base:
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                patch(
+                    "vibeagent.cli_one_shot_code.try_generate_prompt_suggestion",
+                    return_value=PromptSuggestionResult(None, "provider unavailable"),
+                ),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "-p",
+                        "--prompt-suggestions",
+                        "--output-format",
+                        "stream-json",
+                        "--cwd",
+                        base,
+                        "repair",
+                    ]
+                )
+
+        records = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(records[-1]["type"], "result")
+        self.assertTrue(records[-1]["success"])
+        self.assertNotIn("promptSuggestion", records[-1])
+
     def test_brief_text_writes_update_to_stderr_and_keeps_final_stdout_clean(self) -> None:
         client = SequenceClient(
             [

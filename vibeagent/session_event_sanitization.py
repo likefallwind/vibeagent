@@ -15,7 +15,7 @@ def sanitize_session_event_payload(event_type: str, payload: Any) -> Any:
         sanitized["input"] = sanitize_tool_call_input(sanitized.get("input"))
     if event_type == "tool_result":
         sanitized["result"] = sanitize_tool_result_payload(sanitized.get("result"))
-    if event_type == "model":
+    if event_type in {"model", "prompt_suggestion_model"}:
         sanitized["content"] = sanitize_model_event_content(sanitized.get("content"))
     return sanitized
 

@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 from threading import Lock
 from typing import Any, TextIO
+from uuid import uuid4
 
 from .cli_machine_output import machine_runtime_fields
 from .cli_result_payloads import (
@@ -39,6 +40,16 @@ class JsonEventStream:
 
     def result(self, payload: dict[str, object]) -> None:
         self.emit({"type": "result", **payload})
+
+    def prompt_suggestion(self, session_id: str, suggestion: str) -> None:
+        self.emit(
+            {
+                "type": "prompt_suggestion",
+                "suggestion": suggestion,
+                "uuid": str(uuid4()),
+                "session_id": session_id,
+            }
+        )
 
     def system_init(self, session_dir: Path, payload: dict[str, object]) -> None:
         self.emit(

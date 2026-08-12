@@ -50,6 +50,7 @@ from .background_agent_config import BackgroundAgentConfig
 from .permission_prompt_mcp import resolve_permission_prompt_tool
 from .debug_runtime import DebugOptions, DebugRuntime, combine_event_observers
 from .cli_brief_output import brief_message_observer
+from .prompt_suggestions import PromptSuggestionResult, try_generate_prompt_suggestion
 
 
 def run_one_shot_code(
@@ -69,6 +70,7 @@ def run_one_shot_code(
     safe_mode: bool = False,
     bare_mode: bool = False,
     brief: bool = False,
+    prompt_suggestions: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -325,6 +327,7 @@ def run_one_shot_code(
                 run_kwargs["deferred_tool_state"] = deferred_state
     goal_turns = 0
     structured_output: StructuredOutputResult | None = None
+    prompt_suggestion: PromptSuggestionResult | None = None
     result: AgentResult | None = None
     session_end_ran = False
     recorded_session_tokens: dict[str, int] = {}
@@ -443,6 +446,15 @@ def run_one_shot_code(
         if peer_runtime is not None:
             peer_runtime.close()
     assert result is not None
+    if prompt_suggestions and result.success and result.completion_ready:
+        prompt_suggestion = try_generate_prompt_suggestion(
+            client,
+            result.conversation,
+            session_dir=result_workspace().session_dir,
+            model_timeout_ms=execution_config.model_timeout_ms,
+            iteration=result.iterations,
+            logger=debug_runtime.logger,
+        )
     result_payload = build_one_shot_code_payload(
         result,
         prior_context,
@@ -480,6 +492,9 @@ def run_one_shot_code(
         output_json=output_json,
         print_mode=print_mode,
     )
+    if stream is not None and prompt_suggestion is not None and prompt_suggestion.success:
+        assert prompt_suggestion.suggestion is not None
+        stream.prompt_suggestion(result.run_id, prompt_suggestion.suggestion)
     return one_shot_code_exit_code(result, structured_output, model_budget), prior_context
 
 

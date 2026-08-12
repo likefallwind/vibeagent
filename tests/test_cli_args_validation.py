@@ -8,6 +8,25 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_prompt_suggestions_require_print_coding_task_and_accept_boolean_values(self) -> None:
+        enabled = cli_module.parse_args(["-p", "--prompt-suggestions", "inspect"])
+        disabled = cli_module.parse_args(["-p", "--prompt-suggestions=false", "inspect"])
+        spaced_false = cli_module.parse_args(["-p", "--prompt-suggestions", "off", "inspect"])
+
+        self.assertTrue(enabled.prompt_suggestions)
+        self.assertFalse(disabled.prompt_suggestions)
+        self.assertFalse(spaced_false.prompt_suggestions)
+        self.assertIsNone(cli_module.validate_cli_args(enabled))
+        for args in (
+            cli_module.parse_args(["--prompt-suggestions", "inspect"]),
+            cli_module.parse_args(["-p", "--chat", "--prompt-suggestions", "hello"]),
+            cli_module.parse_args(["-p", "--prompt-suggestions", "--status"]),
+        ):
+            self.assertEqual(
+                cli_module.validate_cli_args(args),
+                "--prompt-suggestions requires a one-shot coding task with --print.",
+            )
+
     def test_permission_prompt_tool_requires_noninteractive_ask_or_auto_coding_mode(self) -> None:
         valid = cli_module.parse_args(
             ["-p", "--permission-prompt-tool", "mcp__policy__authorize", "inspect"]

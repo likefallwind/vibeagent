@@ -106,6 +106,9 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "safe_mode": args.safe_mode,
         "bare_mode": args.bare,
         "brief": args.brief,
+        "prompt_suggestions": args.prompt_suggestions and not _environment_flag_disabled(
+            "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION"
+        ),
         "setting_sources": (
             ()
             if args.bare and args.setting_sources is None
@@ -168,6 +171,10 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
 
 def _environment_flag_enabled(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _environment_flag_disabled(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"0", "false", "no", "off"}
 
 
 def resolve_one_shot_code_task(

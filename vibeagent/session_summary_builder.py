@@ -108,6 +108,7 @@ def summarize_session_from_events(
             "model",
             "subagent_model",
             "structured_output_model",
+            "prompt_suggestion_model",
             "hook_model",
             "hook_agent_model",
         }:
@@ -117,6 +118,8 @@ def summarize_session_from_events(
                 if text:
                     final_message = text
                     completed = True
+        elif event.type == "prompt_suggestion_model_error":
+            usage_totals.add_payload(event.payload.get("usage"))
         elif event.type in {"model_error", "subagent_model_error", "structured_output_model_error"}:
             usage_totals.add_payload(event.payload.get("usage"))
             model_errors += 1

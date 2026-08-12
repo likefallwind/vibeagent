@@ -51,11 +51,25 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         if tool_names:
             return f"{prefix} toolCalls={', '.join(tool_names)}{usage_text}"
         return f"{prefix} response{usage_text}"
+    if event.type == "prompt_suggestion_model":
+        text = model_text(payload.get("content"))
+        usage = parse_usage_payload(payload.get("usage"))
+        return f"{prefix} {compact(text, max_text) if text else 'response'}{format_usage_suffix(usage)}"
+    if event.type == "prompt_suggestion_result":
+        success = payload.get("success")
+        suggestion = payload.get("suggestion")
+        error = payload.get("error")
+        detail = suggestion if isinstance(suggestion, str) and suggestion else error
+        return (
+            f"{prefix} {'success' if success is True else 'suppressed'}"
+            f"{format_detail_suffix([f'message={compact(detail, max_text)}'] if isinstance(detail, str) else [])}"
+        )
     if event.type in {
         "model_error",
         "subagent_model_error",
         "hook_model_error",
         "hook_agent_model_error",
+        "prompt_suggestion_model_error",
     }:
         error_type = payload.get("error_type")
         message = payload.get("message")

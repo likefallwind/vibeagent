@@ -380,6 +380,7 @@ python -m vibeagent -p --output-format json --fallback-model backup-model --cwd 
 python -m vibeagent -p --output-format json --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
 python -m vibeagent --brief --cwd ../my-project "implement the change and keep me updated"
+python -m vibeagent -p --prompt-suggestions --output-format stream-json --cwd ../my-project "implement the change"
 python -m vibeagent -p --output-format stream-json --include-hook-events --cwd ../my-project "audit hook execution"
 python -m vibeagent -p --output-format stream-json --include-partial-messages --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format stream-json --forward-subagent-text --cwd ../my-project "delegate the investigation"
@@ -844,6 +845,17 @@ Text one-shot updates use stderr so final stdout remains scriptable, while JSON
 output remains one final object. The tool is absent from the default agent
 catalog and cannot be activated by a direct call or `ToolSearch` without the
 flag; `--tools`, profile restrictions, and deny rules remain authoritative.
+`-p --prompt-suggestions[=true|false]` makes one tool-free, non-retrying model
+request after a successful completed coding turn to predict a concise next user
+prompt. The request reuses the completed conversation, active model/fallback,
+timeout, and strict cost budget; failures, empty output, controls, or output over
+1,000 characters suppress only the suggestion. Sensitive values are redacted
+before delivery and the model/result evidence is stored in the session.
+Stream-JSON emits the Claude SDK-compatible `prompt_suggestion` record with a
+UUID and `session_id` strictly after the final `result`; matching Claude Code,
+text and ordinary JSON keep their primary result unchanged. Set
+`CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false` to disable generation even when the
+flag is present.
 Explicit `-p --include-partial-messages` additionally emits each provider SSE
 event as a `type: "stream_event"` record before the final result. Coding records
 include the session identifiers, model iteration, and retry attempt; chat

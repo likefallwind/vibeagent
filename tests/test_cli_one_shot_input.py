@@ -22,6 +22,21 @@ from vibeagent.cli_one_shot_input import (
 
 
 class CliOneShotInputTests(unittest.TestCase):
+    def test_build_one_shot_kwargs_includes_prompt_suggestions(self) -> None:
+        args = cli_module.parse_args(["-p", "--prompt-suggestions", "inspect"])
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertTrue(kwargs["prompt_suggestions"])
+
+    def test_prompt_suggestion_environment_kill_switch_wins(self) -> None:
+        args = cli_module.parse_args(["-p", "--prompt-suggestions", "inspect"])
+
+        with patch.dict(os.environ, {"CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION": "false"}):
+            kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertFalse(kwargs["prompt_suggestions"])
+
     def test_build_one_shot_kwargs_includes_fallback_model(self) -> None:
         args = cli_module.parse_args(["-p", "--fallback-model", "backup", "inspect"])
 

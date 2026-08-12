@@ -12,6 +12,16 @@ PERMISSION_MODE_ALIASES = {
     "bypassPermissions": "allow",
 }
 PERMISSION_MODE_CHOICES = ("ask", "allow", "auto", "deny", "dontAsk", "plan", *PERMISSION_MODE_ALIASES)
+BOOLEAN_OPTION_VALUES = {
+    "1": True,
+    "true": True,
+    "yes": True,
+    "on": True,
+    "0": False,
+    "false": False,
+    "no": False,
+    "off": False,
+}
 
 
 def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, positive_decimal) -> None:
@@ -25,6 +35,15 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         "--brief",
         action="store_true",
         help="Enable SendUserMessage so the coding agent can send non-blocking progress updates.",
+    )
+    parser.add_argument(
+        "--prompt-suggestions",
+        nargs="?",
+        const=True,
+        default=False,
+        type=parse_boolean_option,
+        metavar="BOOL",
+        help="Emit a predicted next user prompt after a print-mode coding turn.",
     )
     parser.add_argument(
         "-p",
@@ -201,10 +220,36 @@ def normalize_compat_arguments(args: argparse.Namespace) -> argparse.Namespace:
     return normalize_resume_arguments(args)
 
 
+def normalize_prompt_suggestion_arguments(argv: list[str]) -> list[str]:
+    values = list(argv)
+    index = 0
+    while index < len(values):
+        if values[index] != "--prompt-suggestions":
+            index += 1
+            continue
+        next_value = values[index + 1].strip().lower() if index + 1 < len(values) else None
+        if next_value in BOOLEAN_OPTION_VALUES:
+            values[index] = f"--prompt-suggestions={next_value}"
+            del values[index + 1]
+        else:
+            values[index] = "--prompt-suggestions=true"
+        index += 1
+    return values
+
+
 def normalize_permission_mode(value: str | None) -> str | None:
     if value is None:
         return None
     return PERMISSION_MODE_ALIASES.get(value, value)
+
+
+def parse_boolean_option(value: str | bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = value.strip().lower()
+    if normalized not in BOOLEAN_OPTION_VALUES:
+        raise argparse.ArgumentTypeError("expected true, false, 1, 0, yes, no, on, or off")
+    return BOOLEAN_OPTION_VALUES[normalized]
 
 
 def permission_mode_accepts_edits(value: str | None) -> bool:
