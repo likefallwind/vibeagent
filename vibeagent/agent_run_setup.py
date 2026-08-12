@@ -735,6 +735,13 @@ def _append_sandbox_event(workspace: RunWorkspace, sandbox_config: SandboxConfig
             "allowed_domains": list(sandbox_config.allowed_domains),
             "denied_domains": list(sandbox_config.denied_domains),
             "managed_domains_only": sandbox_config.managed_domains_only,
+            "allow_read": [path.as_posix() for path in sandbox_config.allow_read],
+            "allow_managed_read_paths_only": (
+                sandbox_config.allow_managed_read_paths_only
+            ),
+            "denied_environment_variables": list(
+                sandbox_config.denied_environment_variables
+            ),
             "fail_if_unavailable": sandbox_config.fail_if_unavailable,
             "auto_allow_bash_if_sandboxed": sandbox_config.auto_allow_bash_if_sandboxed,
             "sources": list(sandbox_config.sources),

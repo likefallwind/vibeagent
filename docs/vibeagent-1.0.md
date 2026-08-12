@@ -48,6 +48,13 @@ variables remain unable to use direct host networking. This claim does not
 include dynamic first-domain prompts, WebFetch-rule merging, TLS termination,
 or credential masking.
 
+`VA1-SAFETY` includes specificity-ordered Bubblewrap read rules: trusted
+`allowRead` paths can reopen a narrower path inside a broader `denyRead`, while
+more-specific and exact-tie denies remain authoritative. Endpoint-managed
+`allowManagedReadPathsOnly` filters non-managed read allows without dropping
+denies. Sandboxed Bash also enforces credential `mode: "deny"` for files and
+environment variables. Credential masking remains outside this claim.
+
 `VA1-IDE` also includes Claude-compatible `--ide`: the extension publishes one
 short-lived owner-only descriptor per workspace, and an external CLI invocation
 connects only when exactly one fresh authenticated descriptor matches `--cwd`.

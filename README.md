@@ -2569,8 +2569,13 @@ disabled by default and can be enabled globally through the `sandbox` object in
     "autoAllowBashIfSandboxed": true,
     "filesystem": {
       "allowWrite": ["./build-cache"],
+      "allowRead": ["~/.config/tool/public.json"],
       "denyWrite": ["./fixtures"],
-      "denyRead": ["~/.aws/credentials"]
+      "denyRead": ["~/.config/tool"]
+    },
+    "credentials": {
+      "files": [{"path": "~/.aws/credentials", "mode": "deny"}],
+      "envVars": [{"name": "AWS_SECRET_ACCESS_KEY", "mode": "deny"}]
     },
     "network": {
       "allowedDomains": ["github.com", "*.npmjs.org"],
@@ -2591,13 +2596,21 @@ through the proxy; subprocesses that ignore them remain unable to reach the
 host network. The same launcher applies to finite checks, command batches,
 hooks, and background processes without requiring another relay package.
 
-External `allowWrite` paths, `excludedCommands`, and network `allowedDomains`
+External `allowWrite` paths, `excludedCommands`, filesystem `allowRead`, and network `allowedDomains`
 from user settings are trusted user choices. The same settings from project
 files require explicit project configuration trust. An untrusted project also
 cannot disable a user-enabled sandbox, `failIfUnavailable`, or user-requested
 network isolation.
-`denyWrite` and `denyRead` mounts override the writable project mount. Sandbox
-paths must be exact; glob paths and `allowRead` remain unsupported. Network
+`denyWrite` mounts override writable mounts. `allowRead` and `denyRead` are
+applied from broader to more specific paths, so a specific allow can reopen a
+path under a broader deny and a specific deny can close a path under a broader
+allow; an exact allow/deny tie resolves to deny. Endpoint-managed
+`filesystem.allowManagedReadPathsOnly` filters `allowRead` to managed settings
+while retaining read denies from every source. Credential file entries with
+`mode: "deny"` join `denyRead`, and denied credential environment variables are
+removed only from commands that actually enter the sandbox. Credential
+`mode: "mask"` fails closed because response masking is not implemented.
+Sandbox paths must be exact; glob paths remain unsupported. Network
 domains are normalized through IDNA, support exact hosts and leading `*.`
 wildcards, and `deniedDomains` takes precedence. Endpoint-managed
 `allowManagedDomainsOnly` discards non-managed allows while retaining denies

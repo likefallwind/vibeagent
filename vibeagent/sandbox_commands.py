@@ -41,8 +41,13 @@ def get_sandbox_report(root: str | Path = ".") -> dict[str, object]:
         "sources": list(config.sources),
         "filesystem": {
             "allowWrite": [path.as_posix() for path in config.allow_write],
+            "allowRead": [path.as_posix() for path in config.allow_read],
             "denyWrite": [path.as_posix() for path in config.deny_write],
             "denyRead": [path.as_posix() for path in config.deny_read],
+            "allowManagedReadPathsOnly": config.allow_managed_read_paths_only,
+        },
+        "credentials": {
+            "deniedEnvVars": list(config.denied_environment_variables),
         },
         "excludedCommands": list(config.excluded_commands),
         "error": config.error,
@@ -69,11 +74,21 @@ def format_sandbox_report_text(report: dict[str, object]) -> str:
     ]
     filesystem = report.get("filesystem")
     if isinstance(filesystem, dict):
-        for field in ("allowWrite", "denyWrite", "denyRead"):
+        lines.append(
+            "  allowManagedReadPathsOnly: "
+            f"{'yes' if filesystem.get('allowManagedReadPathsOnly') else 'no'}"
+        )
+        for field in ("allowWrite", "allowRead", "denyWrite", "denyRead"):
             values = filesystem.get(field)
             if isinstance(values, list) and values:
                 lines.append(f"  {field}:")
                 lines.extend(f"    - {value}" for value in values)
+    credentials = report.get("credentials")
+    if isinstance(credentials, dict):
+        denied_environment = credentials.get("deniedEnvVars")
+        if isinstance(denied_environment, list) and denied_environment:
+            lines.append("  deniedCredentialEnvVars:")
+            lines.extend(f"    - {value}" for value in denied_environment)
     network = report.get("network")
     if isinstance(network, dict):
         lines.append(

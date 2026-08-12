@@ -283,6 +283,55 @@ class ManagedSettingsIntegrationTests(unittest.TestCase):
         self.assertTrue(sandbox.network_disabled)
         self.assertTrue(any(source.startswith("managed settings:") for source in sandbox.sources))
 
+    def test_managed_read_lock_filters_project_allows_but_keeps_denies(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-managed-") as managed_base:
+            with tempfile.TemporaryDirectory(prefix="vibeagent-project-") as project_base:
+                managed = Path(managed_base)
+                project = Path(project_base)
+                (project / "managed-public").mkdir()
+                (project / "project-public").mkdir()
+                (project / "secret.txt").write_text("secret", encoding="utf-8")
+                (managed / "managed-settings.json").write_text(
+                    json.dumps(
+                        {
+                            "sandbox": {
+                                "enabled": True,
+                                "filesystem": {
+                                    "allowManagedReadPathsOnly": True,
+                                    "allowRead": ["managed-public"],
+                                },
+                            }
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                (project / ".vibeagent").mkdir()
+                (project / ".vibeagent/sandbox.json").write_text(
+                    json.dumps(
+                        {
+                            "filesystem": {
+                                "allowRead": ["project-public"],
+                                "denyRead": ["secret.txt"],
+                            }
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                workspace = replace(
+                    create_local_workspace(project, "managed-read-lock"),
+                    project_config_trusted=True,
+                )
+                with patch(
+                    "vibeagent.workspace_settings_sources.read_file_managed_settings",
+                    _managed_reader(managed),
+                ):
+                    sandbox = read_workspace_sandbox(workspace)
+
+        self.assertIsNone(sandbox.error)
+        self.assertTrue(sandbox.allow_managed_read_paths_only)
+        self.assertEqual(sandbox.allow_read, ((project / "managed-public").resolve(),))
+        self.assertEqual(sandbox.deny_read, ((project / "secret.txt").resolve(),))
+
     def test_managed_only_permissions_filter_cli_and_project_rules(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-managed-") as managed_base:
             with tempfile.TemporaryDirectory(prefix="vibeagent-project-") as project_base:

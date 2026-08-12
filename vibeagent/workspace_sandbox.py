@@ -10,6 +10,10 @@ from pathlib import Path
 
 from .sandbox_network_policy import normalize_sandbox_domains
 from .workspace_core import RunWorkspace
+from .workspace_sandbox_credentials import (
+    MAX_SANDBOX_CREDENTIAL_ENTRIES,
+    parse_sandbox_credential_denies,
+)
 from .workspace_sandbox_values import (
     MergedSandboxValues,
     ScopedValues,
@@ -43,8 +47,11 @@ class SandboxConfig:
     denied_domains: tuple[str, ...] = ()
     managed_domains_only: bool = False
     allow_write: tuple[Path, ...] = ()
+    allow_read: tuple[Path, ...] = ()
     deny_write: tuple[Path, ...] = ()
     deny_read: tuple[Path, ...] = ()
+    allow_managed_read_paths_only: bool = False
+    denied_environment_variables: tuple[str, ...] = ()
     excluded_commands: tuple[str, ...] = ()
     sources: tuple[str, ...] = ()
     bwrap_path: str | None = None
@@ -71,7 +78,11 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
         "allowedDomains": [],
         "deniedDomains": [],
     }
+    allow_read_values: list[tuple[str, bool, bool]] = []
+    denied_environment_variables: list[str] = []
+    credential_entry_count = 0
     managed_domains_only = False
+    allow_managed_read_paths_only = False
     sources: list[str] = []
     try:
         configs = settings_files_with_project_config(
@@ -126,8 +137,39 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
                                 filesystem[key], config.source, f"filesystem.{key}"
                             )
                         )
-                if filesystem.get("allowRead"):
-                    raise ValueError("sandbox.filesystem.allowRead is not supported yet; refusing partial enforcement.")
+                if "allowRead" in filesystem:
+                    allow_read_values.extend(
+                        (value, config.trusted, config.managed)
+                        for value in parse_sandbox_string_list(
+                            filesystem["allowRead"], config.source, "filesystem.allowRead"
+                        )
+                    )
+                if config.managed and "allowManagedReadPathsOnly" in filesystem:
+                    allow_managed_read_paths_only = sandbox_boolean(
+                        filesystem["allowManagedReadPathsOnly"],
+                        f"{config.source} sandbox.filesystem.allowManagedReadPathsOnly",
+                    )
+                unsupported = set(filesystem) - {
+                    "allowWrite",
+                    "allowRead",
+                    "denyWrite",
+                    "denyRead",
+                    "allowManagedReadPathsOnly",
+                }
+                if unsupported:
+                    names = ", ".join(sorted(str(key) for key in unsupported))
+                    raise ValueError(f"Unsupported sandbox.filesystem setting(s): {names}.")
+            credentials = sandbox.get("credentials")
+            if credentials is not None:
+                credential_files, credential_environment = parse_sandbox_credential_denies(
+                    credentials,
+                    source=config.source,
+                )
+                array_values["denyRead"].extend(
+                    (value, config.trusted) for value in credential_files
+                )
+                denied_environment_variables.extend(credential_environment)
+                credential_entry_count += len(credential_files) + len(credential_environment)
             network = sandbox.get("network")
             if isinstance(network, bool):
                 merged["networkDisabled"] = (not network, config.trusted)
@@ -205,14 +247,36 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
                 "sandbox.network.allowedDomains from project configuration requires "
                 "explicit project configuration trust."
             )
+        effective_allow_read = allow_read_values
+        if allow_managed_read_paths_only:
+            effective_allow_read = [entry for entry in effective_allow_read if entry[2]]
+        if (
+            any(not trusted for _value, trusted, _managed in effective_allow_read)
+            and not workspace.project_config_trusted
+        ):
+            raise ValueError(
+                "sandbox.filesystem.allowRead from project configuration requires "
+                "explicit project configuration trust."
+            )
         allow_write = resolve_sandbox_paths(
             workspace,
             array_values["allowWrite"],
             "allowWrite",
             external_requires_trust=True,
         )
+        allow_read = resolve_sandbox_paths(
+            workspace,
+            [(value, trusted) for value, trusted, _managed in effective_allow_read],
+            "allowRead",
+        )
         deny_write = resolve_sandbox_paths(workspace, array_values["denyWrite"], "denyWrite")
         deny_read = resolve_sandbox_paths(workspace, array_values["denyRead"], "denyRead")
+        denied_environment = tuple(dict.fromkeys(denied_environment_variables))
+        if credential_entry_count > MAX_SANDBOX_CREDENTIAL_ENTRIES:
+            raise ValueError(
+                "sandbox.credentials exceeds "
+                f"{MAX_SANDBOX_CREDENTIAL_ENTRIES} merged entries."
+            )
         scoped_exclusions = deduplicate_scoped_values(array_values["excludedCommands"])
         excluded_commands = tuple(value for value, _trusted in scoped_exclusions)
         if len(excluded_commands) > MAX_SANDBOX_EXCLUDED_COMMANDS:
@@ -234,8 +298,11 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             denied_domains=denied_domains,
             managed_domains_only=managed_domains_only,
             allow_write=allow_write,
+            allow_read=allow_read,
             deny_write=deny_write,
             deny_read=deny_read,
+            allow_managed_read_paths_only=allow_managed_read_paths_only,
+            denied_environment_variables=denied_environment,
             excluded_commands=excluded_commands,
             sources=tuple(sources),
             bwrap_path=bwrap_path,
@@ -263,7 +330,9 @@ def format_workspace_sandbox_for_prompt(workspace: RunWorkspace) -> str:
         f"Command sandbox enabled ({availability}; {network}; "
         f"failIfUnavailable={'true' if config.fail_if_unavailable else 'false'}; "
         f"autoAllowBashIfSandboxed={'true' if config.auto_allow_bash_if_sandboxed else 'false'}). "
-        "Sandboxed commands can write the project and isolated /tmp only, plus trusted allowWrite paths."
+        "Sandboxed commands can write the project and isolated /tmp only, plus trusted allowWrite paths. "
+        f"Read policy has {len(config.allow_read)} exception(s); "
+        f"{len(config.denied_environment_variables)} credential environment variable(s) are removed."
     )
 
 

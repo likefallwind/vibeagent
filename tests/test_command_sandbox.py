@@ -175,8 +175,25 @@ class SandboxConfigTests(unittest.TestCase):
                 {"enabled": True, "network": {"strictAllowlist": False}},
                 "subprocess network prompts are unavailable",
             ),
-            ({"enabled": True, "filesystem": {"allowRead": ["."]}}, "allowRead is not supported"),
             ({"enabled": True, "filesystem": {"denyRead": ["**/.env"]}}, "does not support glob"),
+            (
+                {
+                    "enabled": True,
+                    "credentials": {
+                        "envVars": [{"name": "API_KEY", "mode": "mask"}]
+                    },
+                },
+                "only deny is enforced",
+            ),
+            (
+                {
+                    "enabled": True,
+                    "credentials": {
+                        "envVars": [{"name": "BAD-NAME", "mode": "deny"}]
+                    },
+                },
+                "invalid variable name",
+            ),
         ]
         for payload, expected in cases:
             with self.subTest(payload=payload), tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-") as base:

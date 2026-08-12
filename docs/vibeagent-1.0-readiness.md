@@ -530,6 +530,12 @@ The automated suite currently covers these 1.0 surfaces:
   ignore proxy variables. Local HTTP, CONNECT, denied-host, and real Bubblewrap
   tests cover the execution path. Dynamic first-domain prompts, WebFetch-rule
   merging, TLS termination, and credential masking remain outside this claim.
+- Sandbox read and credential deny policy: specificity-ordered `allowRead` and
+  `denyRead` mounts support narrow read exceptions while exact ties resolve to
+  deny. Endpoint-managed `allowManagedReadPathsOnly` filters non-managed
+  allows, and sandboxed commands deny configured credential files and remove
+  configured credential environment variables. Credential masking remains
+  outside this claim.
 - Reproducible scripting: Claude-compatible `--bare` skips automatic
   instructions, agents, commands, skills, hooks, installed plugins, MCP
   servers, auto-memory, and settings files while retaining built-in tools,

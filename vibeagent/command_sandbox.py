@@ -8,6 +8,7 @@ import uuid
 
 from .command_safety import get_blocked_command_reason
 from .plugin_environment import plugin_command_environment
+from .sandbox_read_mounts import append_sandbox_read_mounts
 from .types import RunCommandAction, RunCommandsAction, StartCommandAction
 from .workspace_core import RunWorkspace
 from .workspace_permissions import wildcard_matches
@@ -113,7 +114,16 @@ def prepare_command_launch(
             return CommandLaunch(command_argv, False, config, environment, error=message)
         network_warning = f"Sandbox warning: {message} Filesystem isolation remains active with host networking."
     external_allow_write = tuple(path for path in config.allow_write if not path.is_relative_to(workspace.root))
-    missing_mounts = [path for path in (*external_allow_write, *config.deny_write, *config.deny_read) if not path.exists()]
+    missing_mounts = [
+        path
+        for path in (
+            *external_allow_write,
+            *config.allow_read,
+            *config.deny_write,
+            *config.deny_read,
+        )
+        if not path.exists()
+    ]
     if missing_mounts:
         paths = ", ".join(path.as_posix() for path in missing_mounts)
         return CommandLaunch(
@@ -159,11 +169,13 @@ def prepare_command_launch(
         sandbox_argv.extend(("--bind", path.as_posix(), path.as_posix()))
     for path in config.deny_write:
         sandbox_argv.extend(("--ro-bind", path.as_posix(), path.as_posix()))
-    for path in config.deny_read:
-        if path.is_dir():
-            sandbox_argv.extend(("--tmpfs", path.as_posix()))
-        else:
-            sandbox_argv.extend(("--ro-bind", "/dev/null", path.as_posix()))
+    append_sandbox_read_mounts(
+        sandbox_argv,
+        allow_read=config.allow_read,
+        deny_read=config.deny_read,
+        writable_roots=(workspace.root, *workspace.additional_roots, *external_allow_write),
+        deny_write=config.deny_write,
+    )
     network_isolated = config.network_disabled and config.network_available
     if network_isolated:
         sandbox_argv.append("--unshare-net")
@@ -202,4 +214,13 @@ def prepare_command_launch(
             "--",
             *sandbox_argv,
         ]
-    return CommandLaunch(tuple(sandbox_argv), True, config, environment, warning=network_warning)
+    sandbox_environment = dict(environment)
+    for name in config.denied_environment_variables:
+        sandbox_environment.pop(name, None)
+    return CommandLaunch(
+        tuple(sandbox_argv),
+        True,
+        config,
+        sandbox_environment,
+        warning=network_warning,
+    )
