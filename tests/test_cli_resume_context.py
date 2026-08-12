@@ -7,9 +7,27 @@ from unittest.mock import Mock, patch
 
 from vibeagent.agent import AgentResult
 from vibeagent.cli import main
+from vibeagent.cli_args import parse_args
+from vibeagent.cli_pull_request_resume import prepare_pull_request_resume
 
 
 class CliResumeContextTests(unittest.TestCase):
+    def test_from_pr_resolves_to_resume_session_before_startup(self) -> None:
+        args = parse_args(["--cwd", "/tmp", "--from-pr", "42"])
+        with patch(
+            "vibeagent.cli_pull_request_resume.resolve_session_from_pull_request",
+            return_value="linked-run",
+        ) as resolve:
+            prepare_pull_request_resume(args)
+
+        self.assertEqual(args.resume, "linked-run")
+        resolve.assert_called_once_with(Path("/tmp").resolve(), "42")
+
+    def test_from_pr_rejects_other_resume_selectors(self) -> None:
+        args = parse_args(["--from-pr", "42", "--resume", "other-run"])
+        with self.assertRaisesRegex(ValueError, "cannot be combined"):
+            prepare_pull_request_resume(args)
+
     def test_main_status_command_reports_local_state_without_creating_client(self) -> None:
         stdout = io.StringIO()
 

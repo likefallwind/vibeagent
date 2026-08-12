@@ -47,6 +47,7 @@ from .cli_background_agent_followup import (
     prepare_background_agent_followup,
     record_background_agent_session_root,
 )
+from .cli_pull_request_resume import prepare_pull_request_resume
 from .background_agent_approval import background_agent_approval_handler
 from .cli_code_intel_local_flags import run_code_intel_local_flag, run_python_local_flag
 from .cli_command_local_flags import run_command_local_flag
@@ -165,6 +166,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if argv is not None:
         args = parse_args(argv)
         try:
+            prepare_pull_request_resume(args)
             prepare_background_agent_followup(args)
         except (OSError, ValueError) as error:
             return print_error_result(

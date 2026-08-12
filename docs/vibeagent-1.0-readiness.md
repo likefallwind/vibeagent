@@ -341,6 +341,9 @@ The automated suite currently covers these 1.0 surfaces:
   source events, independent first-turn workspaces, state inheritance, named
   resume, branch discovery, bounded lineage fallback, and malformed/cyclic
   metadata rejection.
+- Provider-free `--from-pr` resume for strict GitHub, GitLab, and Bitbucket HTTPS
+  URLs plus current-local-GitHub numeric selectors, using successful historical
+  PR-create events, newest-session selection, and fork association inheritance.
 - Interactive and one-shot system-prompt text/file inputs, including bounded
   UTF-8 reads, deterministic structured-input merging, and machine-readable
   validation failures before provider creation.

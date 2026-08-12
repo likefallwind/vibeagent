@@ -18,6 +18,7 @@ from vibeagent.session_handoff_commands import build_session_resume_context
 from vibeagent.session_readiness_commands import get_resume_context
 from vibeagent.session import build_sessions_report, format_sessions
 from vibeagent.session_store import read_session_events
+from vibeagent.session_pull_requests import read_session_pull_requests
 from vibeagent.session_tasks import read_task_store
 from vibeagent.scheduled_task_store import list_scheduled_tasks
 from vibeagent.workspace_core import create_run_workspace
@@ -35,6 +36,19 @@ class SessionBranchingTests(unittest.TestCase):
                 source.session_dir,
                 "task",
                 {"task": "implement auth", "additional_directories": [str(shared.resolve())]},
+            )
+            append_session_event(
+                source.session_dir,
+                "tool_result",
+                {
+                    "name": "github_pr_create",
+                    "result": {
+                        "kind": "github_pr_create",
+                        "ok": True,
+                        "repository": "acme/widgets",
+                        "url": "https://github.com/acme/widgets/pull/42",
+                    },
+                },
             )
             execute_action(
                 source,
@@ -68,6 +82,7 @@ class SessionBranchingTests(unittest.TestCase):
             self.assertEqual(read_task_store(branch.workspace).tasks[0].subject, "Implement auth")
             self.assertEqual(list_scheduled_tasks(branch.workspace).tasks[0].prompt, "check branch")
             self.assertEqual(read_goal(branch.workspace), goal)
+            self.assertEqual(read_session_pull_requests(root, branch.workspace.run_id)[0].number, 42)
             self.assertEqual(restored_dirs.directories, (shared.resolve(),))
             self.assertEqual(resolve_session_reference(root, "try-oauth"), branch.workspace.run_id)
             selected, context, _ = get_resume_context("try-oauth", root)

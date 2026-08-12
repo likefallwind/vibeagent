@@ -19,6 +19,7 @@ from .session_names import (
     normalize_session_name,
     resolve_session_reference,
 )
+from .session_pull_requests import inherit_session_pull_requests
 from .session_store import read_session_events
 from .session_tasks import inherit_task_store
 from .workspace_core import RunWorkspace, create_run_workspace
@@ -120,6 +121,11 @@ def create_session_branch(
             goal_inherited = True
     except (OSError, GoalStateError, ValueError) as error:
         goal_error = str(error)
+    pull_request_error: str | None = None
+    try:
+        inherit_session_pull_requests(target, source_run_id)
+    except (OSError, ValueError) as error:
+        pull_request_error = str(error)
     record_session_additional_directories(root, target.run_id, target.additional_roots)
 
     warnings = (
@@ -130,6 +136,7 @@ def create_session_branch(
                 ("tasks", task_error),
                 ("scheduled tasks", schedule_error),
                 ("goal", goal_error),
+                ("pull requests", pull_request_error),
             )
             if error
         )

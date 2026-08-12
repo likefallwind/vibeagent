@@ -371,6 +371,8 @@ python -m vibeagent --sandbox-status --cwd ../my-project
 python -m vibeagent --chat "explain this repository at a high level"
 python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-commands 5 --resume-max-checks 20 "continue the previous change"
 python -m vibeagent --resume <run-id> --fork-session "try a different implementation"
+python -m vibeagent --from-pr 42 "continue work associated with pull request 42"
+python -m vibeagent --from-pr https://github.com/example/project/pull/42 --fork-session "try a different fix"
 python -m vibeagent --name auth-refactor "implement the authentication refactor"
 python -m vibeagent --session-id <run-id> "continue the previous change"
 python -m vibeagent --session-id latest "continue the latest session"
@@ -2038,8 +2040,12 @@ that are still pending or failed are listed by command. Each coding turn records
 The CLI automatically uses the latest run as compact context for the next coding
 turn; `--resume [run-id]`, `--session-id [run-id|latest]` on one-shot tasks,
 and `/resume [run-id|latest]` in the interactive prompt continue the selected
-Session ID with a bounded historical resume context, while
-`--compact [run-id]` and `/compact [run-id]` load the same compact handoff
+Session ID with a bounded historical resume context. `--from-pr PR` resolves a
+positive PR number against the current local GitHub repository, or accepts a
+strict GitHub/GitLab/Bitbucket HTTPS PR URL, then resumes the newest local
+session whose successful `github_pr_create` result recorded that identity. It
+does not contact the hosting service, and `--fork-session` preserves the link
+on the new branch. `--compact [run-id]` and `/compact [run-id]` load the same compact handoff
 context explicitly. Both one-shot forms accept `--resume-max-failures`,
 `--resume-max-files`, `--resume-max-commands`, `--resume-max-checks`,
 `--resume-max-output-chars`, `--resume-max-text` and the matching

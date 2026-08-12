@@ -53,6 +53,11 @@ def add_one_shot_arguments(
         metavar="RUN_ID",
         help="Claude-compatible alias for --resume RUN_ID on one-shot coding tasks. Use latest for the newest session.",
     )
+    parser.add_argument(
+        "--from-pr",
+        metavar="PR",
+        help="Resume the newest local session linked to a PR number or GitHub, GitLab, or Bitbucket PR URL.",
+    )
     parser.add_argument("--resume-max-failures", type=positive_int, metavar="N", help="Maximum failure entries in --resume context.")
     parser.add_argument("--resume-max-files", type=positive_int, metavar="N", help="Maximum file references in --resume context.")
     parser.add_argument("--resume-max-commands", type=positive_int, metavar="N", help="Maximum command results in --resume context.")
