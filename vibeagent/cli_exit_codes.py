@@ -24,6 +24,8 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "model",
         "auto_mode_defaults",
         "auto_mode_config",
+        "auto_mode_critique",
+        "auto_mode_reset",
         "version",
         "tool",
         "tool_search",

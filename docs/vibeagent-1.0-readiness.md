@@ -362,6 +362,12 @@ The automated suite currently covers these 1.0 surfaces:
 - Interactive permission-mode cycling with real `acceptEdits` rules and
   startup-gated `bypassPermissions` availability across local commands,
   PermissionRequest hooks, resumed workspaces, and background handoff.
+- Claude-compatible Auto Mode management: trusted user and explicit invocation
+  rules with project-injection exclusion, `$defaults` expansion,
+  `classifyAllShell`, main/subagent classifier enforcement, provider-free
+  defaults/config inspection, tool-free model critique that validates findings
+  against exact custom rules, and confirmation-gated user-settings reset that
+  preserves unrelated content and rejects symlinks or concurrent changes.
 - Interactive and one-shot additional working directories, including
   invocation-relative CLI resolution, model-visible absolute roots, core file
   and command execution, configuration isolation, sandbox mounts, and rejection

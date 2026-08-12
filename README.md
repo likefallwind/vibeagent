@@ -676,12 +676,22 @@ python -m vibeagent auto-mode defaults
 python -m vibeagent auto-mode defaults --label destructive
 python -m vibeagent auto-mode config --cwd ../my-project --json
 python -m vibeagent auto-mode config --settings ./review-settings.json
+python -m vibeagent auto-mode critique --settings ./review-settings.json
+python -m vibeagent auto-mode reset
+python -m vibeagent auto-mode reset --yes --json
 ```
 
 Hard-deny guidance remains unconditional; an allow rule can override matching
 soft-deny guidance, and exact user intent can override a remaining soft deny.
 Classifier context includes redacted conversation text and assistant tool calls,
-but never tool results.
+but never tool results. `critique` sends only custom `allow`, `soft_deny`, and
+`hard_deny` rules to the configured model, validates structured feedback against
+the exact submitted rules, and skips the model when there is nothing custom to
+review. `reset` summarizes and removes only `autoMode` from
+`~/.claude/settings.json`, preserves every other setting and file mode, rejects
+symbolic links or a concurrent file change, and requires confirmation unless
+`--yes` is present. Invocation-scoped rules remain effective because reset does
+not modify `--settings` or any non-user source.
 For unattended policy decisions, `-p --permission-prompt-tool MCP_TOOL` delegates
 only unresolved `ask` or `auto` prompts to an advertised MCP tool. References may
 use `mcp__SERVER__TOOL`, `SERVER/TOOL`, or a bare name that is unique across all

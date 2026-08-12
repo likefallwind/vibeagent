@@ -22,7 +22,7 @@ class CliCommandDispatchTests(unittest.TestCase):
         self.assertIn("parse_local_command", cli_command_namespace.__all__)
 
     def test_cli_command_namespace_uses_public_command_exports_only(self) -> None:
-        self.assertEqual(len(commands_module.__all__), 573)
+        self.assertEqual(len(commands_module.__all__), 577)
         self.assertEqual(command_export_names(commands_module), commands_module.__all__)
         self.assertEqual(command_export_names(commands_module), cli_command_namespace.__all__)
         self.assertIn("get_agents_text", cli_command_namespace.__all__)

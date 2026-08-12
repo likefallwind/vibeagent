@@ -49,7 +49,7 @@ def run_local_flag(args: argparse.Namespace, command_namespace: dict[str, Any]) 
         else:
             provider_env = (
                 {}
-                if args.auto_mode_defaults or args.auto_mode_config
+                if args.auto_mode_defaults or args.auto_mode_config or args.auto_mode_reset
                 else build_provider_env(args, config_root)
             )
             if (flag_result := dispatch_local_flag(args, project_root, config_root, provider_env, command_namespace)) is not None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from . import (
     check_commands as _check_commands,
     auto_mode_config as _auto_mode_config,
+    auto_mode_management as _auto_mode_management,
     command_parsing as _command_parsing,
     config_commands as _config_commands,
     edit_commands as _edit_commands,
@@ -34,6 +35,7 @@ from .tool_commands import APPROVAL_REQUIRED_TOOL_NAMES
 
 COMMAND_EXPORT_MODULES = (
     _auto_mode_config,
+    _auto_mode_management,
     _check_commands,
     _command_parsing,
     _config_commands,

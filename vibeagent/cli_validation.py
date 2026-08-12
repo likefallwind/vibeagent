@@ -21,6 +21,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
     compat_error = getattr(args, "compat_error", None)
     if compat_error is not None:
         return compat_error
+    if args.auto_mode_command_error is not None:
+        return args.auto_mode_command_error
     if args.safe_mode and args.bare:
         return "--safe-mode and --bare cannot be combined."
     if args.betas:
@@ -36,6 +38,10 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         args.auto_mode_defaults or args.auto_mode_config
     ):
         return "--auto-mode-label/--label requires auto-mode defaults or auto-mode config."
+    if args.auto_mode_yes and not args.auto_mode_reset:
+        return "--auto-mode-yes/--yes requires auto-mode reset."
+    if args.auto_mode_reset and args.json and not args.auto_mode_yes:
+        return "auto-mode reset with JSON output requires --yes."
     if args.safe_mode and (args.agent is not None or args.agents is not None):
         return "--safe-mode cannot be combined with --agent or --agents."
     if args.safe_mode and (args.mcp_config or args.strict_mcp_config):

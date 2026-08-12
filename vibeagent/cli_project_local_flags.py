@@ -73,6 +73,35 @@ def run_project_local_flag(
                 )
             ),
         )
+    if args.auto_mode_critique:
+        critique_kwargs = {
+            "setting_sources": (
+                () if args.bare else parse_setting_sources(args.setting_sources)
+            ),
+            "settings_override_json": parse_invocation_settings(
+                args.settings, invocation_root=Path.cwd()
+            ),
+            "bare_mode": args.bare,
+        }
+        return local_text_or_report(
+            args,
+            "autoModeCritique",
+            lambda: commands["get_auto_mode_critique_report"](
+                root, provider_env, **critique_kwargs
+            ),
+            commands["format_auto_mode_critique_text"],
+            lambda: commands["format_auto_mode_critique_text"](
+                commands["get_auto_mode_critique_report"](
+                    root, provider_env, **critique_kwargs
+                )
+            ),
+        )
+    if args.auto_mode_reset:
+        report = commands["get_auto_mode_reset_report"](yes=args.auto_mode_yes)
+        return (
+            commands["format_auto_mode_reset_text"](report),
+            {"autoModeReset": report} if args.json else {},
+        )
     if args.model is True:
         return local_text_or_report(
             args,
