@@ -47,6 +47,15 @@ def get_sandbox_report(root: str | Path = ".") -> dict[str, object]:
             "denyWrite": [path.as_posix() for path in config.deny_write],
             "denyRead": [path.as_posix() for path in config.deny_read],
             "allowManagedReadPathsOnly": config.allow_managed_read_paths_only,
+            "permissionAllowWrite": [
+                path.as_posix() for path in config.permission_allow_write
+            ],
+            "permissionDenyWrite": [
+                path.as_posix() for path in config.permission_deny_write
+            ],
+            "permissionDenyRead": [
+                path.as_posix() for path in config.permission_deny_read
+            ],
         },
         "credentials": {
             "deniedEnvVars": list(config.denied_environment_variables),
@@ -81,7 +90,15 @@ def format_sandbox_report_text(report: dict[str, object]) -> str:
             "  allowManagedReadPathsOnly: "
             f"{'yes' if filesystem.get('allowManagedReadPathsOnly') else 'no'}"
         )
-        for field in ("allowWrite", "allowRead", "denyWrite", "denyRead"):
+        for field in (
+            "allowWrite",
+            "allowRead",
+            "denyWrite",
+            "denyRead",
+            "permissionAllowWrite",
+            "permissionDenyWrite",
+            "permissionDenyRead",
+        ):
             values = filesystem.get(field)
             if isinstance(values, list) and values:
                 lines.append(f"  {field}:")

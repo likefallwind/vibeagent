@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .sandbox_network_policy import normalize_sandbox_domains
 from .sandbox_permission_domains import sandbox_webfetch_allow_domains
+from .sandbox_permission_paths import SandboxPermissionPaths, sandbox_permission_paths
 from .workspace_core import RunWorkspace
 from .workspace_permissions import read_project_permissions
 from .workspace_sandbox_credentials import (
@@ -49,6 +50,9 @@ class SandboxConfig:
     allowed_domains: tuple[str, ...] = ()
     denied_domains: tuple[str, ...] = ()
     permission_allowed_domains: tuple[str, ...] = ()
+    permission_allow_write: tuple[Path, ...] = ()
+    permission_deny_write: tuple[Path, ...] = ()
+    permission_deny_read: tuple[Path, ...] = ()
     managed_domains_only: bool = False
     allow_write: tuple[Path, ...] = ()
     allow_read: tuple[Path, ...] = ()
@@ -260,6 +264,35 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
         permission_allowed_domains = tuple(
             dict.fromkeys((*static_permission_domains, *runtime_permission_domains))
         )
+        static_permission_paths = (
+            sandbox_permission_paths(workspace, permissions)
+            if permissions.error is None
+            else SandboxPermissionPaths()
+        )
+        permission_allow_write = tuple(
+            dict.fromkeys(
+                (
+                    *static_permission_paths.allow_write,
+                    *workspace.sandbox_permission_allow_write,
+                )
+            )
+        )
+        permission_deny_write = tuple(
+            dict.fromkeys(
+                (
+                    *static_permission_paths.deny_write,
+                    *workspace.sandbox_permission_deny_write,
+                )
+            )
+        )
+        permission_deny_read = tuple(
+            dict.fromkeys(
+                (
+                    *static_permission_paths.deny_read,
+                    *workspace.sandbox_permission_deny_read,
+                )
+            )
+        )
         allowed_domains = normalize_sandbox_domains(
             [
                 *(value for value, _trusted, _managed in allowed_entries),
@@ -296,6 +329,7 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             "allowWrite",
             external_requires_trust=True,
         )
+        allow_write = tuple(dict.fromkeys((*allow_write, *permission_allow_write)))
         allow_read = resolve_sandbox_paths(
             workspace,
             [(value, trusted) for value, trusted, _managed in effective_allow_read],
@@ -303,6 +337,8 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
         )
         deny_write = resolve_sandbox_paths(workspace, array_values["denyWrite"], "denyWrite")
         deny_read = resolve_sandbox_paths(workspace, array_values["denyRead"], "denyRead")
+        deny_write = tuple(dict.fromkeys((*deny_write, *permission_deny_write)))
+        deny_read = tuple(dict.fromkeys((*deny_read, *permission_deny_read)))
         denied_environment = tuple(dict.fromkeys(denied_environment_variables))
         if credential_entry_count > MAX_SANDBOX_CREDENTIAL_ENTRIES:
             raise ValueError(
@@ -330,6 +366,9 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             allowed_domains=allowed_domains,
             denied_domains=denied_domains,
             permission_allowed_domains=permission_allowed_domains,
+            permission_allow_write=permission_allow_write,
+            permission_deny_write=permission_deny_write,
+            permission_deny_read=permission_deny_read,
             managed_domains_only=managed_domains_only,
             allow_write=allow_write,
             allow_read=allow_read,

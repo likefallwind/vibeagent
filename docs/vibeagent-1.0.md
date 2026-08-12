@@ -65,6 +65,13 @@ can be targeted by `Bash(dangerouslyDisableSandbox:true)` rules. Trusted
 `allowUnsandboxedCommands: false` policy keeps the same request sandboxed and
 cannot be weakened by an untrusted project.
 
+`VA1-SAFETY` merges file permission rules into Bubblewrap enforcement. Trusted
+`Edit(PATH)` allow rules add writable mounts, while effective `Edit(PATH)` and
+`Read(PATH)` denies add write and read blocks for Bash and child processes.
+Claude path prefixes, current-filesystem gitignore glob expansion, recursive
+directory roots, managed-only permission filtering, expansion bounds, and
+symlink-target denial are enforced before each command.
+
 `VA1-IDE` also includes Claude-compatible `--ide`: the extension publishes one
 short-lived owner-only descriptor per workspace, and an external CLI invocation
 connects only when exactly one fresh authenticated descriptor matches `--cwd`.

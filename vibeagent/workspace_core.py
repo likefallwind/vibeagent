@@ -45,6 +45,9 @@ class RunWorkspace:
     invocation_plugin_dirs: tuple[Path, ...] = ()
     permission_prompt_tool: str | None = None
     sandbox_permission_domains: tuple[str, ...] = ()
+    sandbox_permission_allow_write: tuple[Path, ...] = ()
+    sandbox_permission_deny_write: tuple[Path, ...] = ()
+    sandbox_permission_deny_read: tuple[Path, ...] = ()
     session_persistent: bool = True
 
 

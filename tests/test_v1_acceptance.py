@@ -452,6 +452,15 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("Bash(dangerouslyDisableSandbox:true)", readme)
         self.assertIn("never sandbox-auto-approved", readme)
 
+    def test_readme_documents_permission_backed_sandbox_paths(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("File permission rules also feed the OS boundary", readme)
+        self.assertIn("`Edit(PATH)` allow rules", readme)
+        self.assertIn("`Read(PATH)` deny rules", readme)
+        self.assertIn("Gitignore-style", readme)
+        self.assertIn("Expansion above 500 paths fails closed", readme)
+
     def test_acceptance_plan_links_to_readiness_audit(self) -> None:
         plan = PLAN_PATH.read_text(encoding="utf-8")
 

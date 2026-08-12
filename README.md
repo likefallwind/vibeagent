@@ -2611,8 +2611,8 @@ while retaining read denies from every source. Credential file entries with
 `mode: "deny"` join `denyRead`, and denied credential environment variables are
 removed only from commands that actually enter the sandbox. Credential
 `mode: "mask"` fails closed because response masking is not implemented.
-Sandbox paths must be exact; glob paths remain unsupported. Network
-domains are normalized through IDNA, support exact hosts and leading `*.`
+Explicit `sandbox.filesystem` paths must be exact; glob paths remain unsupported
+there. Network domains are normalized through IDNA, support exact hosts and leading `*.`
 wildcards, and `deniedDomains` takes precedence. Endpoint-managed
 `allowManagedDomainsOnly` discards non-managed allows while retaining denies
 from every source. VibeAgent currently enforces a strict allowlist: explicit
@@ -2630,6 +2630,17 @@ terminate TLS, so its hostname decision has the same domain-fronting limitation
 as other non-terminating sandbox proxies. If Bubblewrap or network namespaces
 are unavailable, `failIfUnavailable: true` blocks execution; otherwise VibeAgent records a
 warning and falls back to unsandboxed execution or filesystem-only isolation.
+File permission rules also feed the OS boundary. Trusted
+`Edit(PATH)` allow rules join `filesystem.allowWrite`; `Edit(PATH)` deny rules
+from every effective source join `denyWrite`; and `Read(PATH)` deny rules join
+`denyRead`. Permission paths use Claude's `//absolute`, `~/home`,
+`/project-relative`, and bare project-relative prefixes. Gitignore-style
+globs are expanded against the current filesystem before every command, while a
+trailing `/**` binds the directory root so existing and future descendants stay
+covered. Expansion above 500 paths fails closed. A symlink matched by an allow
+rule does not widen access to an unmatched target; deny rules resolve and
+protect the target. `allowManagedPermissionRulesOnly` filters these merged
+paths through the same effective permission rule set.
 Permission deny/ask rules and command hard blocks still apply; commands that do
 not meet strict auto-approval qualification use the normal approval flow.
 `allowUnsandboxedCommands` defaults to `true`. After a command fails because of

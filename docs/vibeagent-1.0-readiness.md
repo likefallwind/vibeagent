@@ -544,6 +544,11 @@ The automated suite currently covers these 1.0 surfaces:
   targeted `Bash(dangerouslyDisableSandbox:true)` rules. Trusted
   `allowUnsandboxedCommands: false` policy ignores the request and cannot be
   weakened by an untrusted project.
+- Permission-backed filesystem isolation: trusted `Edit(PATH)` allows join
+  sandbox writable mounts, and effective `Edit(PATH)`/`Read(PATH)` denies become
+  OS-level write/read blocks for Bash subprocesses. Claude path prefixes,
+  bounded gitignore glob expansion, recursive roots, managed-only filtering,
+  and symlink-target denial are covered by focused and real Bubblewrap tests.
 - Reproducible scripting: Claude-compatible `--bare` skips automatic
   instructions, agents, commands, skills, hooks, installed plugins, MCP
   servers, auto-memory, and settings files while retaining built-in tools,

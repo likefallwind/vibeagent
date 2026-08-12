@@ -30,6 +30,7 @@ from .powershell_runtime import powershell_tool_availability
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .sandbox_permission_domains import sandbox_webfetch_allow_domains
+from .sandbox_permission_paths import sandbox_permission_paths
 from .session_tasks import inherit_task_store
 from .session_machine_index import try_register_machine_session
 from .session_environment import (
@@ -180,6 +181,7 @@ def prepare_agent_run(
         main_profile.permission_mode,
     )
     preliminary_sandbox = read_workspace_sandbox(current_workspace)
+    permission_paths = sandbox_permission_paths(current_workspace, project_permissions)
     current_workspace = replace(
         current_workspace,
         sandbox_permission_domains=sandbox_webfetch_allow_domains(
@@ -187,6 +189,9 @@ def prepare_agent_run(
             project_config_trusted=current_workspace.project_config_trusted,
             managed_only=preliminary_sandbox.managed_domains_only,
         ),
+        sandbox_permission_allow_write=permission_paths.allow_write,
+        sandbox_permission_deny_write=permission_paths.deny_write,
+        sandbox_permission_deny_read=permission_paths.deny_read,
     )
     permission_denied_tool_names = globally_denied_tool_names(project_permissions)
     main_profile = apply_tool_ceiling(
@@ -749,6 +754,15 @@ def _append_sandbox_event(workspace: RunWorkspace, sandbox_config: SandboxConfig
             "denied_domains": list(sandbox_config.denied_domains),
             "managed_domains_only": sandbox_config.managed_domains_only,
             "allow_read": [path.as_posix() for path in sandbox_config.allow_read],
+            "permission_allow_write": [
+                path.as_posix() for path in sandbox_config.permission_allow_write
+            ],
+            "permission_deny_write": [
+                path.as_posix() for path in sandbox_config.permission_deny_write
+            ],
+            "permission_deny_read": [
+                path.as_posix() for path in sandbox_config.permission_deny_read
+            ],
             "allow_managed_read_paths_only": (
                 sandbox_config.allow_managed_read_paths_only
             ),

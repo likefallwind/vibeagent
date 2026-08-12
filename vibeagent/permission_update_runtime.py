@@ -13,6 +13,7 @@ from .agent_profile_permissions import PROFILE_ACCEPT_EDITS_RULES
 from .cli_additional_directories import MAX_ADDITIONAL_DIRECTORIES
 from .types import ApprovalPolicy
 from .sandbox_permission_domains import sandbox_webfetch_allow_domains
+from .sandbox_permission_paths import sandbox_permission_paths
 from .user_paths import user_home
 from .workspace_core import RunWorkspace, normalize_additional_roots
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
@@ -155,6 +156,10 @@ def apply_permission_updates(
         auto_mode_disabled=permissions.auto_mode_disabled,
     )
     sandbox = read_workspace_sandbox(effective_workspace)
+    permission_paths = sandbox_permission_paths(
+        effective_workspace,
+        effective_permissions,
+    )
     effective_workspace = replace(
         effective_workspace,
         sandbox_permission_domains=sandbox_webfetch_allow_domains(
@@ -162,6 +167,9 @@ def apply_permission_updates(
             project_config_trusted=effective_workspace.project_config_trusted,
             managed_only=sandbox.managed_domains_only,
         ),
+        sandbox_permission_allow_write=permission_paths.allow_write,
+        sandbox_permission_deny_write=permission_paths.deny_write,
+        sandbox_permission_deny_read=permission_paths.deny_read,
     )
     return PermissionUpdateApplication(
         effective_workspace,
