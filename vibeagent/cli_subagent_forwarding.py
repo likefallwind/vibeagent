@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -9,15 +10,22 @@ from .cli_stream_output import JsonEventStream
 
 
 class SubagentStreamForwarder:
-    def __init__(self, stream: JsonEventStream, *, enabled: bool = False) -> None:
+    def __init__(
+        self,
+        stream: JsonEventStream,
+        *,
+        enabled: bool = False,
+        fallback: Callable[[Path, dict[str, Any]], None] | None = None,
+    ) -> None:
         self.stream = stream
         self.enabled = enabled
+        self.fallback = fallback or stream.session_event
         self._parent_tool_ids: dict[str, str] = {}
         self._lock = Lock()
 
     def __call__(self, session_dir: Path, event: dict[str, Any]) -> None:
         with self._lock:
-            self.stream.session_event(session_dir, event)
+            self.fallback(session_dir, event)
             if not self.enabled:
                 return
             event_type = event.get("type")

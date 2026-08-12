@@ -815,6 +815,16 @@ monotonically increasing `sequence`, `runId`, matching `sessionId` and
 followed by exactly one `type: "result"` record containing the normal code or
 chat result, including `schemaVersion` and `version`, with final text available
 as both `message` and `result`.
+Coding streams also emit one top-level `type: "system", subtype: "init"`
+record after the effective tool catalog is known and before the first model
+request. It contains bounded provider/model, tool, permission-mode, configured
+MCP-server, enabled-plugin, and protocol-capability metadata without credentials.
+Retryable model failures emit `type: "system", subtype: "api_retry"` before
+their durable raw `model_error` event, with the attempt, configured retry limit,
+delay, normalized error category, optional HTTP status, reason, and event UUID.
+Metadata discovery failures are reported as bounded redacted init errors and do
+not stop the coding run. Existing `type: "event"` records remain unchanged for
+consumers that use the lower-level session-event protocol.
 Explicit `-p --include-partial-messages` additionally emits each provider SSE
 event as a `type: "stream_event"` record before the final result. Coding records
 include the session identifiers, model iteration, and retry attempt; chat

@@ -40,6 +40,30 @@ class JsonEventStream:
     def result(self, payload: dict[str, object]) -> None:
         self.emit({"type": "result", **payload})
 
+    def system_init(self, session_dir: Path, payload: dict[str, object]) -> None:
+        self.emit(
+            {
+                "type": "system",
+                "subtype": "init",
+                "runId": session_dir.name,
+                "sessionId": session_dir.name,
+                "session_id": session_dir.name,
+                **payload,
+            }
+        )
+
+    def api_retry(self, session_dir: Path, payload: dict[str, object]) -> None:
+        self.emit(
+            {
+                "type": "system",
+                "subtype": "api_retry",
+                "runId": session_dir.name,
+                "sessionId": session_dir.name,
+                "session_id": session_dir.name,
+                **payload,
+            }
+        )
+
     def user_message(self, session_dir: Path, text: str) -> None:
         self.emit(
             {

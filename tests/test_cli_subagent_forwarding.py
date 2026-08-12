@@ -85,6 +85,28 @@ class SubagentStreamForwarderTests(unittest.TestCase):
         self.assertEqual(record["parent_tool_use_id"], "orphan-agent")
         self.assertTrue(record["message"]["content"][0]["is_error"])
 
+    def test_delegates_source_event_to_custom_fallback_before_forwarded_text(self) -> None:
+        output = io.StringIO()
+        stream = JsonEventStream(output)
+        source_events: list[tuple[Path, dict[str, object]]] = []
+        session_dir = Path("/sessions/run-1")
+        forward = SubagentStreamForwarder(
+            stream,
+            enabled=True,
+            fallback=lambda path, event: source_events.append((path, event)),
+        )
+        event = {
+            "type": "subagent_model",
+            "subagent_id": "agent-1",
+            "content": [{"type": "text", "text": "done"}],
+        }
+
+        forward(session_dir, event)
+
+        self.assertEqual(source_events, [(session_dir, event)])
+        records = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual([record["type"] for record in records], ["assistant"])
+
 
 if __name__ == "__main__":
     unittest.main()

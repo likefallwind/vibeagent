@@ -5,12 +5,13 @@ from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 
+from .cli_stream_protocol import StreamSessionObserver
 from .cli_stream_output import JsonEventStream
 from .cli_subagent_forwarding import SubagentStreamForwarder
-from .session_event_observers import observe_session_events
-from .workspace_core import RunWorkspace, create_run_workspace
 from .debug_runtime import combine_event_observers
+from .session_event_observers import observe_session_events
 from .session_event_observers import SessionEventObserver
+from .workspace_core import RunWorkspace, create_run_workspace
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,7 @@ def build_one_shot_stream_scope(
     workspace: RunWorkspace | None = None,
     forward_subagent_text: bool = False,
     event_observer: SessionEventObserver | None = None,
+    provider_env: dict[str, str | None] | None = None,
     create_workspace_func: Callable[..., RunWorkspace] = create_run_workspace,
     observe_events_func: Callable[..., AbstractContextManager[None]] = observe_session_events,
 ) -> OneShotStreamScope:
@@ -58,11 +60,18 @@ def build_one_shot_stream_scope(
     if additional_roots:
         workspace_kwargs["additional_roots"] = additional_roots
     workspace = workspace or create_workspace_func(project_root, **workspace_kwargs)
-    stream_observer = (
-        SubagentStreamForwarder(stream, enabled=True)
-        if stream is not None and forward_subagent_text
-        else (stream.session_event if stream is not None else None)
-    )
+    stream_observer = None
+    if stream is not None:
+        base_observer: SessionEventObserver = (
+            StreamSessionObserver(stream, workspace, provider_env)
+            if provider_env is not None
+            else stream.session_event
+        )
+        stream_observer = (
+            SubagentStreamForwarder(stream, enabled=True, fallback=base_observer)
+            if forward_subagent_text
+            else base_observer
+        )
     observer = combine_event_observers(stream_observer, event_observer)
     event_scope = (
         observe_events_func(

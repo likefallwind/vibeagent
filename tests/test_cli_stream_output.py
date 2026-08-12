@@ -41,6 +41,17 @@ class StreamingTextClient(TextClient):
         return self.complete(messages, tools, max_tokens, temperature, timeout_ms)
 
 
+class RetryThenTextClient(TextClient):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
+        self.calls += 1
+        if self.calls == 1:
+            raise RuntimeError("rate limit")
+        return super().complete(messages, tools, max_tokens, temperature, timeout_ms)
+
+
 class SequenceClient:
     def __init__(self, responses: list[list[dict[str, object]]]) -> None:
         self.responses = responses
@@ -471,6 +482,15 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual([record["sequence"] for record in records], list(range(1, len(records) + 1)))
         self.assertEqual(event_types[0], "task")
         self.assertIn("tool_catalog_initialized", event_types)
+        init_records = [
+            record for record in records
+            if record["type"] == "system" and record.get("subtype") == "init"
+        ]
+        self.assertEqual(len(init_records), 1)
+        self.assertLess(records.index(init_records[0]), records.index(next(
+            record for record in event_records if record["event"]["type"] == "model"
+        )))
+        self.assertIn("Read", init_records[0]["tools"])
         self.assertLess(event_types.index("model"), event_types.index("result"))
         self.assertTrue(all(record["schemaVersion"] == MACHINE_OUTPUT_SCHEMA_VERSION for record in event_records))
         self.assertTrue(all(record["version"] == __version__ for record in event_records))
@@ -498,6 +518,44 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertTrue(all(record["runId"] == final["runId"] for record in event_records))
         self.assertTrue(all(record["sessionId"] == final["sessionId"] for record in event_records))
         self.assertTrue(all(record["session_id"] == final["session_id"] for record in event_records))
+
+    def test_real_agent_emits_api_retry_before_raw_error_then_completes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-stream-retry-") as base:
+            stdout = io.StringIO()
+            client = RetryThenTextClient()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--output-format", "stream-json",
+                        "--model-retries", "1",
+                        "--model-retry-delay-ms", "0",
+                        "--cwd", base,
+                        "inspect", "project",
+                    ]
+                )
+
+        records = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        retry_index = next(
+            index for index, record in enumerate(records)
+            if record["type"] == "system" and record.get("subtype") == "api_retry"
+        )
+        error_index = next(
+            index for index, record in enumerate(records)
+            if record["type"] == "event" and record["event"]["type"] == "model_error"
+        )
+        retry = records[retry_index]
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(client.calls, 2)
+        self.assertLess(retry_index, error_index)
+        self.assertEqual(retry["attempt"], 1)
+        self.assertEqual(retry["max_retries"], 1)
+        self.assertEqual(retry["retry_delay_ms"], 0)
+        self.assertEqual(retry["error"], "rate_limit")
+        self.assertEqual(records[-1]["status"], "completed")
 
     def test_stream_json_disables_interactive_handlers_by_default(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-stream-") as base:

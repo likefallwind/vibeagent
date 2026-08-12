@@ -124,6 +124,7 @@ def complete_with_retries(
                     **({"retry_reason": retry_reason} if retry_reason else {}),
                     **({"context_recovery_error": context_recovery_error} if context_recovery_error else {}),
                     "error_type": type(error).__name__,
+                    "error": last_message.error,
                     "message": last_message,
                     **terminal_model_error_event_details(error),
                     **fallback_model_error_event_details(error),

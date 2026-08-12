@@ -215,6 +215,7 @@ def run_one_shot_code(
         workspace=resumed_workspace,
         forward_subagent_text=forward_subagent_text,
         event_observer=(debug_runtime.observe_event if debug_runtime.enabled else None),
+        provider_env=provider_env,
     )
     resolved_permission_prompt_tool = None
     if permission_prompt_tool is not None:
