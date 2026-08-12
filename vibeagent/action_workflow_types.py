@@ -72,6 +72,12 @@ class AskUserAction:
 
 
 @dataclass(frozen=True)
+class SendUserMessageAction:
+    type: Literal["send_user_message"]
+    message: str
+
+
+@dataclass(frozen=True)
 class DelegateTaskAction:
     type: Literal["delegate_task"]
     task: str

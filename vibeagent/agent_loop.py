@@ -49,6 +49,7 @@ from .agent_tool_registry import (
     activate_tools_from_observations,
     agent_tool_definitions,
 )
+from .action_tool_aliases import tool_name_candidates, tool_name_is_restricted
 from .agent_workspace_transition import apply_workspace_transition
 from .session_conversation import checkpoint_session_conversation
 from .session_tasks import read_task_plan
@@ -157,6 +158,11 @@ def run_agent_loop(
         if (
             setup.approval_policy_locked
             and getattr(action, "type", None) == "exit_plan_mode"
+        ):
+            return False
+        if any(
+            tool_name_is_restricted(setup.excluded_tool_names, candidate)
+            for candidate in tool_name_candidates(name, action)
         ):
             return False
         return setup.main_profile.allows_tool_call(name, action)
@@ -458,7 +464,7 @@ def run_agent_loop(
             0,
             source="deferred_resume",
             approval_policy=plan_mode.current_policy,
-            excluded_names=setup.main_profile.disallowed_tool_names,
+            excluded_names=setup.excluded_tool_names,
             allowed_names=setup.main_profile.allowed_tool_names,
         )
         available_names = {
@@ -466,7 +472,7 @@ def run_agent_loop(
             for tool in agent_tool_definitions(
                 active_tool_names,
                 plan_mode.current_policy,
-                excluded_names=setup.main_profile.disallowed_tool_names,
+                excluded_names=setup.excluded_tool_names,
                 allowed_names=setup.main_profile.allowed_tool_names,
             )
         }
@@ -496,7 +502,7 @@ def run_agent_loop(
                 should_auto_checkpoint_before_action_func=runtime.should_auto_checkpoint_before_action,
                 create_auto_checkpoint_before_action_func=create_checkpoint_before_action,
                 tool_call_allowed=tool_call_allowed,
-                excluded_tool_names=setup.main_profile.disallowed_tool_names,
+                excluded_tool_names=setup.excluded_tool_names,
                 allowed_tool_names=setup.main_profile.allowed_tool_names,
                 tool_ceiling_names=setup.tool_ceiling_names,
                 defer_tool_calls=defer_tool_calls,
@@ -623,7 +629,7 @@ def run_agent_loop(
             tools=agent_tool_definitions(
                 active_tool_names,
                 plan_mode.current_policy,
-                excluded_names=setup.main_profile.disallowed_tool_names,
+                excluded_names=setup.excluded_tool_names,
                 allowed_names=setup.main_profile.allowed_tool_names,
             ),
             max_output_tokens=max_output_tokens,
@@ -708,7 +714,7 @@ def run_agent_loop(
             iteration,
             source="model_call",
             approval_policy=plan_mode.current_policy,
-            excluded_names=setup.main_profile.disallowed_tool_names,
+            excluded_names=setup.excluded_tool_names,
             allowed_names=setup.main_profile.allowed_tool_names,
         )
         observation_start = len(observations)
@@ -726,7 +732,7 @@ def run_agent_loop(
                 execute=runtime.execute_action,
                 approval_policy=plan_mode.current_policy,
                 tool_call_allowed=tool_call_allowed,
-                excluded_tool_names=setup.main_profile.disallowed_tool_names,
+                excluded_tool_names=setup.excluded_tool_names,
                 allowed_tool_names=setup.main_profile.allowed_tool_names,
             )
         )
@@ -741,7 +747,7 @@ def run_agent_loop(
                 observations[observation_start:],
                 iteration,
                 plan_mode.current_policy,
-                excluded_names=setup.main_profile.disallowed_tool_names,
+                excluded_names=setup.excluded_tool_names,
                 allowed_names=setup.main_profile.allowed_tool_names,
             )
             plugin_monitors.observe_many(
@@ -802,7 +808,7 @@ def run_agent_loop(
                 should_auto_checkpoint_before_action_func=runtime.should_auto_checkpoint_before_action,
                 create_auto_checkpoint_before_action_func=create_checkpoint_before_action,
                 tool_call_allowed=tool_call_allowed,
-                excluded_tool_names=setup.main_profile.disallowed_tool_names,
+                excluded_tool_names=setup.excluded_tool_names,
                 allowed_tool_names=setup.main_profile.allowed_tool_names,
                 tool_ceiling_names=setup.tool_ceiling_names,
                 defer_tool_calls=defer_tool_calls,

@@ -379,6 +379,7 @@ python -m vibeagent -p --no-session-persistence --output-format json --cwd ../my
 python -m vibeagent -p --output-format json --fallback-model backup-model --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format json --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
+python -m vibeagent --brief --cwd ../my-project "implement the change and keep me updated"
 python -m vibeagent -p --output-format stream-json --include-hook-events --cwd ../my-project "audit hook execution"
 python -m vibeagent -p --output-format stream-json --include-partial-messages --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format stream-json --forward-subagent-text --cwd ../my-project "delegate the investigation"
@@ -833,6 +834,16 @@ hooks emit their response only when they finish or are cancelled.
 Metadata discovery failures are reported as bounded redacted init errors and do
 not stop the coding run. Existing `type: "event"` records remain unchanged for
 consumers that use the lower-level session-event protocol.
+`--brief` enables the Claude-compatible `SendUserMessage` tool for coding
+sessions. The agent can emit a concise non-blocking progress update and then
+continue its current turn; use `AskUserQuestion` when an answer is required.
+Messages are limited to 2,000 control-safe characters, redacted before durable
+storage, displayed immediately as `Agent update:` in interactive and text
+one-shot modes, and emitted as `agent_user_message` records in stream-JSON.
+Text one-shot updates use stderr so final stdout remains scriptable, while JSON
+output remains one final object. The tool is absent from the default agent
+catalog and cannot be activated by a direct call or `ToolSearch` without the
+flag; `--tools`, profile restrictions, and deny rules remain authoritative.
 Explicit `-p --include-partial-messages` additionally emits each provider SSE
 event as a `type: "stream_event"` record before the final result. Coding records
 include the session identifiers, model iteration, and retry attempt; chat
@@ -2496,7 +2507,7 @@ Rules use `Tool` or `Tool(specifier)` syntax and are evaluated by effect in
 `deny`, `ask`, then `allow` order. Common Claude Code names including `Bash`,
 `BashOutput`, `KillBash`, `Read`, `Write`, `Edit`, `MultiEdit`,
 `NotebookRead`, `NotebookEdit`, `LS`, `Glob`, `Grep`, `ToolSearch`, `Skill`, `WebFetch`, `WebSearch`, `ListMcpResourcesTool`, `ReadMcpResourceTool`, `Task`,
-`TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TeamCreate`, `TeamDelete`, `CronCreate`, `CronList`, `CronDelete`, `Agent`, `LSP`, `EnterWorktree`, `ExitWorktree`, `AskUserQuestion`, `EnterPlanMode`, `ExitPlanMode`, `TodoWrite`, and `TodoRead` map to
+`TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TeamCreate`, `TeamDelete`, `CronCreate`, `CronList`, `CronDelete`, `Agent`, `LSP`, `EnterWorktree`, `ExitWorktree`, `AskUserQuestion`, `SendUserMessage`, `EnterPlanMode`, `ExitPlanMode`, `TodoWrite`, and `TodoRead` map to
 the corresponding VibeAgent tools; native snake-case tool names are also
 accepted. Model tool calls accept the same names with Claude-style field names
 normalized before execution.

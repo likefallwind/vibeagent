@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .action_parsing import summarize_plan_update
+from .agent_runtime_utils import append_session_event
 from .background_delegate_runtime import execute_background_task_action
 from .browser_runtime import execute_browser_action
 from .checkpoint_action_executor import execute_checkpoint_action
@@ -33,10 +34,12 @@ from .types import (
     Observation,
     PlanModeObservation,
     SendMessageAction,
+    SendUserMessageAction,
     ToolErrorObservation,
     UpdatePlanAction,
     UpdatePlanObservation,
     UserInputObservation,
+    UserMessageObservation,
 )
 from .user_input_runtime import serialize_user_input_request, user_input_requests
 from .workspace import RunWorkspace
@@ -163,6 +166,17 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
                 if action.questions
                 else []
             ),
+        )
+
+    if isinstance(action, SendUserMessageAction):
+        append_session_event(
+            workspace.session_dir,
+            "agent_user_message",
+            {"message": action.message},
+        )
+        return UserMessageObservation(
+            kind="send_user_message",
+            message=action.message,
         )
 
     if isinstance(action, DelegateTaskAction):

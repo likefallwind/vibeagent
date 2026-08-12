@@ -155,6 +155,7 @@ def run_interactive_loop(
     initial_approval: ApprovalPolicy = "ask",
     initial_safe_mode: bool = False,
     initial_bare_mode: bool = False,
+    initial_brief: bool = False,
     initial_setting_sources: tuple[str, ...] = ("user", "project", "local"),
     initial_settings_override_json: str | None = None,
     initial_invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -175,6 +176,7 @@ def run_interactive_loop(
     approval_policy: ApprovalPolicy = initial_approval
     safe_mode = initial_safe_mode
     bare_mode = initial_bare_mode
+    brief = initial_brief
     setting_sources = initial_setting_sources
     settings_override_json = initial_settings_override_json
     invocation_plugin_dirs = initial_invocation_plugin_dirs
@@ -262,7 +264,12 @@ def run_interactive_loop(
                 settings_override_json=settings_override_json,
             )
         )
-        panel = SubagentPanel(Path.cwd(), safe_mode=safe_mode, workspace=notification_workspace)
+        panel = SubagentPanel(
+            Path.cwd(),
+            safe_mode=safe_mode,
+            workspace=notification_workspace,
+            brief=brief,
+        )
         panel.authorize_custom(approval_handler, approval_policy)
         initial_panel_error = panel.config_error
         if panel.config_error:
@@ -270,7 +277,7 @@ def run_interactive_loop(
         panel_kwargs: dict[str, object] = {}
         selected_approval_handler = approval_handler
         selected_user_input_handler = prompt_user_input
-        if panel.enabled:
+        if panel.enabled or brief:
             panel_kwargs = {
                 "logger": combine_agent_loggers(panel.log, debug_runtime.logger),
                 "workspace_observer": panel.bind,
@@ -320,6 +327,7 @@ def run_interactive_loop(
                     autocompact_tokens=initial_autocompact_tokens,
                     safe_mode=safe_mode,
                     bare_mode=bare_mode,
+                    brief=brief,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
                     invocation_plugin_dirs=invocation_plugin_dirs,

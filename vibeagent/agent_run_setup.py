@@ -59,6 +59,7 @@ class AgentRunSetup:
     project_permissions: ProjectPermissions
     sandbox_config: SandboxConfig
     main_profile: MainAgentProfile
+    excluded_tool_names: frozenset[str]
     append_system_prompt: str | None
     tool_ceiling_names: frozenset[str] | None
     task: str
@@ -83,6 +84,7 @@ def prepare_agent_run(
     strict_mcp_config: bool,
     safe_mode: bool = False,
     bare_mode: bool = False,
+    brief: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -177,6 +179,9 @@ def prepare_agent_run(
                 main_profile.disallowed_tool_names | frozenset({"PowerShell", "powershell"})
             ),
         )
+    excluded_tool_names = main_profile.disallowed_tool_names
+    if not brief:
+        excluded_tool_names |= frozenset({"SendUserMessage", "send_user_message"})
     tasks_inherited, task_restore_error = inherit_task_store(current_workspace, task_source_run_id)
     cwd_inherited, cwd_restore_error = inherit_session_cwd(
         current_workspace,
@@ -315,15 +320,23 @@ def prepare_agent_run(
     active_tool_names = initialize_agent_tools(
         current_workspace,
         effective_approval_policy,
-        excluded_names=main_profile.disallowed_tool_names,
+        excluded_names=excluded_tool_names,
         allowed_names=main_profile.allowed_tool_names,
     )
+    if brief:
+        activate_agent_tool_names(
+            active_tool_names,
+            ["SendUserMessage"],
+            effective_approval_policy,
+            excluded_tool_names,
+            main_profile.allowed_tool_names,
+        )
     if powershell_availability.enabled:
         activate_agent_tool_names(
             active_tool_names,
             ["PowerShell"],
             effective_approval_policy,
-            main_profile.disallowed_tool_names,
+            excluded_tool_names,
             main_profile.allowed_tool_names,
         )
     append_session_event(
@@ -335,6 +348,15 @@ def prepare_agent_run(
             "message": powershell_availability.message,
         },
     )
+    if brief:
+        append_session_event(
+            current_workspace.session_dir,
+            "brief_mode",
+            {
+                "enabled": True,
+                "tool_available": "SendUserMessage" in active_tool_names,
+            },
+        )
     if approval_policy_locked:
         active_tool_names.discard("ExitPlanMode")
     _append_main_profile_event(current_workspace, main_profile)
@@ -357,7 +379,7 @@ def prepare_agent_run(
             0,
             source="scheduled_task_store",
             approval_policy=effective_approval_policy,
-            excluded_names=main_profile.disallowed_tool_names,
+            excluded_names=excluded_tool_names,
             allowed_names=main_profile.allowed_tool_names,
         )
     return AgentRunSetup(
@@ -368,6 +390,7 @@ def prepare_agent_run(
         project_permissions=project_permissions,
         sandbox_config=sandbox_config,
         main_profile=main_profile,
+        excluded_tool_names=excluded_tool_names,
         append_system_prompt=effective_append_system_prompt,
         tool_ceiling_names=tool_names,
         task=effective_task,

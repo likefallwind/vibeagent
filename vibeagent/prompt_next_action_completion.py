@@ -15,6 +15,7 @@ COMPLETION_NEXT_ACTION_KINDS = {
     "team_create",
     "team_delete",
     "ask_user",
+    "send_user_message",
 }
 
 
@@ -170,5 +171,7 @@ def completion_next_action_instruction(base: str, latest: Observation) -> str:
                 "answer directly with the unresolved question so the user can respond in the next turn."
             )
         return f"{base} Use the user's answer to continue the requested work, inspecting or editing the project as needed."
+    if latest.kind == "send_user_message":
+        return f"{base} The progress update was delivered. Continue the current work without waiting for a reply."
 
     raise ValueError(f"Unsupported completion next-action kind: {latest.kind}")

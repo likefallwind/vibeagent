@@ -50,6 +50,89 @@ class ToolLoadingClient:
 
 
 class AgentToolRegistryTests(unittest.TestCase):
+    def test_brief_mode_exclusively_exposes_send_user_message(self) -> None:
+        default_client = ToolLoadingClient([[{"type": "text", "text": "Done."}]])
+        brief_client = ToolLoadingClient([[{"type": "text", "text": "Done."}]])
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-brief-tools-") as base:
+            root = Path(base)
+            default_result = run_agent(
+                "Inspect",
+                base_dir=root,
+                client=default_client,
+                max_iterations=1,
+            )
+            brief_result = run_agent(
+                "Inspect",
+                base_dir=root,
+                client=brief_client,
+                max_iterations=1,
+                brief=True,
+            )
+            brief_events = [
+                json.loads(line)
+                for line in (
+                    root / ".vibeagent" / "sessions" / brief_result.run_id / "events.jsonl"
+                ).read_text(encoding="utf-8").splitlines()
+            ]
+
+        default_names = {str(tool["name"]) for tool in default_client.tools[0]}
+        brief_names = {str(tool["name"]) for tool in brief_client.tools[0]}
+        self.assertNotIn("SendUserMessage", default_names)
+        self.assertIn("SendUserMessage", brief_names)
+        event = next(item for item in brief_events if item["type"] == "brief_mode")
+        self.assertEqual(event, {"type": "brief_mode", "enabled": True, "tool_available": True})
+        self.assertTrue(default_result.success)
+        self.assertTrue(brief_result.success)
+
+    def test_brief_mode_respects_tool_ceiling(self) -> None:
+        client = ToolLoadingClient([[{"type": "text", "text": "Done."}]])
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-brief-tools-") as base:
+            run_agent(
+                "Inspect",
+                base_dir=Path(base),
+                client=client,
+                max_iterations=1,
+                brief=True,
+                tool_names=frozenset({"Read", "read_file"}),
+            )
+
+        names = {str(tool["name"]) for tool in client.tools[0]}
+        self.assertNotIn("SendUserMessage", names)
+
+    def test_direct_send_user_message_call_is_rejected_without_brief(self) -> None:
+        client = ToolLoadingClient(
+            [
+                [{
+                    "type": "tool_call",
+                    "id": "brief-1",
+                    "name": "SendUserMessage",
+                    "input": {"message": "This must remain hidden."},
+                }],
+                [{"type": "text", "text": "Done."}],
+            ]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-brief-tools-") as base:
+            root = Path(base)
+            result = run_agent(
+                "Inspect",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+            )
+            events = [
+                json.loads(line)
+                for line in (
+                    root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+                ).read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertFalse(any(event["type"] == "agent_user_message" for event in events))
+        self.assertNotIn("SendUserMessage", {str(tool["name"]) for tool in client.tools[1]})
+        self.assertTrue(any(observation.kind == "tool_error" for observation in result.observations))
+
     def test_core_tool_groups_compose_the_exported_core_set(self) -> None:
         grouped = (
             CORE_SESSION_TOOL_NAMES
@@ -493,6 +576,18 @@ class AgentToolRegistryTests(unittest.TestCase):
         self.assertIn("active=33 total=192", format_session_event_timeline_item(initialized))
         self.assertIn("python_dependencies", format_session_event_timeline_item(activated))
         self.assertIn("source=tool_search", format_session_event_timeline_item(activated))
+
+    def test_session_timeline_formats_agent_user_messages(self) -> None:
+        event = SessionEvent(
+            line_number=7,
+            type="agent_user_message",
+            payload={"message": "Focused checks passed; running full suite."},
+        )
+
+        rendered = format_session_event_timeline_item(event)
+
+        self.assertIn("agent_user_message", rendered)
+        self.assertIn("Focused checks passed", rendered)
 
 
 if __name__ == "__main__":

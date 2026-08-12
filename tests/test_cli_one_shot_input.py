@@ -413,6 +413,13 @@ class CliOneShotInputTests(unittest.TestCase):
 
         self.assertTrue(kwargs["include_hook_events"])
 
+    def test_build_one_shot_kwargs_enables_brief_mode(self) -> None:
+        args = cli_module.parse_args(["--brief", "inspect"])
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertTrue(kwargs["brief"])
+
     def test_build_one_shot_kwargs_parses_json_schema_before_provider_setup(self) -> None:
         args = cli_module.parse_args(
             [

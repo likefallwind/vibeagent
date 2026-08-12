@@ -53,6 +53,7 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         self.assertEqual(
             [tool["name"] for tool in TASK_CONTROL_TOOL_DEFINITIONS],
             [
+                "SendUserMessage",
                 "ask_user",
                 "AskUserQuestion",
                 "TaskCreate",

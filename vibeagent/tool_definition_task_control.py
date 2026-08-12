@@ -101,6 +101,18 @@ ASK_USER_QUESTION_SCHEMA: dict[str, Any] = {
 
 TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
+        "name": "SendUserMessage",
+        "description": "Send one concise non-blocking progress update to the user, then continue working. Use this only for meaningful status changes; use AskUserQuestion when an answer is required.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "minLength": 1, "maxLength": 2000},
+            },
+            "required": ["message"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "ask_user",
         "description": "Ask one blocking clarification question when repository evidence cannot determine a choice that materially changes the implementation. Do not use this for approvals or questions that can be answered by inspecting the project.",
         "input_schema": {

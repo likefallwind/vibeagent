@@ -155,6 +155,23 @@ class SubagentStatusLineTests(unittest.TestCase):
         self.assertEqual(stream.value, "")
         resolve.assert_not_called()
 
+    def test_brief_panel_displays_sanitized_agent_message_without_tty(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-brief-panel-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root, run_id="brief-run")
+            stream = TtyBuffer()
+            stream.isatty = lambda: False
+            panel = SubagentPanel(root, stream=stream, brief=True)
+            panel.bind(workspace)
+            panel._observe_event(
+                workspace.session_dir,
+                {"type": "agent_user_message", "message": "Testing\x1b[2J now"},
+            )
+            panel.close()
+
+        self.assertIn("Agent update: Testing now", stream.value)
+        self.assertNotIn("\x1b", stream.value)
+
     def test_panel_pause_blocks_refresh_until_resume(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-status-panel-") as base:
             root = Path(base)

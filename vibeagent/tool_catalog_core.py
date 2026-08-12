@@ -133,6 +133,7 @@ def tool_category(name: str) -> str:
         return "project"
     if name in {
         "AskUserQuestion",
+        "SendUserMessage",
         "ask_user",
         "EnterPlanMode",
         "ExitPlanMode",

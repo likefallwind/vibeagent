@@ -122,6 +122,9 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         if isinstance(message, str) and message.strip():
             suffix.append(f"message={compact(message, max_text)}")
         return f"{prefix} {name or 'unknown'}{format_detail_suffix(suffix)}"
+    if event.type == "agent_user_message":
+        message = payload.get("message")
+        return f"{prefix} {compact(message, max_text) if isinstance(message, str) else '(missing message)'}"
     if event.type == "result":
         success = payload.get("success")
         status = payload.get("status")

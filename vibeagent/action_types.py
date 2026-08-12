@@ -275,6 +275,7 @@ from .action_workflow_types import (
     PlanItem,
     PlanItemStatus,
     SendMessageAction,
+    SendUserMessageAction,
     TaskOutputAction,
     TaskStopAction,
     UpdatePlanAction,

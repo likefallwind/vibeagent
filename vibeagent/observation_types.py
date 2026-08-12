@@ -63,6 +63,7 @@ from .observation_common_types import (
     ToolErrorObservation,
     UpdatePlanObservation,
     UserInputObservation,
+    UserMessageObservation,
 )
 from .observation_edit_types import (
     AppendFileObservation,

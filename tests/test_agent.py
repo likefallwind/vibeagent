@@ -8652,6 +8652,7 @@ class AgentTests(unittest.TestCase):
 
         aliases = {
             "AskUserQuestion": "ask_user",
+            "SendUserMessage": "send_user_message",
             "EnterPlanMode": "enter_plan_mode",
             "ExitPlanMode": "exit_plan_mode",
             "PowerShell": "run_command",

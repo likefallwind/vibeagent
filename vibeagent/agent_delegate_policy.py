@@ -14,9 +14,11 @@ CODE_DELEGATE_EXCLUDED_TOOL_NAMES = frozenset(
         "EnterWorktree",
         "ExitWorktree",
         "SendMessage",
+        "SendUserMessage",
         "ask_user",
         "enter_worktree",
         "exit_worktree",
+        "send_user_message",
         "todo_write",
         "update_plan",
     }

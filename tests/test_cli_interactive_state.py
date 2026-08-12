@@ -17,6 +17,45 @@ from vibeagent.workspace_core import create_run_workspace
 
 
 class CliInteractiveStateTests(unittest.TestCase):
+    def test_interactive_brief_displays_update_and_continues_to_final_message(self) -> None:
+        class BriefClient:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def complete(self, messages, tools=None, **kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    self.assert_tools = {str(tool["name"]) for tool in tools or []}
+                    return AssistantResponse(
+                        content=[{
+                            "type": "tool_call",
+                            "id": "brief-1",
+                            "name": "SendUserMessage",
+                            "input": {"message": "Focused checks passed; running full suite."},
+                        }],
+                        raw={},
+                    )
+                return AssistantResponse(
+                    content=[{"type": "text", "text": "Full suite passed."}],
+                    raw={},
+                )
+
+        client = BriefClient()
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-brief-") as base:
+            stdout = io.StringIO()
+            with (
+                patch("builtins.input", side_effect=["inspect", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--brief", "--cwd", base])
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("SendUserMessage", client.assert_tools)
+        self.assertIn("Agent update: Focused checks passed; running full suite.", output)
+        self.assertIn("Full suite passed.", output)
+
     def test_interactive_code_streams_text_without_reprinting_final_message(self) -> None:
         class StreamingClient:
             def complete(self, *args, **kwargs):

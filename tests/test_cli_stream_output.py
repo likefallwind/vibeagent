@@ -6,6 +6,7 @@ import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from contextlib import redirect_stderr
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -76,6 +77,81 @@ def _result(root: Path, run_id: str = "stream-run") -> AgentResult:
 
 
 class CliOutputFormatTests(unittest.TestCase):
+    def test_brief_text_writes_update_to_stderr_and_keeps_final_stdout_clean(self) -> None:
+        client = SequenceClient(
+            [
+                [{
+                    "type": "tool_call",
+                    "id": "brief-1",
+                    "name": "SendUserMessage",
+                    "input": {"message": "Running full suite."},
+                }],
+                [{"type": "text", "text": "All checks passed."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-brief-text-") as base:
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                redirect_stdout(stdout),
+                redirect_stderr(stderr),
+            ):
+                exit_code = main(["-p", "--brief", "--cwd", base, "inspect"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue().strip(), "All checks passed.")
+        self.assertEqual(stderr.getvalue().strip(), "Agent update: Running full suite.")
+
+    def test_brief_streams_non_blocking_agent_user_message_before_completion(self) -> None:
+        client = SequenceClient(
+            [
+                [{
+                    "type": "tool_call",
+                    "id": "brief-1",
+                    "name": "SendUserMessage",
+                    "input": {"message": "Focused checks passed; api_key=brief-secret; running full suite."},
+                }],
+                [{"type": "text", "text": "All checks passed."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-brief-stream-") as base:
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "-p",
+                        "--brief",
+                        "--output-format",
+                        "stream-json",
+                        "--cwd",
+                        base,
+                        "inspect and verify",
+                    ]
+                )
+
+        records = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        events = [record["event"] for record in records if record["type"] == "event"]
+        message_index = next(
+            index for index, event in enumerate(events) if event["type"] == "agent_user_message"
+        )
+        result_index = next(
+            index for index, event in enumerate(events)
+            if event["type"] == "tool_result" and event["name"] == "SendUserMessage"
+        )
+        brief_mode = next(event for event in events if event["type"] == "brief_mode")
+        self.assertEqual(exit_code, 0)
+        self.assertLess(message_index, result_index)
+        self.assertTrue(brief_mode["enabled"])
+        self.assertTrue(brief_mode["tool_available"])
+        self.assertIn("[REDACTED]", events[message_index]["message"])
+        self.assertNotIn("brief-secret", stdout.getvalue())
+        self.assertEqual(records[-1]["type"], "result")
+        self.assertEqual(records[-1]["message"], "All checks passed.")
+
     def test_partial_messages_require_print_stream_json(self) -> None:
         cases = (
             ["--include-partial-messages", "inspect"],

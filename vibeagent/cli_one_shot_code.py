@@ -48,7 +48,8 @@ from .agent_runtime_utils import append_session_event, format_exception
 from .model_effort import ModelEffortSetting, configure_model_effort
 from .background_agent_config import BackgroundAgentConfig
 from .permission_prompt_mcp import resolve_permission_prompt_tool
-from .debug_runtime import DebugOptions, DebugRuntime
+from .debug_runtime import DebugOptions, DebugRuntime, combine_event_observers
+from .cli_brief_output import brief_message_observer
 
 
 def run_one_shot_code(
@@ -67,6 +68,7 @@ def run_one_shot_code(
     strict_mcp_config: bool,
     safe_mode: bool = False,
     bare_mode: bool = False,
+    brief: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -208,6 +210,7 @@ def run_one_shot_code(
         invocation_plugin_dirs=invocation_plugin_dirs,
         force_workspace=(
             fork_session
+            or brief
             or session_name is not None
             or ephemeral_workspace is not None
             or permission_prompt_tool is not None
@@ -216,7 +219,10 @@ def run_one_shot_code(
         workspace=resumed_workspace,
         include_hook_events=include_hook_events,
         forward_subagent_text=forward_subagent_text,
-        event_observer=(debug_runtime.observe_event if debug_runtime.enabled else None),
+        event_observer=combine_event_observers(
+            debug_runtime.observe_event if debug_runtime.enabled else None,
+            brief_message_observer() if brief and not output_mode.machine else None,
+        ),
         provider_env=provider_env,
     )
     resolved_permission_prompt_tool = None
@@ -259,6 +265,7 @@ def run_one_shot_code(
         strict_mcp_config=strict_mcp_config,
         safe_mode=safe_mode,
         bare_mode=bare_mode,
+        brief=brief,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,

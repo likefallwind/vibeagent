@@ -28,6 +28,7 @@ from .types import (
     UserInputRequest,
 )
 from .workspace_core import RunWorkspace
+from .cli_brief_output import display_safe_message
 
 
 ANSI_PATTERN = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
@@ -43,10 +44,12 @@ class SubagentPanel:
         stream: TextIO | None = None,
         safe_mode: bool = False,
         workspace: RunWorkspace | None = None,
+        brief: bool = False,
     ) -> None:
         self.project_root = project_root.resolve()
         self.stream = stream or sys.stdout
         self.enabled = getattr(self.stream, "isatty", lambda: False)() is True
+        self.brief = brief
         self.workspace: RunWorkspace | None = None
         self.config: ResolvedSubagentStatusLine | None = None
         self.config_error: str | None = None
@@ -96,11 +99,13 @@ class SubagentPanel:
         self.custom_authorized = decision.approved
 
     def bind(self, workspace: RunWorkspace) -> None:
-        if not self.enabled:
+        if not self.enabled and not self.brief:
             return
         self.workspace = workspace
         self._observer = observe_session_events(workspace.session_dir, self._observe_event)
         self._observer.__enter__()
+        if not self.enabled:
+            return
         self._thread = Thread(target=self._refresh_loop, name="vibeagent-subagent-panel", daemon=True)
         self._thread.start()
 
@@ -221,6 +226,9 @@ class SubagentPanel:
             self.refresh()
 
     def _observe_event(self, _session_dir, event: dict[str, object]) -> None:
+        if self.brief and event.get("type") == "agent_user_message":
+            self._display_agent_message(event.get("message"))
+            return
         if event.get("type") != "subagent_model":
             return
         task_id = event.get("subagent_id")
@@ -235,6 +243,16 @@ class SubagentPanel:
                 {"timestamp": int(datetime.now(UTC).timestamp() * 1000), "tokens": total}
             )
             self._token_samples[task_id] = self._token_samples[task_id][-20:]
+
+    def _display_agent_message(self, value: object) -> None:
+        message = display_safe_message(value)
+        if not message:
+            return
+        with self._lock:
+            self.clear()
+            self.stream.write(f"\nAgent update: {message}\n")
+            self.stream.flush()
+        self.refresh(force=True)
 
     def _task_payload(self, snapshot) -> dict[str, object]:
         name = snapshot.action.teammate_name or snapshot.action.agent or snapshot.task_id

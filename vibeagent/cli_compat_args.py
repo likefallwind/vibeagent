@@ -22,6 +22,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Start a one-shot coding agent in the background and return its management id.",
     )
     parser.add_argument(
+        "--brief",
+        action="store_true",
+        help="Enable SendUserMessage so the coding agent can send non-blocking progress updates.",
+    )
+    parser.add_argument(
         "-p",
         "--print",
         dest="print_mode",

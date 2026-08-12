@@ -47,6 +47,7 @@ from .observation_common_types import (
     ToolErrorObservation,
     UpdatePlanObservation,
     UserInputObservation,
+    UserMessageObservation,
 )
 from .observation_edit_union_types import EditObservation, FileMutationObservation
 from .observation_git_types import (
@@ -390,6 +391,7 @@ Observation: TypeAlias = (
     | UpdatePlanObservation
     | PlanModeObservation
     | UserInputObservation
+    | UserMessageObservation
     | DeepReviewObservation
     | DelegateTaskObservation
     | ListAgentsObservation

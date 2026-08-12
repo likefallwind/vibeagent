@@ -209,6 +209,27 @@ class CliArgsValidationTests(unittest.TestCase):
                     "--include-hook-events requires a one-shot coding task with --print and --output-format stream-json.",
                 )
 
+    def test_brief_accepts_coding_sessions_and_rejects_non_agent_modes(self) -> None:
+        valid = (
+            cli_module.parse_args(["--brief"]),
+            cli_module.parse_args(["--brief", "inspect"]),
+            cli_module.parse_args(["-p", "--brief", "inspect"]),
+        )
+        invalid = (
+            cli_module.parse_args(["--chat", "--brief", "hello"]),
+            cli_module.parse_args(["--brief", "--status"]),
+        )
+
+        for args in valid:
+            with self.subTest(args=args):
+                self.assertIsNone(cli_module.validate_cli_args(args))
+        for args in invalid:
+            with self.subTest(args=args):
+                self.assertEqual(
+                    cli_module.validate_cli_args(args),
+                    "--brief is available for coding sessions only.",
+                )
+
     def test_subagent_system_prompt_requires_print_mode_coding_task(self) -> None:
         valid = cli_module.parse_args(
             ["-p", "--append-subagent-system-prompt", "Cite exact paths.", "inspect"]

@@ -47,6 +47,16 @@ def _args(**overrides) -> Namespace:
 
 
 class CliStartupContextTests(unittest.TestCase):
+    def test_brief_is_forwarded_for_interactive_startup(self) -> None:
+        context = resolve_interactive_startup_context(
+            _args(brief=True),
+            Path.cwd(),
+            get_resume_context_func=Mock(),
+            get_compact_context_func=Mock(),
+        )
+
+        self.assertTrue(context.brief)
+
     def test_autocompact_is_forwarded_for_interactive_startup(self) -> None:
         context = resolve_interactive_startup_context(
             _args(autocompact=200_000),

@@ -91,6 +91,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         not args.print_mode or not args.task or has_local_flag(args) or args.chat
     ):
         return "--json-schema requires a one-shot coding task with --print."
+    if args.brief and (args.chat or has_local_flag(args)):
+        return "--brief is available for coding sessions only."
     if args.max_budget_usd is not None and (
         not args.print_mode or not args.task or has_local_flag(args) or args.chat
     ):

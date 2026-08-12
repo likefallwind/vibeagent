@@ -42,6 +42,12 @@ class UserInputObservation:
 
 
 @dataclass(frozen=True)
+class UserMessageObservation:
+    kind: Literal["send_user_message"]
+    message: str
+
+
+@dataclass(frozen=True)
 class DelegateTaskObservation:
     kind: Literal["delegate_task"]
     ok: bool

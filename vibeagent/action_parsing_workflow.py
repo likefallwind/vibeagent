@@ -11,12 +11,14 @@ from .types import (
     ExitPlanModeAction,
     FinishAction,
     PlanItem,
+    SendUserMessageAction,
     UpdatePlanAction,
 )
 
 
 WORKFLOW_ACTION_TYPES = {
     "ask_user",
+    "send_user_message",
     "todo_write",
     "update_plan",
     "finish",
@@ -65,6 +67,31 @@ def parse_workflow_action(action_type: object, value: dict[str, Any], raw: str) 
             options=options,
             allow_free_text=allow_free_text,
         )
+
+    if action_type == "send_user_message":
+        if set(value) != {"type", "message"}:
+            raise ActionParseError(
+                "send_user_message action accepts only message.",
+                raw,
+            )
+        message = value.get("message")
+        if not isinstance(message, str) or not message.strip():
+            raise ActionParseError(
+                "send_user_message action requires a non-empty message.",
+                raw,
+            )
+        message = message.strip()
+        if len(message) > 2_000:
+            raise ActionParseError(
+                "send_user_message action message must contain at most 2000 characters.",
+                raw,
+            )
+        if any(ord(character) < 32 and character not in {"\n", "\t"} for character in message):
+            raise ActionParseError(
+                "send_user_message action message cannot contain control characters.",
+                raw,
+            )
+        return SendUserMessageAction(type="send_user_message", message=message)
 
     if action_type in {"update_plan", "todo_write"}:
         explanation = value.get("explanation")

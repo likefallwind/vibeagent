@@ -105,6 +105,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "strict_mcp_config": args.strict_mcp_config,
         "safe_mode": args.safe_mode,
         "bare_mode": args.bare,
+        "brief": args.brief,
         "setting_sources": (
             ()
             if args.bare and args.setting_sources is None

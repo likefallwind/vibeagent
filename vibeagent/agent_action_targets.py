@@ -339,6 +339,8 @@ def build_action_target(action: object) -> str:
         return "tasks"
     if isinstance(action, t.AskUserAction):
         return action.question
+    if isinstance(action, t.SendUserMessageAction):
+        return "user"
     if isinstance(action, t.DelegateTaskAction):
         return action.task
     if isinstance(action, (t.TaskOutputAction, t.TaskStopAction)):

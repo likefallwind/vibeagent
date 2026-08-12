@@ -91,6 +91,24 @@ class CliBackgroundAgentTests(unittest.TestCase):
         self.assertIn("--background-agent-log 0123456789ab", stdout.getvalue())
         self.assertIn("approvals", stdout.getvalue())
 
+    def test_background_launch_preserves_brief_mode_for_worker_and_followups(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
+            root = Path(base).resolve()
+            view = _view(root)
+            argv = ["--bg", "--brief", "--cwd", root.as_posix(), "fix", "tests"]
+            args = parse_args(argv)
+            with (
+                patch(
+                    "vibeagent.cli_background_agent_launch.launch_background_agent",
+                    return_value=view,
+                ) as launch,
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = launch_background_agent_from_cli(argv, args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("--brief", launch.call_args.args[2])
+
     def test_background_resume_pins_followups_to_resolved_run_id(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
             root = Path(base).resolve()

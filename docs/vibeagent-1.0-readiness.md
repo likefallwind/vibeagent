@@ -274,7 +274,11 @@ The automated suite currently covers these 1.0 surfaces:
   Claude-compatible aliases, and explicit approvals.
 - Real CLI JSON and stream-json entrypoints, stdin input formats, normalized
   user-message replay with matching run/session identity and non-user/raw-field
-  filtering, optional SDK-compatible hook started/progress/response lifecycle
+  filtering, opt-in `--brief` progress messages with a default-hidden
+  `SendUserMessage` tool, control-safe bounded durable output, immediate
+  interactive/text display, clean machine-output boundaries, and direct-call,
+  search, tool-ceiling, profile, and deny enforcement, optional SDK-compatible
+  hook started/progress/response lifecycle
   records with stable IDs and bounded redacted output, default Setup/SessionStart
   visibility, synchronous and asynchronous completion ordering, resume, compact,
   permission overrides, `acceptEdits`, non-interactive `dontAsk`

@@ -53,6 +53,7 @@ class InteractiveStartupContext:
     approval: ApprovalPolicy = "ask"
     safe_mode: bool = False
     bare_mode: bool = False
+    brief: bool = False
     setting_sources: tuple[str, ...] = ("user", "project", "local")
     settings_override_json: str | None = None
     invocation_plugin_dirs: tuple[Path, ...] = ()
@@ -91,6 +92,7 @@ def resolve_interactive_startup_context(
         "approval": getattr(args, "approval", "ask"),
         "safe_mode": getattr(args, "safe_mode", False),
         "bare_mode": getattr(args, "bare", False),
+        "brief": getattr(args, "brief", False),
         "setting_sources": (
             ()
             if getattr(args, "bare", False)
