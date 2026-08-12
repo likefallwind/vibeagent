@@ -24,6 +24,7 @@ from .workspace_settings_sources import (
     project_config_file,
     read_settings_payload,
     settings_file_exists,
+    settings_files_with_project_config,
 )
 
 
@@ -34,17 +35,27 @@ MAX_HOOK_MATCHER_CHARS = 500
 
 
 def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
-    if workspace.safe_mode:
-        return ProjectHooks()
     hooks: list[ProjectHook] = []
     sources: list[str] = []
+    managed_only = False
     try:
         settings_configs = claude_settings_files(workspace)
-        configs = (
-            settings_configs
-            if workspace.bare_mode
-            else (*settings_configs, project_config_file(workspace, HOOK_CONFIG_PATH))
-        )
+        for config in settings_configs:
+            if not config.managed or not settings_file_exists(config):
+                continue
+            payload = read_settings_payload(config, max_bytes=MAX_HOOK_CONFIG_BYTES)
+            if "allowManagedHooksOnly" in payload:
+                value = payload["allowManagedHooksOnly"]
+                if not isinstance(value, bool):
+                    raise ValueError(f"{config.source} allowManagedHooksOnly must be a boolean.")
+                managed_only = value
+        managed_hooks_only = workspace.safe_mode or managed_only
+        if managed_hooks_only:
+            configs = tuple(config for config in settings_configs if config.managed)
+        else:
+            configs = settings_configs if workspace.bare_mode else settings_files_with_project_config(
+                workspace, project_config_file(workspace, HOOK_CONFIG_PATH)
+            )
         for config in configs:
             if not settings_file_exists(config):
                 continue
@@ -64,31 +75,36 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
                 raise ValueError(
                     f"Workspace hook configuration exceeds {MAX_HOOKS} hooks."
                 )
-        for component in enabled_plugin_component_files(workspace, "hook"):
-            source = f"{component.source}:{component.relative_path}"
-            sources.append(source)
-            payload = _read_hook_config(component.plugin_root, component.path, source)
-            _append_plugin_hooks(hooks, workspace, component, payload, source)
-            if len(hooks) > MAX_HOOKS:
-                raise ValueError(f"Workspace and plugin hooks exceed {MAX_HOOKS} hooks.")
-        for manifest in enabled_plugin_manifests(workspace.root, workspace=workspace):
-            if manifest.inline_hooks is None:
-                continue
-            component = inline_plugin_component(manifest, "hook")
-            source = f"{component.source}:{component.relative_path}#hooks"
-            sources.append(source)
-            _append_plugin_hooks(
-                hooks,
-                workspace,
-                component,
-                manifest.inline_hooks,
-                source,
-            )
-            if len(hooks) > MAX_HOOKS:
-                raise ValueError(f"Workspace and plugin hooks exceed {MAX_HOOKS} hooks.")
+        if not managed_hooks_only:
+            for component in enabled_plugin_component_files(workspace, "hook"):
+                source = f"{component.source}:{component.relative_path}"
+                sources.append(source)
+                payload = _read_hook_config(component.plugin_root, component.path, source)
+                _append_plugin_hooks(hooks, workspace, component, payload, source)
+                if len(hooks) > MAX_HOOKS:
+                    raise ValueError(f"Workspace and plugin hooks exceed {MAX_HOOKS} hooks.")
+            for manifest in enabled_plugin_manifests(workspace.root, workspace=workspace):
+                if manifest.inline_hooks is None:
+                    continue
+                component = inline_plugin_component(manifest, "hook")
+                source = f"{component.source}:{component.relative_path}#hooks"
+                sources.append(source)
+                _append_plugin_hooks(
+                    hooks,
+                    workspace,
+                    component,
+                    manifest.inline_hooks,
+                    source,
+                )
+                if len(hooks) > MAX_HOOKS:
+                    raise ValueError(f"Workspace and plugin hooks exceed {MAX_HOOKS} hooks.")
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
-        return ProjectHooks(hooks=(), sources=tuple(sources), error=str(error))
-    return ProjectHooks(hooks=tuple(hooks), sources=tuple(sources))
+        return ProjectHooks(
+            hooks=(), sources=tuple(sources), error=str(error), managed_only=managed_only
+        )
+    return ProjectHooks(
+        hooks=tuple(hooks), sources=tuple(sources), managed_only=managed_only
+    )
 
 
 def parse_inline_hooks(payload: dict[str, object], source: str) -> ProjectHooks:
@@ -111,7 +127,7 @@ def merge_project_hooks(base: ProjectHooks, extra: ProjectHooks | None) -> Proje
     if extra is None:
         return base
     error = base.error or extra.error
-    hooks = (*base.hooks, *extra.hooks)
+    hooks = base.hooks if base.managed_only else (*base.hooks, *extra.hooks)
     if len(hooks) > MAX_HOOKS:
         error = f"Combined hook configuration exceeds {MAX_HOOKS} hooks."
         hooks = ()
@@ -119,6 +135,7 @@ def merge_project_hooks(base: ProjectHooks, extra: ProjectHooks | None) -> Proje
         hooks=tuple(hooks),
         sources=tuple(dict.fromkeys((*base.sources, *extra.sources))),
         error=error,
+        managed_only=base.managed_only or extra.managed_only,
     )
 
 

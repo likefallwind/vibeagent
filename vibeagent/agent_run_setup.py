@@ -138,6 +138,13 @@ def prepare_agent_run(
         current_workspace,
         permission_overrides,
     )
+    _validate_managed_permission_modes(
+        approval_policy,
+        project_permissions,
+        main_profile.permission_mode,
+    )
+    if project_permissions.bypass_permissions_disabled and current_workspace.bypass_permissions_available:
+        current_workspace = replace(current_workspace, bypass_permissions_available=False)
     if project_permissions.error is None and project_permissions.additional_directories:
         try:
             configured_roots = resolve_permission_additional_directories(
@@ -443,6 +450,24 @@ def prepare_agent_run(
         approval_policy=effective_approval_policy,
         approval_policy_locked=approval_policy_locked,
     )
+
+
+def _validate_managed_permission_modes(
+    approval_policy: ApprovalPolicy,
+    permissions: ProjectPermissions,
+    profile_mode: str | None,
+) -> None:
+    requested_modes = {
+        approval_policy,
+        permissions.default_mode,
+        profile_mode,
+    }
+    if permissions.bypass_permissions_disabled and (
+        "allow" in requested_modes or "bypassPermissions" in requested_modes
+    ):
+        raise ValueError("bypassPermissions mode is disabled by managed permission policy.")
+    if permissions.auto_mode_disabled and "auto" in requested_modes:
+        raise ValueError("Auto mode is disabled by managed permission policy.")
 
 
 def _main_profile_task(

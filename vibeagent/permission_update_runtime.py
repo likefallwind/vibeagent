@@ -67,10 +67,29 @@ def apply_permission_updates(
             source = DESTINATION_SOURCES.get(destination, SESSION_PERMISSION_SOURCE)
             entry_type = str(entry["type"])
             if entry_type in {"addRules", "replaceRules", "removeRules"}:
+                if permissions.managed_rules_only:
+                    warnings.append(
+                        "Ignored permission rule update because managed policy allows only managed rules."
+                    )
+                    continue
                 _apply_rules_to_runtime(current_rules, trusted_sources, entry, source)
                 _apply_rules_to_settings(settings_payloads.get(destination), entry)
             elif entry_type == "setMode":
                 mode = str(entry["mode"])
+                if permissions.managed_rules_only and mode in {
+                    "acceptEdits",
+                    "bypassPermissions",
+                }:
+                    warnings.append(
+                        f"Ignored {mode} because managed policy allows only managed rules."
+                    )
+                    continue
+                if mode == "bypassPermissions" and permissions.bypass_permissions_disabled:
+                    warnings.append("Ignored bypassPermissions because managed policy disables it.")
+                    continue
+                if mode == "auto" and permissions.auto_mode_disabled:
+                    warnings.append("Ignored auto mode because managed policy disables it.")
+                    continue
                 if mode == "bypassPermissions" and not bypass_available:
                     warnings.append(
                         "Ignored bypassPermissions because this session did not start with bypass permission available."
@@ -129,6 +148,9 @@ def apply_permission_updates(
         default_mode=permissions.default_mode,
         default_mode_source=permissions.default_mode_source,
         additional_directories=permissions.additional_directories,
+        managed_rules_only=permissions.managed_rules_only,
+        bypass_permissions_disabled=permissions.bypass_permissions_disabled,
+        auto_mode_disabled=permissions.auto_mode_disabled,
     )
     return PermissionUpdateApplication(
         effective_workspace,

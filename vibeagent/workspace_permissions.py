@@ -16,6 +16,7 @@ from .workspace_settings_sources import (
     project_config_file,
     read_settings_payload,
     settings_file_exists,
+    settings_files_with_project_config,
 )
 
 
@@ -63,6 +64,9 @@ class ProjectPermissions:
     default_mode: PermissionDefaultMode | None = None
     default_mode_source: str | None = None
     additional_directories: tuple[str, ...] = ()
+    managed_rules_only: bool = False
+    bypass_permissions_disabled: bool = False
+    auto_mode_disabled: bool = False
 
     @property
     def enabled(self) -> bool:
@@ -71,6 +75,9 @@ class ProjectPermissions:
             or self.error is not None
             or self.default_mode is not None
             or bool(self.additional_directories)
+            or self.managed_rules_only
+            or self.bypass_permissions_disabled
+            or self.auto_mode_disabled
         )
 
 
@@ -88,11 +95,29 @@ def read_project_permissions(workspace: RunWorkspace) -> ProjectPermissions:
     default_mode: PermissionDefaultMode | None = None
     default_mode_source: str | None = None
     additional_directories: list[str] = []
+    managed_rules: list[ProjectPermissionRule] = []
+    managed_rules_only = False
+    bypass_permissions_disabled = False
+    auto_mode_disabled = False
     try:
-        configs = (
-            *claude_settings_files(workspace),
+        configs = settings_files_with_project_config(
+            workspace,
             project_config_file(workspace, PERMISSION_CONFIG_PATH),
         )
+        managed_sources = {config.source for config in configs if config.managed}
+        for config in configs:
+            if not config.managed or not settings_file_exists(config):
+                continue
+            managed_payload = read_settings_payload(
+                config, max_bytes=MAX_PERMISSION_CONFIG_BYTES
+            )
+            if "allowManagedPermissionRulesOnly" in managed_payload:
+                managed_only_value = managed_payload["allowManagedPermissionRulesOnly"]
+                if not isinstance(managed_only_value, bool):
+                    raise ValueError(
+                        f"{config.source} allowManagedPermissionRulesOnly must be a boolean."
+                    )
+                managed_rules_only = managed_only_value
         for config in configs:
             if not settings_file_exists(config):
                 continue
@@ -107,8 +132,14 @@ def read_project_permissions(workspace: RunWorkspace) -> ProjectPermissions:
             sources.append(config.source)
             if not isinstance(permission_payload, dict):
                 raise ValueError(f"{config.source} permissions must be an object.")
-            parsed = _parse_permission_rules(permission_payload, config.source)
+            parsed = (
+                _parse_permission_rules(permission_payload, config.source)
+                if config.managed or not managed_rules_only
+                else ()
+            )
             rules.extend(parsed)
+            if config.managed:
+                managed_rules.extend(parsed)
             if config.trusted and any(rule.effect == "allow" for rule in parsed):
                 trusted_allow_sources.append(config.source)
             if len(rules) > MAX_PERMISSION_RULES:
@@ -129,6 +160,22 @@ def read_project_permissions(workspace: RunWorkspace) -> ProjectPermissions:
                     config.source,
                 )
             )
+            if permission_payload.get("disableBypassPermissionsMode") == "disable":
+                bypass_permissions_disabled = True
+            elif "disableBypassPermissionsMode" in permission_payload and permission_payload.get(
+                "disableBypassPermissionsMode"
+            ) not in {None, "enable"}:
+                raise ValueError(
+                    f"{config.source} permissions.disableBypassPermissionsMode must be enable or disable."
+                )
+            if permission_payload.get("disableAutoMode") == "disable":
+                auto_mode_disabled = True
+            elif "disableAutoMode" in permission_payload and permission_payload.get(
+                "disableAutoMode"
+            ) not in {None, "enable"}:
+                raise ValueError(
+                    f"{config.source} permissions.disableAutoMode must be enable or disable."
+                )
             if len(set(additional_directories)) > MAX_PERMISSION_ADDITIONAL_DIRECTORIES:
                 raise ValueError(
                     "Workspace permissions exceed "
@@ -142,7 +189,17 @@ def read_project_permissions(workspace: RunWorkspace) -> ProjectPermissions:
             default_mode=default_mode,
             default_mode_source=default_mode_source,
             additional_directories=tuple(dict.fromkeys(additional_directories)),
+            managed_rules_only=managed_rules_only,
+            bypass_permissions_disabled=bypass_permissions_disabled,
+            auto_mode_disabled=auto_mode_disabled,
         )
+    if managed_rules_only:
+        rules = managed_rules
+        trusted_allow_sources = [
+            source
+            for source in trusted_allow_sources
+            if source in managed_sources
+        ]
     return ProjectPermissions(
         rules=tuple(rules),
         sources=tuple(sources),
@@ -150,6 +207,9 @@ def read_project_permissions(workspace: RunWorkspace) -> ProjectPermissions:
         default_mode=default_mode,
         default_mode_source=default_mode_source,
         additional_directories=tuple(dict.fromkeys(additional_directories)),
+        managed_rules_only=managed_rules_only,
+        bypass_permissions_disabled=bypass_permissions_disabled,
+        auto_mode_disabled=auto_mode_disabled,
     )
 
 
@@ -175,7 +235,7 @@ def merge_project_permissions(
         return base
     error = base.error or extra.error
     return ProjectPermissions(
-        rules=base.rules + extra.rules,
+        rules=base.rules if base.managed_rules_only else base.rules + extra.rules,
         sources=tuple(dict.fromkeys((*base.sources, *extra.sources))),
         error=error,
         allow_rules_trusted=base.allow_rules_trusted,
@@ -185,6 +245,11 @@ def merge_project_permissions(
         additional_directories=tuple(
             dict.fromkeys((*base.additional_directories, *extra.additional_directories))
         ),
+        managed_rules_only=base.managed_rules_only or extra.managed_rules_only,
+        bypass_permissions_disabled=(
+            base.bypass_permissions_disabled or extra.bypass_permissions_disabled
+        ),
+        auto_mode_disabled=base.auto_mode_disabled or extra.auto_mode_disabled,
     )
 
 

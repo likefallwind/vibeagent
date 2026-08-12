@@ -79,6 +79,9 @@ def get_permissions_report(approval_policy: str = "ask", root: str = ".") -> dic
             "count": len(project_permissions.rules),
             "sources": list(project_permissions.sources),
             "error": project_permissions.error,
+            "managedRulesOnly": project_permissions.managed_rules_only,
+            "bypassPermissionsDisabled": project_permissions.bypass_permissions_disabled,
+            "autoModeDisabled": project_permissions.auto_mode_disabled,
             "byEffect": rules_by_effect,
         },
         "commandHardBlocks": get_command_hard_block_report(),
@@ -118,6 +121,9 @@ def format_permissions_report_text(report: dict[str, object]) -> str:
                 f"    sources: {', '.join(clean_sources) or '(none)'}",
                 "    allowRules: require one-shot or persistent project trust to skip side-effect approval",
                 f"    persistentlyTrusted: {'yes' if project_permissions.get('persistentlyTrusted') else 'no'}",
+                f"    managedRulesOnly: {'yes' if project_permissions.get('managedRulesOnly') else 'no'}",
+                f"    bypassPermissionsDisabled: {'yes' if project_permissions.get('bypassPermissionsDisabled') else 'no'}",
+                f"    autoModeDisabled: {'yes' if project_permissions.get('autoModeDisabled') else 'no'}",
             ]
         )
         error = project_permissions.get("error")

@@ -368,6 +368,14 @@ The automated suite currently covers these 1.0 surfaces:
   defaults/config inspection, tool-free model critique that validates findings
   against exact custom rules, and confirmation-gated user-settings reset that
   preserves unrelated content and rejects symlinks or concurrent changes.
+- Claude-compatible file-based endpoint-managed settings: platform system paths,
+  bounded base/drop-in discovery, lexical scalar/deep-object/deduplicated-array
+  merge semantics, highest-priority common settings-source delivery, managed-only
+  permission and Hook locks, bypass/auto mode disable controls, safe/bare and
+  subagent retention, PermissionRequest update refusal, exact source reporting,
+  and fail-closed malformed, link, count, and size handling. Server-managed,
+  plist, registry, policy-helper, and WSL Windows-policy delivery remain outside
+  this claim.
 - Interactive and one-shot additional working directories, including
   invocation-relative CLI resolution, model-visible absolute roots, core file
   and command execution, configuration isolation, sandbox mounts, and rejection

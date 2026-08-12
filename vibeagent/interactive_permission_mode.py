@@ -138,6 +138,8 @@ def _set_accept_edits(
     permissions: ProjectPermissions,
     enabled: bool,
 ) -> ProjectPermissions:
+    if permissions.managed_rules_only:
+        return permissions
     removed_sources = {
         INTERACTIVE_ACCEPT_EDITS_SOURCE,
         "<cli --permission-mode acceptEdits>",
@@ -164,6 +166,9 @@ def _set_accept_edits(
         default_mode=permissions.default_mode,
         default_mode_source=permissions.default_mode_source,
         additional_directories=permissions.additional_directories,
+        managed_rules_only=permissions.managed_rules_only,
+        bypass_permissions_disabled=permissions.bypass_permissions_disabled,
+        auto_mode_disabled=permissions.auto_mode_disabled,
     )
 
 

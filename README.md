@@ -446,23 +446,25 @@ printf "summarize the project risks\n" | python -m vibeagent -
 
 `--safe-mode` (or `CLAUDE_CODE_SAFE_MODE=1`) starts a clean diagnostic session.
 It disables project instructions, skills, custom agents and commands, plugins,
-hooks, MCP servers, LSP configuration, workflows, status-line customization,
+non-managed hooks, MCP servers, LSP configuration, workflows, status-line customization,
 and auto-memory while preserving authentication, model selection, built-in
 tools, explicit invocation prompts, permissions, and sandbox enforcement.
 Custom agent and MCP CLI flags, plus Setup-hook modes, are rejected when the
 flag is active. The setting propagates through resume, fork, background, goal,
-and subagent execution.
+and subagent execution. File-based endpoint-managed policies and managed Hooks
+remain active, so safe mode cannot weaken administrator controls.
 
 `--bare` is the reproducible scripting boundary. It skips automatic discovery
-of project/user instructions, agents, commands, skills, hooks, installed
-plugins, MCP servers, auto-memory, and settings files, while retaining built-in
+of project/user instructions, agents, commands, skills, non-managed hooks, installed
+plugins, MCP servers, auto-memory, and ordinary settings files, while retaining built-in
 file and shell tools, permissions, model configuration, and explicit system
 prompt flags. Unlike safe mode, bare mode permits explicit `--settings`,
 `--agents`, `--mcp-config`, `--plugin-dir`, and
 `--plugin-url` inputs; invocation plugins may contribute their own commands,
 skills, agents, hooks, and MCP servers. The mode remains active across
 interactive, one-shot, resumed, forked, ephemeral, worktree, and background
-runs without changing normal stdout or machine output.
+runs without changing normal stdout or machine output. Endpoint-managed settings
+remain loaded at the highest settings priority in bare mode.
 
 `--settings JSON_OR_PATH` applies one bounded invocation-only settings object
 after the selected files. `--setting-sources user,project,local` selects which
@@ -472,6 +474,25 @@ permissions, hooks, sandboxing, agents, plugins, resumed and forked sessions,
 subagents, and background continuation. Inline content is never written to
 normal settings files or session events; interactive background handoff stores
 it in a private mode-`0600` session file.
+
+VibeAgent reads Claude-compatible
+[file-based endpoint-managed settings](https://code.claude.com/docs/en/settings#settings-files) from
+`/etc/claude-code/` on Linux/WSL,
+`/Library/Application Support/ClaudeCode/` on macOS, and
+`C:\Program Files\ClaudeCode\` on Windows. `managed-settings.json` is the base;
+regular non-symlink `managed-settings.d/*.json` files are merged in lexical
+order, with later scalars overriding, objects deep-merging, and arrays appending
+with exact de-duplication. Hidden files are ignored and file-count, individual,
+total, and merged-size bounds fail closed. Common settings consumers receive
+this source after CLI, local, project, user, and `.vibeagent` settings; the
+managed security controls below are enforced explicitly as non-overridable locks.
+`allowManagedPermissionRulesOnly`, `allowManagedHooksOnly`,
+`permissions.disableBypassPermissionsMode`, and `permissions.disableAutoMode`
+are enforced through main agents, profiles, PermissionRequest updates, safe/bare
+sessions, and subagents. `--permissions --json` reports the active locks and
+their exact managed file sources. This release implements file delivery; it does
+not claim Anthropic server delivery, macOS plist, Windows registry, policy-helper,
+or WSL Windows-policy inheritance.
 
 `--background` / `--bg` detaches one persistent, one-shot coding session and
 returns a project-local agent ID immediately. Management commands and the
@@ -691,7 +712,8 @@ review. `reset` summarizes and removes only `autoMode` from
 `~/.claude/settings.json`, preserves every other setting and file mode, rejects
 symbolic links or a concurrent file change, and requires confirmation unless
 `--yes` is present. Invocation-scoped rules remain effective because reset does
-not modify `--settings` or any non-user source.
+not modify `--settings` or any non-user source; endpoint-managed file rules also
+remain effective.
 For unattended policy decisions, `-p --permission-prompt-tool MCP_TOOL` delegates
 only unresolved `ask` or `auto` prompts to an advertised MCP tool. References may
 use `mcp__SERVER__TOOL`, `SERVER/TOOL`, or a bare name that is unique across all

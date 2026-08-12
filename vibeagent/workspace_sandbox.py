@@ -24,6 +24,7 @@ from .workspace_settings_sources import (
     project_config_file,
     read_settings_payload,
     settings_file_exists,
+    settings_files_with_project_config,
 )
 
 
@@ -65,8 +66,8 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
     }
     sources: list[str] = []
     try:
-        configs = (
-            *claude_settings_files(workspace),
+        configs = settings_files_with_project_config(
+            workspace,
             project_config_file(workspace, SANDBOX_CONFIG_PATH),
         )
         for config in configs:

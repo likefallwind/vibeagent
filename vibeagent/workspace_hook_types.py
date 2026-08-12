@@ -143,6 +143,7 @@ class ProjectHooks:
     hooks: tuple[ProjectHook, ...] = ()
     sources: tuple[str, ...] = ()
     error: str | None = None
+    managed_only: bool = False
 
     @property
     def enabled(self) -> bool:

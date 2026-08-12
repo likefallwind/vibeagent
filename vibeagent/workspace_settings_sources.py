@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 
+from .managed_settings import read_file_managed_settings
 from .user_paths import user_home
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
@@ -15,6 +16,7 @@ class WorkspaceSettingsFile:
     boundary: Path
     source: str
     trusted: bool
+    managed: bool = False
     inline_json: str | None = None
 
 
@@ -39,6 +41,23 @@ def claude_settings_files(workspace: RunWorkspace) -> tuple[WorkspaceSettingsFil
                 source="CLI --settings",
                 trusted=True,
                 inline_json=workspace.settings_override_json,
+            )
+        )
+    managed_payload, managed_sources = read_file_managed_settings()
+    if managed_payload is not None:
+        files.append(
+            WorkspaceSettingsFile(
+                path=None,
+                boundary=workspace.root,
+                source="managed settings: " + ", ".join(managed_sources),
+                trusted=True,
+                managed=True,
+                inline_json=json.dumps(
+                    managed_payload,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
             )
         )
     return tuple(files)
@@ -99,10 +118,21 @@ def project_config_file(workspace: RunWorkspace, relative_path: str) -> Workspac
     )
 
 
+def settings_files_with_project_config(
+    workspace: RunWorkspace,
+    *project_configs: WorkspaceSettingsFile,
+) -> tuple[WorkspaceSettingsFile, ...]:
+    settings = claude_settings_files(workspace)
+    unmanaged = tuple(config for config in settings if not config.managed)
+    managed = tuple(config for config in settings if config.managed)
+    return (*unmanaged, *project_configs, *managed)
+
+
 __all__ = [
     "WorkspaceSettingsFile",
     "claude_settings_files",
     "project_config_file",
     "read_settings_payload",
     "settings_file_exists",
+    "settings_files_with_project_config",
 ]
