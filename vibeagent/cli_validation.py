@@ -24,10 +24,10 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--safe-mode cannot be combined with --agent or --agents."
     if args.safe_mode and (args.mcp_config or args.strict_mcp_config):
         return "--safe-mode cannot be combined with --mcp-config or --strict-mcp-config."
-    if args.safe_mode and args.plugin_dir:
-        return "--safe-mode cannot be combined with --plugin-dir."
-    if args.plugin_dir and (has_local_flag(args) or args.chat):
-        return "--plugin-dir requires an interactive or one-shot coding session."
+    if args.safe_mode and (args.plugin_dir or args.plugin_url):
+        return "--safe-mode cannot be combined with --plugin-dir or --plugin-url."
+    if (args.plugin_dir or args.plugin_url) and (has_local_flag(args) or args.chat):
+        return "--plugin-dir and --plugin-url require an interactive or one-shot coding session."
     if args.safe_mode and (args.maintenance or args.setup_trigger == "init"):
         return "--safe-mode cannot run custom Setup hooks through --init or --maintenance."
     if args.background and (not args.task or has_local_flag(args) or args.chat):

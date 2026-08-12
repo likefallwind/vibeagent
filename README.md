@@ -403,6 +403,7 @@ python -m vibeagent --safe-mode --cwd ../my-project "diagnose startup without pr
 python -m vibeagent --settings ./review-settings.json --setting-sources user,project "inspect the change"
 python -m vibeagent --plugin-dir ./extensions/team-tools "use the local review plugin"
 python -m vibeagent --plugin-dir ./dist/team-tools.zip "test the packaged review plugin"
+python -m vibeagent --plugin-url https://plugins.example.com/team-tools.zip "test the remote build artifact"
 python -m vibeagent --system-prompt-file ./prompts/reviewer.txt "inspect the change"
 python -m vibeagent --append-system-prompt "Be concise." --append-system-prompt-file ./prompts/project-rules.txt
 python -m vibeagent -p --append-subagent-system-prompt "Cite exact file paths." "delegate the investigation"
@@ -1717,6 +1718,17 @@ file count, and total bytes; traversal, absolute or duplicate paths, encryption,
 symbolic links, special files, malformed archives, and unsafe cache trees fail
 before a model request. Archives may contain the plugin at the ZIP root or under
 one wrapper directory.
+Repeat `--plugin-url URLS` to fetch invocation-only plugin ZIPs from public
+HTTPS URLs. One flag may contain space-separated URLs, matching the
+Claude-compatible CLI contract. VibeAgent rejects credentials, fragments,
+non-ZIP paths, private or mixed-scope DNS results, cross-scope or non-HTTPS
+redirects, non-identity content encoding, oversized responses, and malformed
+archives. Downloads bypass environment proxies, use private `0600` temporary
+files, and are removed after the validated content-addressed plugin root is
+created. Duplicate URLs are fetched once; local and remote plugins share the
+same 20-plugin limit and same-name conflict checks. A failed fetch or invalid
+archive stops before provider creation rather than silently running without the
+requested extension.
 Invocation plugins participate in interactive catalogs, command expansion,
 provider-independent agents, skills, hooks, MCP, LSP, monitors, executables,
 resume, fork, worktree, background, and nested subagent paths. An invocation

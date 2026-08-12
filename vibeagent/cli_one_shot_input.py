@@ -111,6 +111,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "invocation_plugin_dirs": resolve_invocation_plugin_dirs(
             args.plugin_dir,
             invocation_root=invocation_root,
+            plugin_urls=args.plugin_url,
         ),
         "system_prompt": system_prompt,
         "append_system_prompt": append_system_prompt,

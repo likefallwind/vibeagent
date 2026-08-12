@@ -215,18 +215,20 @@ class InvocationPluginTests(IsolatedUserHomeTestCase):
         args = parse_args(["--safe-mode", "--plugin-dir", ".", "inspect"])
         self.assertEqual(
             validate_cli_args(args),
-            "--safe-mode cannot be combined with --plugin-dir.",
+            "--safe-mode cannot be combined with --plugin-dir or --plugin-url.",
         )
 
     def test_chat_and_local_commands_reject_plugin_dir(self) -> None:
         for argv in (
             ["--plugin-dir", ".", "--chat", "hello"],
             ["--plugin-dir", ".", "--version"],
+            ["--plugin-url", "https://plugins.example.com/demo.zip", "--chat", "hello"],
+            ["--plugin-url", "https://plugins.example.com/demo.zip", "--version"],
         ):
             with self.subTest(argv=argv):
                 self.assertEqual(
                     validate_cli_args(parse_args(argv)),
-                    "--plugin-dir requires an interactive or one-shot coding session.",
+                    "--plugin-dir and --plugin-url require an interactive or one-shot coding session.",
                 )
 
     def test_resume_fork_preserves_invocation_plugin_dirs(self) -> None:

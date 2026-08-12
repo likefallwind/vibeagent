@@ -481,6 +481,14 @@ The automated suite currently covers these 1.0 surfaces:
   count, depth, and byte checks. The same roots reach interactive catalogs,
   resume, fork, worktree, background, and subagents; explicit same-name plugins
   override installed versions and events disclose only the count.
+- Remote invocation plugins: repeatable Claude-compatible `--plugin-url`
+  accepts public HTTPS ZIP URLs, including bounded space-separated groups,
+  downloads without environment proxies into private temporary files, and
+  feeds the same archive validator and content-addressed cache. URL credentials,
+  fragments, unsafe DNS or redirects, unsupported response encoding, download
+  overflow, malformed archives, and cross-source name conflicts fail before
+  provider creation; resolved local roots continue through worktree, resume,
+  background, and subagent paths without persisting raw URLs.
 - Recoverable command output: truncated finite Bash and PowerShell streams are
   retained as private current-session artifacts with exact `read_file`
   references and total byte counts. Invalid references, cross-session paths,

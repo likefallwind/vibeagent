@@ -95,6 +95,7 @@ def resolve_interactive_startup_context(
         "invocation_plugin_dirs": resolve_invocation_plugin_dirs(
             getattr(args, "plugin_dir", None),
             invocation_root=Path.cwd(),
+            plugin_urls=getattr(args, "plugin_url", None),
         ),
     }
     session_resume = args.resume if args.resume is not None else args.session_id

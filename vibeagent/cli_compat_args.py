@@ -124,6 +124,13 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Load a local plugin directory or ZIP archive for this invocation; repeat for multiple plugins.",
     )
     parser.add_argument(
+        "--plugin-url",
+        action="append",
+        default=[],
+        metavar="URLS",
+        help="Fetch one or more space-separated public HTTPS plugin ZIP URLs for this invocation; repeat as needed.",
+    )
+    parser.add_argument(
         "--maintenance",
         action="store_true",
         help="Run Setup hooks with the maintenance matcher before a print-mode task.",

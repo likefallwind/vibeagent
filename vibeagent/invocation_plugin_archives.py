@@ -33,7 +33,11 @@ _KNOWN_PLUGIN_ROOT_NAMES = frozenset(
 )
 
 
-def materialize_invocation_plugin_archive(archive_path: Path) -> Path:
+def materialize_invocation_plugin_archive(
+    archive_path: Path,
+    *,
+    manifestless_name: str | None = None,
+) -> Path:
     archive = archive_path.resolve()
     try:
         with archive.open("rb") as stream:
@@ -44,7 +48,11 @@ def materialize_invocation_plugin_archive(archive_path: Path) -> Path:
                 )
             digest = _stream_sha256(stream)
             stream.seek(0)
-            entries, prefix, root_name = _inspect_archive(stream, archive)
+            entries, prefix, root_name = _inspect_archive(
+                stream,
+                archive,
+                manifestless_name=manifestless_name,
+            )
             cache_root = _invocation_archive_cache_root()
             cache_key = hashlib.sha256(f"{digest}\0{root_name}".encode("utf-8")).hexdigest()
             slot = cache_root / cache_key
@@ -90,6 +98,8 @@ def _stream_sha256(stream) -> str:
 def _inspect_archive(
     stream,
     archive_path: Path,
+    *,
+    manifestless_name: str | None = None,
 ) -> tuple[tuple[tuple[zipfile.ZipInfo, PurePosixPath], ...], str | None, str]:
     entries: list[tuple[zipfile.ZipInfo, PurePosixPath]] = []
     seen: set[PurePosixPath] = set()
@@ -116,7 +126,7 @@ def _inspect_archive(
     if manifest_path in stripped:
         root_name = "plugin"
     else:
-        root_name = prefix or archive_path.stem
+        root_name = prefix or manifestless_name or archive_path.stem
         if not PLUGIN_NAME_PATTERN.fullmatch(root_name):
             raise ValueError(
                 "Manifestless plugin ZIP name must use 1-64 lowercase letters, digits, or hyphens."
@@ -287,8 +297,6 @@ def _validate_cache_matches_archive(
                         if not source_chunk:
                             break
     except (OSError, RuntimeError, NotImplementedError, zipfile.BadZipFile) as error:
-        if isinstance(error, ValueError):
-            raise
         raise ValueError(f"Could not verify invocation plugin cache: {error}") from error
     actual = {path for path in plugin_root.rglob("*") if path.is_file()}
     if actual != expected:

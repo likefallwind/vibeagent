@@ -238,6 +238,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     invocation_plugin_dirs=resolve_invocation_plugin_dirs(
                         args.plugin_dir,
                         invocation_root=Path.cwd(),
+                        plugin_urls=args.plugin_url,
                     ),
                 )
                 startup_policy = args.approval or "ask"

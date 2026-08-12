@@ -67,6 +67,7 @@ class SafeModeTests(unittest.TestCase):
             (["--safe-mode", "--agents", '{"reviewer":{"prompt":"x"}}', "inspect"], "--agent or --agents"),
             (["--safe-mode", "--mcp-config", "server.json", "inspect"], "--mcp-config"),
             (["--safe-mode", "--strict-mcp-config", "inspect"], "--mcp-config"),
+            (["--safe-mode", "--plugin-url", "https://plugins.example.com/demo.zip", "inspect"], "--plugin-url"),
             (["--safe-mode", "-p", "--maintenance", "inspect"], "Setup hooks"),
         )
         for argv, message in invalid:

@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from contextlib import redirect_stdout
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from vibeagent.background_agent_runtime import BackgroundAgentRecord, BackgroundAgentView
 from vibeagent.cli import main
@@ -112,6 +112,47 @@ class CliBackgroundAgentTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(launch.call_args.kwargs["resume_reference"], "resolved-run-id")
+
+    def test_background_materializes_plugin_urls_before_persisting_launch_argv(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
+            root = Path(base).resolve()
+            cached = root / "cached-plugin"
+            cached.mkdir()
+            view = _view(root)
+            argv = [
+                "--bg",
+                "--cwd",
+                root.as_posix(),
+                "--plugin-url",
+                "https://plugins.example.com/demo.zip?token=secret",
+                "--",
+                "fix",
+            ]
+            args = parse_args(argv)
+            with (
+                patch(
+                    "vibeagent.cli_background_agent_launch.resolve_invocation_plugin_dirs",
+                    return_value=(cached,),
+                ) as resolve,
+                patch(
+                    "vibeagent.cli_background_agent_launch.launch_background_agent",
+                    return_value=view,
+                ) as launch,
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = launch_background_agent_from_cli(argv, args)
+
+        persisted = launch.call_args.args[2]
+        self.assertEqual(exit_code, 0)
+        resolve.assert_called_once_with(
+            [],
+            invocation_root=Path.cwd(),
+            plugin_urls=["https://plugins.example.com/demo.zip?token=secret"],
+        )
+        self.assertNotIn("--plugin-url", persisted)
+        self.assertNotIn("https://plugins.example.com/demo.zip?token=secret", persisted)
+        separator = persisted.index("--")
+        self.assertEqual(persisted[separator - 2 : separator], ["--plugin-dir", cached.as_posix()])
 
     def test_local_list_log_stop_and_remove_reports(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
