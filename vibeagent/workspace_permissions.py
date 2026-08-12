@@ -483,6 +483,11 @@ def _specifier_matches(
     subjects: tuple[str, ...],
 ) -> bool:
     specifier = rule.specifier or ""
+    if _specifier_is_sandbox_escape(rule.tool, tool_name, action, specifier):
+        requests = _sandbox_escape_requests(action)
+        if not requests:
+            return False
+        return all(requests) if rule.effect == "allow" else any(requests)
     if _specifier_is_web_fetch_domain(rule.tool, tool_name, action, specifier):
         hostname = urlsplit(str(getattr(action, "url", ""))).hostname or ""
         return wildcard_matches(specifier.removeprefix("domain:"), hostname, path_mode=False)
@@ -491,6 +496,31 @@ def _specifier_matches(
     path_mode = _specifier_uses_path_matching(rule.tool, tool_name, action)
     matches = [wildcard_matches(specifier, subject, path_mode=path_mode) for subject in subjects]
     return all(matches) if rule.effect == "allow" else any(matches)
+
+
+def _specifier_is_sandbox_escape(
+    rule_tool: str,
+    tool_name: str,
+    action: object,
+    specifier: str,
+) -> bool:
+    return (
+        specifier == "dangerouslyDisableSandbox:true"
+        and rule_tool == "Bash"
+        and "Bash" in tool_name_candidates(tool_name, action)
+    )
+
+
+def _sandbox_escape_requests(action: object) -> tuple[bool, ...]:
+    commands = getattr(action, "commands", None)
+    if isinstance(commands, list):
+        return tuple(
+            bool(getattr(item, "dangerously_disable_sandbox", False))
+            for item in commands
+        )
+    if hasattr(action, "dangerously_disable_sandbox"):
+        return (bool(getattr(action, "dangerously_disable_sandbox")),)
+    return ()
 
 
 def _specifier_is_web_fetch_domain(rule_tool: str, tool_name: str, action: object, specifier: str) -> bool:

@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from .tool_definition_output_schema import COMMAND_OUTPUT_EXTRACTION_PROPERTIES
+from .tool_definition_output_schema import (
+    COMMAND_OUTPUT_EXTRACTION_PROPERTIES,
+    COMMAND_SANDBOX_ESCAPE_PROPERTY,
+)
 
 
 COMMAND_SEQUENCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -48,6 +51,7 @@ COMMAND_SEQUENCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                                 "description": "Optional stdout/stderr character cap per command. Defaults to 12000.",
                             },
                             **COMMAND_OUTPUT_EXTRACTION_PROPERTIES,
+                            **COMMAND_SANDBOX_ESCAPE_PROPERTY,
                         },
                         "required": ["command"],
                         "additionalProperties": False,
@@ -87,6 +91,7 @@ COMMAND_SEQUENCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                                 "description": "Optional stdout/stderr character cap per command. Defaults to 12000.",
                             },
                             **COMMAND_OUTPUT_EXTRACTION_PROPERTIES,
+                            **COMMAND_SANDBOX_ESCAPE_PROPERTY,
                         },
                         "required": ["command"],
                         "additionalProperties": False,

@@ -60,6 +60,13 @@ def reject_untrusted_sandbox_weakening(
             raise ValueError(
                 f"Disabling user {label} requires explicit project configuration trust."
             )
+    trusted_escape = trusted_values.get("allowUnsandboxedCommands")
+    effective_escape = merged.get("allowUnsandboxedCommands")
+    if trusted_escape is False and effective_escape == (True, False):
+        raise ValueError(
+            "Enabling user sandbox.allowUnsandboxedCommands requires explicit "
+            "project configuration trust."
+        )
 
 
 def deduplicate_scoped_values(values: ScopedValues) -> ScopedValues:

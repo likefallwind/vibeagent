@@ -35,3 +35,14 @@ COMMAND_OUTPUT_EXTRACTION_PROPERTIES: dict[str, dict[str, object]] = {
         "description": "Maximum characters returned per extracted context. Defaults to 20000.",
     },
 }
+
+
+COMMAND_SANDBOX_ESCAPE_PROPERTY: dict[str, dict[str, object]] = {
+    "dangerouslyDisableSandbox": {
+        "type": "boolean",
+        "description": (
+            "Request execution outside the command sandbox after sandbox isolation "
+            "prevents the command from working. This never bypasses normal permission approval."
+        ),
+    }
+}

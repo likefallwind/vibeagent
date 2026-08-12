@@ -235,6 +235,7 @@ def execute_runtime_action(
             action.cwd,
             max_output_chars=action.max_output_chars or 4_000,
             maintain_cwd=action.maintain_cwd,
+            dangerously_disable_sandbox=action.dangerously_disable_sandbox,
         )
 
     if isinstance(action, MonitorAction):

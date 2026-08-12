@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .action_parsing_scalars import ActionParseError, parse_nonnegative_int, parse_optional_positive_int
+from .action_parsing_sandbox import parse_dangerously_disable_sandbox
 from .types import RunCommandItem
 
 
@@ -84,6 +85,11 @@ def parse_run_command_items(value: Any, raw: str, action_type: str) -> list[RunC
                 max_contexts=max_contexts,
                 max_bytes_per_context=max_bytes_per_context,
                 description=description.strip() if isinstance(description, str) else None,
+                dangerously_disable_sandbox=parse_dangerously_disable_sandbox(
+                    item,
+                    raw,
+                    f"{action_type} command {index}",
+                ),
             )
         )
     return commands

@@ -24,6 +24,7 @@ class RunCommandItem:
     max_contexts: int = 20
     max_bytes_per_context: int = 20_000
     description: str | None = None
+    dangerously_disable_sandbox: bool = False
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ class CheckStartCommandAction:
     type: Literal["check_start_command"]
     command: str
     cwd: str | None = None
+    dangerously_disable_sandbox: bool = False
 
 
 @dataclass(frozen=True)
@@ -104,6 +106,7 @@ class RunCommandAction:
     max_bytes_per_context: int = 20_000
     description: str | None = None
     maintain_cwd: bool = False
+    dangerously_disable_sandbox: bool = False
 
 
 @dataclass(frozen=True)
@@ -138,6 +141,7 @@ class StartCommandAction:
     max_output_chars: int | None = None
     description: str | None = None
     maintain_cwd: bool = False
+    dangerously_disable_sandbox: bool = False
 
 
 @dataclass(frozen=True)

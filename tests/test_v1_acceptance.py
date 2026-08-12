@@ -444,6 +444,14 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("private host-side HTTP/CONNECT proxy", readme)
         self.assertNotIn("domain allowlists require a proxy and are not yet implemented", readme)
 
+    def test_readme_documents_controlled_unsandboxed_retry(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("allowUnsandboxedCommands", readme)
+        self.assertIn("dangerouslyDisableSandbox: true", readme)
+        self.assertIn("Bash(dangerouslyDisableSandbox:true)", readme)
+        self.assertIn("never sandbox-auto-approved", readme)
+
     def test_acceptance_plan_links_to_readiness_audit(self) -> None:
         plan = PLAN_PATH.read_text(encoding="utf-8")
 

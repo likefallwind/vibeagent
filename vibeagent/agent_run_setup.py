@@ -757,6 +757,7 @@ def _append_sandbox_event(workspace: RunWorkspace, sandbox_config: SandboxConfig
             ),
             "fail_if_unavailable": sandbox_config.fail_if_unavailable,
             "auto_allow_bash_if_sandboxed": sandbox_config.auto_allow_bash_if_sandboxed,
+            "allow_unsandboxed_commands": sandbox_config.allow_unsandboxed_commands,
             "sources": list(sandbox_config.sources),
             "error": sandbox_config.error,
         },

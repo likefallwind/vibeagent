@@ -57,6 +57,14 @@ more-specific and exact-tie denies remain authoritative. Endpoint-managed
 denies. Sandboxed Bash also enforces credential `mode: "deny"` for files and
 environment variables. Credential masking remains outside this claim.
 
+`VA1-SAFETY` includes the Claude-compatible unsandboxed retry escape hatch for
+finite, batched, and background Bash commands. An explicit
+`dangerouslyDisableSandbox: true` request returns to normal permission handling,
+never receives sandbox auto-approval, exposes an explicit host-access risk, and
+can be targeted by `Bash(dangerouslyDisableSandbox:true)` rules. Trusted
+`allowUnsandboxedCommands: false` policy keeps the same request sandboxed and
+cannot be weakened by an untrusted project.
+
 `VA1-IDE` also includes Claude-compatible `--ide`: the extension publishes one
 short-lived owner-only descriptor per workspace, and an external CLI invocation
 connects only when exactly one fresh authenticated descriptor matches `--cwd`.

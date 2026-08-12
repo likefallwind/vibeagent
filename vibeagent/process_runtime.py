@@ -162,6 +162,7 @@ def execute_run_command_item(
         action.command,
         command_cwd,
         executed_command=executed_command,
+        dangerously_disable_sandbox=action.dangerously_disable_sandbox,
     )
     if launch.error is not None:
         if cwd_context.capture_path is not None:
@@ -204,6 +205,7 @@ def start_background_command(
     cwd: str | None = None,
     max_output_chars: int = 4_000,
     maintain_cwd: bool = False,
+    dangerously_disable_sandbox: bool = False,
 ) -> StartCommandObservation:
     blocked = get_blocked_command_reason(command)
     if blocked:
@@ -253,7 +255,13 @@ def start_background_command(
     stdout_handle = _open_private_process_log(stdout_path)
     stderr_handle = _open_private_process_log(stderr_path)
     wrapped_command = wrap_background_command(environment_command, exit_code_path)
-    launch = prepare_command_launch(workspace, command, command_cwd, executed_command=wrapped_command)
+    launch = prepare_command_launch(
+        workspace,
+        command,
+        command_cwd,
+        executed_command=wrapped_command,
+        dangerously_disable_sandbox=dangerously_disable_sandbox,
+    )
     if launch.error is not None:
         stdout_handle.close()
         stderr_handle.close()
@@ -343,3 +351,48 @@ def start_background_command(
 def _open_private_process_log(path: Path) -> TextIO:
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     return os.fdopen(descriptor, "w", encoding="utf-8")
+
+
+__all__ = [
+    "BACKGROUND_PROCESSES",
+    "BackgroundProcess",
+    "PersistentProcessRecord",
+    "_signal_name",
+    "attach_output_analysis_to_command_result",
+    "attach_output_analysis_to_process_observation",
+    "check_stop_all_background_processes",
+    "check_stop_background_process",
+    "check_write_background_process",
+    "command_result_failed",
+    "execute_run_command_item",
+    "list_background_processes",
+    "match_process_output",
+    "output_context_results_from_dicts",
+    "output_diagnostics_from_dicts",
+    "parse_persistent_process_record",
+    "process_observation_failed",
+    "process_record_path",
+    "process_registry_dir",
+    "process_signal_name",
+    "read_background_process",
+    "read_background_process_output_contexts",
+    "read_background_process_output_diagnostics",
+    "read_persistent_process_record",
+    "read_text_tail",
+    "relative_cwd",
+    "relative_process_log_path",
+    "release_background_process_handle",
+    "resolve_command_cwd",
+    "resolve_process_log_path",
+    "run_command",
+    "start_background_command",
+    "stop_all_background_processes",
+    "stop_background_process",
+    "truncate_command_output",
+    "wait_background_process",
+    "wait_background_process_output",
+    "wait_persistent_process",
+    "wrap_background_command",
+    "write_background_process",
+    "write_persistent_process_record",
+]

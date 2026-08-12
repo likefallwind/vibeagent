@@ -225,19 +225,31 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             ),
         )
     if isinstance(action, t.RunCommandAction):
+        risk = "This will run a shell command from the active project directory."
+        if action.dangerously_disable_sandbox:
+            risk = (
+                "This explicitly requests running outside the command sandbox and can access "
+                "the host filesystem and network."
+            )
         return t.ApprovalRequest(
             action_type="run_command",
             target=command_target(action.command, action.cwd),
             risk=_with_command_description(
-                "This will run a shell command from the active project directory.",
+                risk,
                 action.description,
             ),
         )
     if isinstance(action, t.RunCommandsAction):
+        risk = "This will run several shell commands sequentially from the active project directory."
+        if any(item.dangerously_disable_sandbox for item in action.commands):
+            risk = (
+                "One or more commands explicitly request running outside the command sandbox "
+                "and can access the host filesystem and network."
+            )
         return t.ApprovalRequest(
             action_type="run_commands",
             target=command_batch_target(action.commands),
-            risk="This will run several shell commands sequentially from the active project directory.",
+            risk=risk,
         )
     if isinstance(action, t.RunSuggestedChecksAction):
         return t.ApprovalRequest(
@@ -258,11 +270,17 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             risk="This will rerun verification shell commands recorded in a local session from the active project directory.",
         )
     if isinstance(action, t.StartCommandAction):
+        risk = "This will start a background shell command from the active project directory."
+        if action.dangerously_disable_sandbox:
+            risk = (
+                "This explicitly requests starting a background command outside the command "
+                "sandbox with host filesystem and network access."
+            )
         return t.ApprovalRequest(
             action_type="start_command",
             target=command_target(action.command, action.cwd),
             risk=_with_command_description(
-                "This will start a background shell command from the active project directory.",
+                risk,
                 action.description,
             ),
         )

@@ -17,6 +17,7 @@ from .action_parsing_process_fields import (
     parse_write_process_content,
 )
 from .action_parsing_process_read import PROCESS_READ_ACTION_TYPES, parse_process_read_action
+from .action_parsing_sandbox import parse_dangerously_disable_sandbox
 from .types import (
     CheckStartCommandAction,
     CheckStopAllProcessesAction,
@@ -77,8 +78,7 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             default_context_lines=5,
         )
         max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=200) or 50
-        action_class = PowerShellAction if action_type == "powershell" else RunCommandAction
-        return action_class(
+        action_fields = dict(
             type=action_type,
             command=command,
             timeout_ms=parse_timeout_ms(value.get("timeout_ms"), raw),
@@ -92,6 +92,16 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             max_contexts=max_contexts,
             max_bytes_per_context=max_bytes_per_context,
             maintain_cwd=True,
+        )
+        if action_type == "powershell":
+            return PowerShellAction(**action_fields)
+        return RunCommandAction(
+            **action_fields,
+            dangerously_disable_sandbox=parse_dangerously_disable_sandbox(
+                value,
+                raw,
+                "run_command",
+            ),
         )
 
     if action_type == "run_commands":
@@ -109,7 +119,16 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
         cwd = value.get("cwd")
         if cwd is not None and not isinstance(cwd, str):
             raise ActionParseError("check_start_command action cwd must be a string when provided.", raw)
-        return CheckStartCommandAction(type="check_start_command", command=command, cwd=cwd)
+        return CheckStartCommandAction(
+            type="check_start_command",
+            command=command,
+            cwd=cwd,
+            dangerously_disable_sandbox=parse_dangerously_disable_sandbox(
+                value,
+                raw,
+                "check_start_command",
+            ),
+        )
 
     if action_type == "start_command":
         command = parse_command(value.get("command"), raw, "start_command")
@@ -123,6 +142,11 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             max_output_chars=parse_optional_command_output_chars(value.get("max_output_chars"), raw),
             description=parse_optional_description(value.get("description"), raw, "start_command"),
             maintain_cwd=True,
+            dangerously_disable_sandbox=parse_dangerously_disable_sandbox(
+                value,
+                raw,
+                "start_command",
+            ),
         )
 
     if action_type == "monitor":

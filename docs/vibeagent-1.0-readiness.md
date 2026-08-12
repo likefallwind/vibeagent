@@ -538,6 +538,12 @@ The automated suite currently covers these 1.0 surfaces:
   allows, and sandboxed commands deny configured credential files and remove
   configured credential environment variables. Credential masking remains
   outside this claim.
+- Controlled unsandboxed retries: finite, batched, and background commands can
+  explicitly request `dangerouslyDisableSandbox` after sandbox incompatibility.
+  The retry returns to normal approval with a host-access warning and supports
+  targeted `Bash(dangerouslyDisableSandbox:true)` rules. Trusted
+  `allowUnsandboxedCommands: false` policy ignores the request and cannot be
+  weakened by an untrusted project.
 - Reproducible scripting: Claude-compatible `--bare` skips automatic
   instructions, agents, commands, skills, hooks, installed plugins, MCP
   servers, auto-memory, and settings files while retaining built-in tools,

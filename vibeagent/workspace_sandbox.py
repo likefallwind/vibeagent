@@ -44,6 +44,7 @@ class SandboxConfig:
     enabled: bool = False
     fail_if_unavailable: bool = False
     auto_allow_bash_if_sandboxed: bool = True
+    allow_unsandboxed_commands: bool = True
     network_disabled: bool = False
     allowed_domains: tuple[str, ...] = ()
     denied_domains: tuple[str, ...] = ()
@@ -117,7 +118,12 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             if not isinstance(sandbox, dict):
                 raise ValueError(f"{config.source} sandbox must be an object.")
             sources.append(config.source)
-            for key in ("enabled", "failIfUnavailable", "autoAllowBashIfSandboxed"):
+            for key in (
+                "enabled",
+                "failIfUnavailable",
+                "autoAllowBashIfSandboxed",
+                "allowUnsandboxedCommands",
+            ):
                 if key in sandbox:
                     merged[key] = (sandbox[key], config.trusted)
                     if config.trusted:
@@ -227,6 +233,10 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             merged_sandbox_value(merged, "autoAllowBashIfSandboxed", True),
             "sandbox.autoAllowBashIfSandboxed",
         )
+        allow_unsandboxed_commands = sandbox_boolean(
+            merged_sandbox_value(merged, "allowUnsandboxedCommands", True),
+            "sandbox.allowUnsandboxedCommands",
+        )
         network_disabled = sandbox_boolean(
             merged_sandbox_value(merged, "networkDisabled", False),
             "sandbox network mode",
@@ -315,6 +325,7 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             enabled=enabled,
             fail_if_unavailable=fail_if_unavailable,
             auto_allow_bash_if_sandboxed=auto_allow_bash_if_sandboxed,
+            allow_unsandboxed_commands=allow_unsandboxed_commands,
             network_disabled=network_disabled,
             allowed_domains=allowed_domains,
             denied_domains=denied_domains,
@@ -349,10 +360,17 @@ def format_workspace_sandbox_for_prompt(workspace: RunWorkspace) -> str:
     else:
         network = "host network available"
     availability = "Bubblewrap available" if config.available else "Bubblewrap unavailable"
+    escape = (
+        "A sandbox-incompatible command may request dangerouslyDisableSandbox, "
+        "which requires normal permission approval. "
+        if config.allow_unsandboxed_commands
+        else "dangerouslyDisableSandbox is disabled and will be ignored. "
+    )
     return (
         f"Command sandbox enabled ({availability}; {network}; "
         f"failIfUnavailable={'true' if config.fail_if_unavailable else 'false'}; "
         f"autoAllowBashIfSandboxed={'true' if config.auto_allow_bash_if_sandboxed else 'false'}). "
+        f"{escape}"
         "Sandboxed commands can write the project and isolated /tmp only, plus trusted allowWrite paths. "
         f"Read policy has {len(config.allow_read)} exception(s); "
         f"{len(config.denied_environment_variables)} credential environment variable(s) are removed."

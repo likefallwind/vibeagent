@@ -2567,6 +2567,7 @@ disabled by default and can be enabled globally through the `sandbox` object in
     "enabled": true,
     "failIfUnavailable": true,
     "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
     "filesystem": {
       "allowWrite": ["./build-cache"],
       "allowRead": ["~/.config/tool/public.json"],
@@ -2631,6 +2632,16 @@ are unavailable, `failIfUnavailable: true` blocks execution; otherwise VibeAgent
 warning and falls back to unsandboxed execution or filesystem-only isolation.
 Permission deny/ask rules and command hard blocks still apply; commands that do
 not meet strict auto-approval qualification use the normal approval flow.
+`allowUnsandboxedCommands` defaults to `true`. After a command fails because of
+sandbox isolation, the model can retry `run_command`, an individual
+`run_commands` item, or `start_command` with
+`dangerouslyDisableSandbox: true`. That retry is never sandbox-auto-approved:
+it returns to the ordinary permission flow with an explicit host filesystem and
+network warning. A `Bash(dangerouslyDisableSandbox:true)` permission rule can
+allow, ask, or deny that escape specifically. Set `allowUnsandboxedCommands` to
+`false` for strict mode; then the parameter is ignored and every non-excluded
+command remains sandboxed. A trusted strict setting cannot be re-enabled by an
+untrusted project configuration.
 Use `/sandbox` or `--sandbox-status --json` to inspect effective configuration
 and runtime capability.
 

@@ -36,21 +36,35 @@ def sandbox_auto_approval_reason(workspace: RunWorkspace, action: object) -> str
     ):
         return None
     if isinstance(action, (RunCommandAction, StartCommandAction)):
-        commands = ((action.command, action.cwd),)
+        commands = (
+            (
+                action.command,
+                action.cwd,
+                action.dangerously_disable_sandbox,
+            ),
+        )
     elif isinstance(action, RunCommandsAction):
-        commands = tuple((item.command, item.cwd) for item in action.commands)
+        commands = tuple(
+            (item.command, item.cwd, item.dangerously_disable_sandbox)
+            for item in action.commands
+        )
     else:
         return None
     if not commands:
         return None
-    for command, cwd in commands:
+    for command, cwd, dangerously_disable_sandbox in commands:
         if get_blocked_command_reason(command) is not None:
             return None
         try:
             command_cwd = resolve_command_cwd(workspace, cwd)
         except ValueError:
             return None
-        launch = prepare_command_launch(workspace, command, command_cwd)
+        launch = prepare_command_launch(
+            workspace,
+            command,
+            command_cwd,
+            dangerously_disable_sandbox=dangerously_disable_sandbox,
+        )
         if not launch.sandboxed or launch.warning is not None or launch.error is not None:
             return None
     return "Approved automatically because every command will run with filesystem and network sandbox isolation."
@@ -63,6 +77,7 @@ def prepare_command_launch(
     executed_command: str | None = None,
     *,
     argv: tuple[str, ...] | None = None,
+    dangerously_disable_sandbox: bool = False,
 ) -> CommandLaunch:
     if argv is not None and executed_command is not None:
         raise ValueError("argv and executed_command cannot be provided together")
@@ -95,6 +110,17 @@ def prepare_command_launch(
             config,
             environment,
             warning="Command excluded from the sandbox by trusted configuration.",
+        )
+    if dangerously_disable_sandbox and config.allow_unsandboxed_commands:
+        return CommandLaunch(
+            command_argv,
+            False,
+            config,
+            environment,
+            warning=(
+                "Command requested execution outside the sandbox through "
+                "dangerouslyDisableSandbox; normal permission approval still applies."
+            ),
         )
     if not config.available or config.bwrap_path is None:
         message = "Bubblewrap sandbox is enabled but unavailable on this system."

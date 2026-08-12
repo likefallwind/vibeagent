@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from .tool_definition_output_schema import COMMAND_OUTPUT_EXTRACTION_PROPERTIES
+from .tool_definition_output_schema import (
+    COMMAND_OUTPUT_EXTRACTION_PROPERTIES,
+    COMMAND_SANDBOX_ESCAPE_PROPERTY,
+)
 
 
 MONITOR_INPUT_SCHEMA: dict[str, Any] = {
@@ -83,6 +86,7 @@ PROCESS_RUN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "description": "Optional maximum characters to keep for each output stream. Defaults to 12000.",
                 },
                 **COMMAND_OUTPUT_EXTRACTION_PROPERTIES,
+                **COMMAND_SANDBOX_ESCAPE_PROPERTY,
             },
             "required": ["command"],
             "additionalProperties": False,
@@ -99,6 +103,7 @@ PROCESS_RUN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "Optional workspace directory to run in. Defaults to the project root.",
                 },
+                **COMMAND_SANDBOX_ESCAPE_PROPERTY,
             },
             "required": ["command"],
             "additionalProperties": False,
@@ -121,6 +126,7 @@ PROCESS_RUN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "maximum": 50000,
                     "description": "Optional output tail size to preserve with the start request.",
                 },
+                **COMMAND_SANDBOX_ESCAPE_PROPERTY,
             },
             "required": ["command"],
             "additionalProperties": False,
