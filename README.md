@@ -2301,6 +2301,19 @@ and, on stop, `stop_hook_active`, `last_assistant_message`, and
 while resumable subagent message history is atomically stored under
 `.vibeagent/sessions/<session-id>/subagents/` with secret redaction.
 
+Successful synchronous `PostToolUse` handlers receive the original structured
+`tool_response`. They may return
+`hookSpecificOutput.updatedToolOutput` as any finite JSON value up to 128 KiB;
+that value replaces only the tool result sent to the next main-agent or
+subagent model turn. The real observation, task state, completion checks, and
+session audit result remain based on the original execution. Multiple matching
+handlers are ordered, so each receives the prior replacement and the last valid
+replacement wins. `additionalContext` is delivered alongside the replacement,
+replacement values pass through normal credential redaction, and malformed or
+oversized output records a Hook failure while preserving the original model
+result. Async and `PostToolUseFailure` handlers cannot replace output because
+they do not complete before a successful result is returned.
+
 `UserPromptExpansion` runs after a direct project, user, or plugin slash command
 or skill has expanded and before its first model request. Its matcher receives
 the command name, while hook input includes `expansion_type`, `command_name`,

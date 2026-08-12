@@ -408,6 +408,12 @@ The automated suite currently covers these 1.0 surfaces:
   wakes an idle interactive session only for exit code 2; print-mode and CLI
   teardown cancel unfinished hooks, and all async decisions remain non-blocking
   under the normal command safety and sandbox path.
+- Claude-compatible `PostToolUse` output replacement: successful synchronous
+  handlers receive the original structured `tool_response` and may replace only
+  the bounded, redacted JSON result visible to the next main-agent or subagent
+  model turn. Original observations and audit state remain authoritative;
+  ordered replacements compose, while malformed or oversized values fail back
+  to the original result with a visible Hook error.
 - Claude-compatible HTTP hooks: approved handlers POST lifecycle JSON to a
   validated local or public endpoint without environment proxies, cap request
   input at 1 MiB, expand only explicitly allowlisted

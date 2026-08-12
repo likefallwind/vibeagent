@@ -31,6 +31,8 @@ class HookRunResult:
     handler_type: Literal["command", "http", "mcp_tool", "prompt", "agent"] = "command"
     http_status: int | None = None
     non_blocking_error: bool = False
+    updated_tool_output_applied: bool = False
+    updated_tool_output_summary: str | None = None
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,8 @@ class HookBatchResult:
     permission_decision: Literal["allow", "deny", "ask", "defer"] | None = None
     permission_reason: str | None = None
     halt_turn_message: str | None = None
+    updated_tool_output: object | None = None
+    updated_tool_output_set: bool = False
 
 
 @dataclass(frozen=True)
@@ -53,6 +57,8 @@ class HookWrappedToolResult:
     deferred: bool = False
     halt_turn_message: str | None = None
     permission_application: PermissionUpdateApplication | None = None
+    updated_tool_output: object | None = None
+    updated_tool_output_set: bool = False
 
 
 def hook_command_with_context(hook: ProjectHook, tool_name: str, action: object) -> str:

@@ -21,6 +21,10 @@ from .agent_pre_tool_hook_output import (
     merge_pre_tool_decision,
     parse_pre_tool_hook_output,
 )
+from .agent_post_tool_hook_output import (
+    PostToolHookOutputError,
+    parse_post_tool_hook_output,
+)
 from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import to_jsonable
 from .agent_tool_hook_runtime import run_tool_hook_handler
@@ -214,6 +218,7 @@ def run_hooks_around_tool(
         ),
         tool_use_id=tool_use_id,
         hook_model_runtime=hook_model_runtime,
+        tool_response=to_jsonable(observation),
     )
     return HookWrappedToolResult(
         observation=observation,
@@ -221,6 +226,8 @@ def run_hooks_around_tool(
         additional_observations=post_hooks.failures,
         halt_turn_message=post_hooks.halt_turn_message,
         permission_application=application,
+        updated_tool_output=post_hooks.updated_tool_output,
+        updated_tool_output_set=post_hooks.updated_tool_output_set,
     )
 
 
@@ -242,6 +249,7 @@ def run_tool_hooks(
     apply_updated_input: ApplyUpdatedInput | None = None,
     tool_use_id: str | None = None,
     hook_model_runtime: HookModelRuntime | None = None,
+    tool_response: object | None = None,
 ) -> HookBatchResult:
     if config.error is not None:
         message = f"Workspace hook configuration is invalid: {config.error}"
@@ -264,6 +272,8 @@ def run_tool_hooks(
     permission_decision = None
     permission_reason: str | None = None
     halt_turn_message: str | None = None
+    current_tool_response = tool_response
+    updated_tool_output_set = False
     for index, hook in enumerate(hooks, start=1):
         result = run_tool_hook_handler(
             workspace,
@@ -281,6 +291,11 @@ def run_tool_hooks(
             execute_action_safely_func,
             permissions,
             hook_model_runtime,
+            extra_input=(
+                {"tool_response": current_tool_response}
+                if event == "PostToolUse"
+                else None
+            ),
         )
         if result.ok and event == "PreToolUse":
             try:
@@ -313,6 +328,34 @@ def run_tool_hooks(
                     status="failed",
                     ok=False,
                     message=f"PreToolUse hook output was rejected: {error}",
+                )
+        elif result.ok and event == "PostToolUse" and not result.async_started:
+            try:
+                output = parse_post_tool_hook_output(result)
+                if output.updated_tool_output_set:
+                    current_tool_response = output.updated_tool_output
+                    updated_tool_output_set = True
+                result = replace(
+                    result,
+                    stdout=(
+                        "[PostToolUse updatedToolOutput applied]"
+                        if output.updated_tool_output_set
+                        else result.stdout
+                    ),
+                    additional_context=output.additional_context,
+                    updated_tool_output_applied=output.updated_tool_output_set,
+                    updated_tool_output_summary=(
+                        type(output.updated_tool_output).__name__
+                        if output.updated_tool_output_set
+                        else None
+                    ),
+                )
+            except (PostToolHookOutputError, ValueError, TypeError) as error:
+                result = replace(
+                    result,
+                    status="failed",
+                    ok=False,
+                    message=f"PostToolUse hook output was rejected: {error}",
                 )
         results.append(result)
         if not result.ok and not result.non_blocking_error:
@@ -352,6 +395,8 @@ def run_tool_hooks(
         permission_decision=permission_decision,
         permission_reason=permission_reason,
         halt_turn_message=halt_turn_message,
+        updated_tool_output=current_tool_response if updated_tool_output_set else None,
+        updated_tool_output_set=updated_tool_output_set,
     )
 
 

@@ -61,6 +61,8 @@ class ToolActionExecutionResult:
     deferred: bool = False
     halt_turn_message: str | None = None
     permission_application: PermissionUpdateApplication | None = None
+    updated_tool_output: object | None = None
+    updated_tool_output_set: bool = False
 
 
 def execute_parsed_tool_action(
@@ -129,6 +131,8 @@ def execute_parsed_tool_action(
     additional_observations: tuple[Observation, ...] = ()
     halt_turn_message = pre_hooks.halt_turn_message
     permission_application: PermissionUpdateApplication | None = None
+    updated_tool_output: object | None = None
+    updated_tool_output_set = False
     if pre_hooks.blocking_message is not None:
         pass
     elif observation is not None:
@@ -199,6 +203,8 @@ def execute_parsed_tool_action(
             additional_observations,
             halt_turn_message,
             permission_application,
+            updated_tool_output,
+            updated_tool_output_set,
         ) = _execute_non_repeated_action(
             workspace,
             action,
@@ -234,6 +240,8 @@ def execute_parsed_tool_action(
         additional_observations=additional_observations,
         halt_turn_message=halt_turn_message,
         permission_application=permission_application,
+        updated_tool_output=updated_tool_output,
+        updated_tool_output_set=updated_tool_output_set,
     )
 
 
@@ -276,6 +284,8 @@ def _execute_non_repeated_action(
     tuple[Observation, ...],
     str | None,
     PermissionUpdateApplication | None,
+    object | None,
+    bool,
 ]:
     approval_request = _approval_request_for_action(action, observations)
     authorization = authorize_tool_action(
@@ -370,6 +380,8 @@ def _execute_non_repeated_action(
                     else pre_hooks.halt_turn_message
                 ),
                 application,
+                None,
+                False,
             )
         return (
             authorization.denial,
@@ -383,6 +395,8 @@ def _execute_non_repeated_action(
                 else pre_hooks.halt_turn_message
             ),
             application,
+            None,
+            False,
         )
 
     auto_checkpoint, checkpoint_attempted = _maybe_create_auto_checkpoint(
@@ -449,6 +463,7 @@ def _execute_non_repeated_action(
         tool_input=effective_input,
         tool_use_id=tool_use_id,
         hook_model_runtime=hook_model_runtime,
+        tool_response=to_jsonable(observation),
     )
     cwd_hooks: tuple[HookRunResult, ...] = ()
     if (
@@ -485,6 +500,8 @@ def _execute_non_repeated_action(
         tuple(post_hooks.failures) + diagnostics,
         task_lifecycle.halt_turn_message or post_hooks.halt_turn_message,
         application,
+        post_hooks.updated_tool_output,
+        post_hooks.updated_tool_output_set,
     )
 
 

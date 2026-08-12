@@ -444,6 +444,10 @@ backfill when that project is visited.
   runs configured project `PreToolUse` and `PostToolUse` hooks around a
   Claude-compatible `Edit`, keeps hook output in local runtime state, then
   verifies, final-reviews, commits, and reruns session verification.
+- `tests.test_agent_post_tool_output_hooks.PostToolOutputHookTests` covers
+  bounded `updatedToolOutput` parsing, ordered replacement, original
+  `tool_response` delivery, main/subagent model visibility, credential
+  redaction, authoritative original observations, and invalid-output fallback.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_manage_claude_background_process_before_repair`
   starts a Claude-style background `Bash`, inspects it through `BashOutput`,
   stops it through `KillBash`, then fixes, verifies, final-reviews, and commits.

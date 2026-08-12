@@ -7,11 +7,10 @@ from .auto_mode import AutoModeRuntime
 from .actions import ActionParseError, parse_tool_action
 from .action_tool_aliases import tool_name_is_restricted
 from .agent_execution_support import (
-    create_auto_checkpoint_before_action,
     execute_action_safely,
-    should_auto_checkpoint_before_action,
 )
-from .agent_hooks import HookRunResult
+from .agent_delegate_tool_layer import execute_delegate_with_tool_layer
+from .agent_hooks import HookRunResult, run_tool_hooks
 from .agent_hook_prompt import HookModelRuntime
 from .agent_delegate_policy import (
     CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
@@ -20,9 +19,9 @@ from .agent_delegate_policy import (
     READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES,
 )
 from .agent_parallel_safety import is_parallel_safe_action
+from .agent_observation_utils import observation_failed
 from .agent_team_runtime import TEAM_COORDINATION_TOOL_NAMES
-from .agent_runtime_utils import tool_error_observation
-from .agent_tool_execution import execute_parsed_tool_action
+from .agent_runtime_utils import to_jsonable, tool_error_observation
 from .agent_task_lifecycle_hooks import run_task_lifecycle_hooks
 from .agent_tool_registry import (
     ToolVisibilityPolicy,
@@ -71,6 +70,8 @@ class DelegateToolCallExecution:
     auto_checkpoint_attempted: bool
     hook_results: tuple[HookRunResult, ...] = ()
     halt_turn_message: str | None = None
+    updated_tool_output: object | None = None
+    updated_tool_output_set: bool = False
 
 
 def code_delegate_initial_tool_names(
@@ -253,17 +254,45 @@ def execute_delegate_tool_call(
                         approval_policy,
                         CODE_DELEGATE_EXCLUDED_TOOL_NAMES | disallowed_tool_names,
                     )
+                post_hooks = run_tool_hooks(
+                    workspace,
+                    hooks,
+                    (
+                        "PostToolUseFailure"
+                        if observation_failed(special_observation)
+                        else "PostToolUse"
+                    ),
+                    tool_name,
+                    parsed,
+                    iteration,
+                    command_timeout_ms,
+                    logger,
+                    approval_handler,
+                    approval_policy,
+                    execute_action_safely,
+                    permissions,
+                    tool_input=raw_tool_input,
+                    tool_use_id=tool_id,
+                    hook_model_runtime=hook_model_runtime,
+                    tool_response=to_jsonable(special_observation),
+                )
+                observations.extend(post_hooks.failures)
                 return DelegateToolCallExecution(
                     special_observation,
                     None,
                     auto_checkpoint_attempted,
-                    task_hook_results,
+                    task_hook_results + post_hooks.results,
+                    post_hooks.halt_turn_message,
+                    post_hooks.updated_tool_output,
+                    post_hooks.updated_tool_output_set,
                 )
         (
             observation,
             checkpoint_attempted,
             hook_results,
             halt_turn_message,
+            updated_tool_output,
+            updated_tool_output_set,
         ) = execute_delegate_action(
             workspace,
             mode=mode,
@@ -289,6 +318,8 @@ def execute_delegate_tool_call(
         observation = tool_error_observation(tool_name, error)
         checkpoint_attempted = auto_checkpoint_attempted
         hook_results = ()
+        updated_tool_output = None
+        updated_tool_output_set = False
     except Exception as error:
         observation = ToolErrorObservation(
             kind="tool_error",
@@ -297,6 +328,8 @@ def execute_delegate_tool_call(
         )
         checkpoint_attempted = auto_checkpoint_attempted
         hook_results = ()
+        updated_tool_output = None
+        updated_tool_output_set = False
 
     observations.append(observation)
     if mode == "code":
@@ -316,6 +349,8 @@ def execute_delegate_tool_call(
         checkpoint_attempted,
         hook_results,
         halt_turn_message,
+        updated_tool_output,
+        updated_tool_output_set,
     )
 
 
@@ -378,7 +413,14 @@ def execute_delegate_action(
     tool_use_id: str | None = None,
     hook_model_runtime: HookModelRuntime | None = None,
     auto_mode_runtime: AutoModeRuntime | None = None,
-) -> tuple[Observation, bool, tuple[HookRunResult, ...], str | None]:
+) -> tuple[
+    Observation,
+    bool,
+    tuple[HookRunResult, ...],
+    str | None,
+    object | None,
+    bool,
+]:
     action_type = getattr(parsed, "type", None)
     if mode in {"explore", "plan"}:
         coordination_tool = tool_name in TEAM_COORDINATION_TOOL_NAMES
@@ -400,8 +442,10 @@ def execute_delegate_action(
                 auto_checkpoint_attempted,
                 (),
                 None,
+                None,
+                False,
             )
-        return _execute_delegate_with_tool_layer(
+        return execute_delegate_with_tool_layer(
             workspace,
             parsed,
             observations=observations,
@@ -420,6 +464,7 @@ def execute_delegate_action(
             tool_use_id=tool_use_id,
             hook_model_runtime=hook_model_runtime,
             auto_mode_runtime=auto_mode_runtime,
+            execute_action_safely_func=execute_action_safely,
         )
     if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES or action_type in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
         return (
@@ -431,9 +476,11 @@ def execute_delegate_action(
             auto_checkpoint_attempted,
             (),
             None,
+            None,
+            False,
         )
 
-    return _execute_delegate_with_tool_layer(
+    return execute_delegate_with_tool_layer(
         workspace,
         parsed,
         observations=observations,
@@ -452,60 +499,5 @@ def execute_delegate_action(
         tool_use_id=tool_use_id,
         hook_model_runtime=hook_model_runtime,
         auto_mode_runtime=auto_mode_runtime,
-    )
-
-
-def _execute_delegate_with_tool_layer(
-    workspace: RunWorkspace,
-    parsed: object,
-    *,
-    observations: list[Observation],
-    steps: list[TaskStep],
-    iteration: int,
-    command_timeout_ms: int,
-    logger: AgentLogger | None,
-    approval_handler: ApprovalHandler | None,
-    tool_name: str,
-    auto_checkpoint_attempted: bool,
-    approval_policy: ApprovalPolicy,
-    hooks: ProjectHooks,
-    permissions: ProjectPermissions,
-    tool_input: dict[str, object] | None = None,
-    apply_updated_input: Callable[[dict[str, object]], object] | None = None,
-    tool_use_id: str | None = None,
-    hook_model_runtime: HookModelRuntime | None = None,
-    auto_mode_runtime: AutoModeRuntime | None = None,
-) -> tuple[Observation, bool, tuple[HookRunResult, ...], str | None]:
-    execution = execute_parsed_tool_action(
-        workspace,
-        parsed,
-        observations,
-        steps,
-        iteration,
-        command_timeout_ms,
-        logger,
-        approval_handler,
-        tool_name,
-        auto_checkpoint_attempted,
-        execute_action_safely,
-        should_auto_checkpoint_before_action,
-        create_auto_checkpoint_before_action,
-        approval_policy,
-        hooks,
-        permissions,
-        tool_input,
-        apply_updated_input,
-        False,
-        tool_use_id,
-        hook_model_runtime,
-        auto_mode_runtime,
-    )
-    if execution.auto_checkpoint is not None:
-        observations.append(execution.auto_checkpoint)
-    observations.extend(execution.additional_observations)
-    return (
-        execution.observation,
-        execution.auto_checkpoint_attempted,
-        execution.hook_results,
-        execution.halt_turn_message,
+        execute_action_safely_func=execute_action_safely,
     )

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from .agent_multimodal import build_tool_result_block
+from .agent_multimodal import build_tool_result_block, build_updated_tool_result_block
 from .agent_instruction_context import instruction_context_for_observation
 from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import append_session_event, summarize_command, to_jsonable
@@ -227,6 +227,8 @@ def record_subagent_tool_observation(
     tool_name: str,
     observation: Observation,
     hook_results: tuple[object, ...] = (),
+    updated_tool_output: object | None = None,
+    updated_tool_output_set: bool = False,
     instruction_hook_runner: Callable[[dict[str, object]], tuple[object, ...]] | None = None,
 ) -> ContentBlock:
     instruction_context = instruction_context_for_observation(
@@ -249,6 +251,17 @@ def record_subagent_tool_observation(
         hook_results=hook_results + instruction_hook_results,
         instruction_context=instruction_context,
     )
+    if updated_tool_output_set:
+        contexts = tuple(
+            str(value)
+            for result in hook_results
+            if (value := getattr(result, "additional_context", None))
+        )
+        return build_updated_tool_result_block(
+            tool_id,
+            updated_tool_output,
+            additional_contexts=contexts,
+        )
     return build_tool_result_block(workspace, tool_id, observation, result_payload)
 
 
@@ -260,6 +273,8 @@ def record_tool_observation(
     observation: Observation,
     additional_observations: tuple[Observation, ...],
     hook_results: tuple[object, ...],
+    updated_tool_output: object | None = None,
+    updated_tool_output_set: bool = False,
     context: ToolObservationContext,
 ) -> ContentBlock:
     context.observations.append(observation)
@@ -295,6 +310,22 @@ def record_tool_observation(
         context.logger(
             "observed success" if ok else "observed failure",
             summarize_command(observation.result),
+        )
+    if updated_tool_output_set:
+        contexts = tuple(
+            str(value)
+            for result in hook_results
+            if (value := getattr(result, "additional_context", None))
+        )
+        return build_updated_tool_result_block(
+            tool_id,
+            updated_tool_output,
+            additional_contexts=contexts,
+            additional_results=(
+                to_jsonable(additional_observations)
+                if additional_observations
+                else None
+            ),
         )
     return build_tool_result_block(workspace, tool_id, observation, result_payload)
 

@@ -5,6 +5,7 @@ import json
 from typing import Any
 
 from .types import ChatMessage, ContentBlock
+from .redaction import redact_jsonable_payload
 from .workspace import read_project_image_payload
 from .workspace_core import RunWorkspace
 
@@ -39,6 +40,46 @@ def build_tool_result_block(
     except (OSError, ValueError) as error:
         content = [{"type": "text", "text": f"{text}\nImage payload became unavailable: {error}"}]
     return {"type": "tool_result", "tool_call_id": tool_call_id, "content": content}
+
+
+def build_updated_tool_result_block(
+    tool_call_id: str,
+    updated_tool_output: object,
+    *,
+    additional_contexts: tuple[str, ...] = (),
+    additional_results: object | None = None,
+) -> ContentBlock:
+    redacted = redact_jsonable_payload(updated_tool_output)
+    content = (
+        redacted
+        if isinstance(redacted, str)
+        else json.dumps(redacted, ensure_ascii=False, allow_nan=False)
+    )
+    if not additional_contexts and additional_results is None:
+        return {"type": "tool_result", "tool_call_id": tool_call_id, "content": content}
+    blocks: list[ContentBlock] = [{"type": "text", "text": content}]
+    if additional_contexts:
+        redacted_contexts = tuple(
+            str(redact_jsonable_payload(value)) for value in additional_contexts
+        )
+        blocks.append(
+            {
+                "type": "text",
+                "text": "PostToolUse hook context:\n" + "\n\n".join(redacted_contexts),
+            }
+        )
+    if additional_results is not None:
+        blocks.append(
+            {
+                "type": "text",
+                "text": "Additional tool results:\n"
+                + json.dumps(
+                    redact_jsonable_payload(additional_results),
+                    ensure_ascii=False,
+                ),
+            }
+        )
+    return {"type": "tool_result", "tool_call_id": tool_call_id, "content": blocks}
 
 
 def strip_consumed_tool_images(messages: list[ChatMessage]) -> None:

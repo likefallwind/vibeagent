@@ -99,6 +99,8 @@ def execute_sequential_tool_call(
     checkpoint_attempted = auto_checkpoint_attempted
     halt_turn_message: str | None = None
     permission_application: PermissionUpdateApplication | None = None
+    updated_tool_output: object | None = None
+    updated_tool_output_set = False
 
     try:
         def prepare_tool_input(candidate_input: dict[str, object]) -> object:
@@ -170,6 +172,8 @@ def execute_sequential_tool_call(
             deferred = wrapped.deferred
             halt_turn_message = wrapped.halt_turn_message
             permission_application = wrapped.permission_application
+            updated_tool_output = wrapped.updated_tool_output
+            updated_tool_output_set = wrapped.updated_tool_output_set
         else:
             elicitation = McpElicitationRuntime(
                 workspace=workspace,
@@ -216,6 +220,8 @@ def execute_sequential_tool_call(
             deferred = execution.deferred
             halt_turn_message = execution.halt_turn_message
             permission_application = execution.permission_application
+            updated_tool_output = execution.updated_tool_output
+            updated_tool_output_set = execution.updated_tool_output_set
             if execution.auto_checkpoint is not None:
                 observations.append(execution.auto_checkpoint)
         if deferred:
@@ -253,6 +259,8 @@ def execute_sequential_tool_call(
         observation=observation,
         additional_observations=additional_observations,
         hook_results=hook_results,
+        updated_tool_output=updated_tool_output,
+        updated_tool_output_set=updated_tool_output_set,
         context=ToolObservationContext(
             observations=observations,
             active_tool_names=active_tool_names,

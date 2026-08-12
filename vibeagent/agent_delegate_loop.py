@@ -335,6 +335,8 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                         tool_name=tool_name,
                         observation=execution.observation,
                         hook_results=execution.hook_results,
+                        updated_tool_output=execution.updated_tool_output,
+                        updated_tool_output_set=execution.updated_tool_output_set,
                         instruction_hook_runner=lambda instruction_context: run_instruction_loaded_hooks(
                             context.workspace,
                             context.hooks,
