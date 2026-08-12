@@ -48,6 +48,7 @@ from .cli_background_agent_followup import (
     record_background_agent_session_root,
 )
 from .cli_pull_request_resume import prepare_pull_request_resume
+from .cli_ide import prepare_ide_connection
 from .background_agent_approval import background_agent_approval_handler
 from .cli_code_intel_local_flags import run_code_intel_local_flag, run_python_local_flag
 from .cli_command_local_flags import run_command_local_flag
@@ -178,6 +179,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         validation_error = validate_cli_args(args)
         if validation_error is not None:
             return print_error_result(validation_error, args.json, exit_code=2, output_format=args.output_format)
+        try:
+            prepare_ide_connection(args)
+        except (OSError, ValueError) as error:
+            return print_error_result(
+                format_error(error),
+                args.json,
+                exit_code=2,
+                output_format=args.output_format,
+            )
         normalize_task_bound_diff_args(args)
         if args.background:
             try:

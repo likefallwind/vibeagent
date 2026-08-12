@@ -201,6 +201,16 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--no-auto-compact requires a one-shot coding task."
     if args.worktree is not None and (has_local_flag(args) or args.chat):
         return "--worktree requires an interactive or one-shot coding session."
+    if args.ide and (
+        has_local_flag(args)
+        or args.chat
+        or args.agent_view
+        or args.remote_control
+        or args.attach_background_agent is not None
+    ):
+        return "--ide requires an interactive or one-shot coding session."
+    if args.ide and args.worktree is not None:
+        return "--ide cannot be combined with --worktree because the IDE workspace root would not match."
     if args.tmux is not None and args.worktree is None:
         return "--tmux requires --worktree."
     if args.tmux is not None and (args.background or args.print_mode):

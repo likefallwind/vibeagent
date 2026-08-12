@@ -86,7 +86,10 @@ function activate(context) {
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-git', diffProvider),
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-change', agentChangeProvider),
     vscode.window.onDidCloseTerminal((terminal) => terminals.closed(terminal)),
-    vscode.workspace.onDidChangeWorkspaceFolders(() => sessionStatusBar.refresh()),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      syncContextBridges();
+      sessionStatusBar.refresh();
+    }),
     vscode.workspace.onDidCloseTextDocument((document) => planReviews.closed(document)),
     vscode.workspace.onDidCloseTextDocument((document) => rewindReviews.closed(document)),
     vscode.workspace.onDidCloseTextDocument((document) => sessionInspectors.closed(document)),
@@ -102,6 +105,8 @@ function activate(context) {
   const register = (name, handler) => context.subscriptions.push(
     vscode.commands.registerCommand(name, () => runCommand(handler)),
   );
+
+  syncContextBridges();
 
   register('vibeagent.showSession', async () => {
     const root = activeWorkspaceRoot();
@@ -288,6 +293,17 @@ function activate(context) {
       context.subscriptions.push(bridge);
     }
     return bridge;
+  }
+
+  function syncContextBridges() {
+    const roots = new Set((vscode.workspace.workspaceFolders || []).map((folder) => folder.uri.fsPath));
+    for (const root of roots) contextBridge(root);
+    for (const [root, bridge] of contextBridges) {
+      if (roots.has(root)) continue;
+      bridge.dispose();
+      contextBridges.delete(root);
+    }
+    refreshEditorContext(vscode.window.activeTextEditor);
   }
 
   function refreshEditorContext(editor) {

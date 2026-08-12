@@ -426,6 +426,21 @@ class CliArgsValidationTests(unittest.TestCase):
             "--resume, --compact, and --continue cannot be combined with local command flags.",
         )
 
+    def test_cli_ide_requires_coding_mode_and_matching_workspace(self) -> None:
+        interactive = cli_module.parse_args(["--ide"])
+        one_shot = cli_module.parse_args(["--ide", "inspect"])
+        local = cli_module.parse_args(["--ide", "--status"])
+        chat = cli_module.parse_args(["--ide", "--chat", "hello"])
+        attach = cli_module.parse_args(["--ide", "--attach-background-agent", "agent-1"])
+        worktree = cli_module.parse_args(["--ide", "--worktree", "inspect"])
+
+        self.assertIsNone(cli_module.validate_cli_args(interactive))
+        self.assertIsNone(cli_module.validate_cli_args(one_shot))
+        self.assertIn("coding session", cli_module.validate_cli_args(local) or "")
+        self.assertIn("coding session", cli_module.validate_cli_args(chat) or "")
+        self.assertIn("coding session", cli_module.validate_cli_args(attach) or "")
+        self.assertIn("workspace root", cli_module.validate_cli_args(worktree) or "")
+
     def test_cli_fork_session_requires_resume_and_coding_mode(self) -> None:
         valid_continue = cli_module.parse_args(["--continue", "--fork-session"])
         valid_resume = cli_module.parse_args(["--resume", "run-1", "--fork-session", "continue"])

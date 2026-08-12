@@ -180,6 +180,9 @@ workspace, sensitive/protected/symlink boundaries, and all payload limits on
 every turn before adding explicitly untrusted context. Source text and unsaved
 buffers never cross the bridge, its credentials are removed from project child
 process environments, and extension shutdown removes the temporary directory.
+Claude-compatible `--ide` discovers exactly one fresh owner-only descriptor for
+the exact project root, authenticates its context file before provider creation,
+and rejects missing, stale, ambiguous, public, symlinked, or mismatched state.
 
 That release gate expands to:
 

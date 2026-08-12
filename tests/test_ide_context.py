@@ -134,7 +134,7 @@ class IdeContextTests(unittest.TestCase):
     def test_node_bridge_payload_is_accepted_by_python_runtime(self) -> None:
         script = """
 const { IdeContextBridge } = require('./extensions/vscode/src/context');
-const bridge = new IdeContextBridge(process.argv[1]);
+const bridge = new IdeContextBridge(process.argv[1], { publish: false });
 bridge.update({
   document: { uri: { scheme: 'file', fsPath: process.argv[2] }, isDirty: false },
   selection: { isEmpty: false, start: { line: 0, character: 0 }, end: { line: 1, character: 0 } },

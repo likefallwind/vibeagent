@@ -140,6 +140,12 @@ does not transmit selected source text or unsaved editor buffers. VibeAgent
 revalidates this metadata on each turn and removes the two bridge variables from
 project child-process environments.
 
+The extension publishes one heartbeat-backed, owner-only descriptor for each
+open workspace. An external `vibeagent --ide` invocation connects only when
+exactly one fresh descriptor matches its project root. Discovery revalidates the
+private context token and workspace before any provider request, does not launch
+VS Code, and rejects stale or ambiguous windows.
+
 The Agent Panel starts an authenticated Remote Control service bound to
 `127.0.0.1`. Its random bearer token remains in the extension host and is never
 sent to the Webview. Approval and question actions include the exact request ID

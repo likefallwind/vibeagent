@@ -345,6 +345,12 @@ metadata as explicitly untrusted prompt context. The bridge never sends source
 text or unsaved buffers, and its credentials are removed from environments
 passed to project commands, hooks, MCP servers, LSP servers, and plugin tools.
 The temporary bridge directory is removed when the extension deactivates.
+The extension also publishes a short-lived owner-only connection descriptor for
+each open workspace. `--ide` requires exactly one fresh descriptor matching the
+active project root, fails before provider creation when none or several match,
+and reuses the same authenticated live-context validation without launching a
+GUI or contacting a remote service. Crashed descriptors expire after two
+minutes and extension startup prunes entries older than one day.
 
 Before cutting a release, verify an editable install from outside the source
 tree:
@@ -373,6 +379,7 @@ python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-command
 python -m vibeagent --resume <run-id> --fork-session "try a different implementation"
 python -m vibeagent --from-pr 42 "continue work associated with pull request 42"
 python -m vibeagent --from-pr https://github.com/example/project/pull/42 --fork-session "try a different fix"
+python -m vibeagent --ide "fix the diagnostics in the active VS Code file"
 python -m vibeagent --name auth-refactor "implement the authentication refactor"
 python -m vibeagent --session-id <run-id> "continue the previous change"
 python -m vibeagent --session-id latest "continue the latest session"
