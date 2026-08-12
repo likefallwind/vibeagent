@@ -62,6 +62,7 @@ from .types import (
     TaskStep,
 )
 from .workspace_core import RunWorkspace
+from .tool_definition_browser import BROWSER_TOOL_NAMES
 from .workspace_hooks import ProjectHooks
 from .workspace_hooks import merge_project_hooks, subagent_project_hooks
 from .workspace_permissions import ProjectPermissions
@@ -139,6 +140,8 @@ def execute_delegate_task_action(
     disallowed_tool_names = (
         profile.disallowed_tool_names | globally_denied_tool_names(permissions)
     )
+    if delegate_workspace.browser_mode == "disabled":
+        disallowed_tool_names |= BROWSER_TOOL_NAMES
     if tool_ceiling_names is not None:
         allowed_tool_names = (
             tool_ceiling_names
@@ -294,7 +297,12 @@ def execute_delegate_task_action(
             approval_policy,
             allowed_tool_names,
             disallowed_tool_names,
-            profile.enabled_tool_names,
+            profile.enabled_tool_names
+            | (
+                BROWSER_TOOL_NAMES
+                if delegate_workspace.browser_mode == "enabled"
+                else frozenset()
+            ),
         )
         if action.mode == "code"
         else set()

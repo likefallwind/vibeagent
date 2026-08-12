@@ -89,8 +89,14 @@ Optional first-class browser tools use an installed `agent-browser` runtime to
 exercise the application being developed rather than opening a GUI through a
 shell command. Six deferred tools cover approved navigation, accessibility
 snapshots, bounded controls and DOM/console/error reads, atomic workspace
-screenshots, and explicit close. Each VibeAgent session gets an isolated browser
-name, private empty config, scrubbed proxy/profile/credential environment, and
+screenshots, and explicit close. `--chrome` validates the runtime before model
+execution and eagerly
+exposes the tools to main and code-subagents; `--no-chrome` removes prompt,
+catalog, ToolSearch, subagent, and direct-call access. Default `auto` keeps
+deferred discovery, explicit modes propagate through resume and interactive
+background handoff, and neither flag claims proprietary extension integration.
+Each VibeAgent session gets an isolated browser name, private empty config,
+scrubbed proxy/profile/credential environment, and
 an approved-host navigation allowlist. URL credentials, link-local/reserved
 destinations, and mixed public/private DNS answers are refused; tool output is
 bounded to 30,000 characters and screenshots to 25 MiB inside safe workspace

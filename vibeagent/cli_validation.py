@@ -97,6 +97,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--disable-slash-commands is available for coding sessions only."
     if args.verbose and (args.chat or has_local_flag(args)):
         return "--verbose is available for coding sessions only."
+    if args.browser_mode != "auto" and (args.chat or has_local_flag(args)):
+        return "--chrome and --no-chrome are available for coding sessions only."
     if args.prompt_suggestions and (
         not args.print_mode or not args.task or has_local_flag(args) or args.chat
     ):

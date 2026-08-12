@@ -46,6 +46,22 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         action="store_true",
         help="Show complete turn-by-turn model and tool output for this session.",
     )
+    browser_mode = parser.add_mutually_exclusive_group()
+    browser_mode.add_argument(
+        "--chrome",
+        dest="browser_mode",
+        action="store_const",
+        const="enabled",
+        default="auto",
+        help="Enable the isolated agent-browser tools for this coding session.",
+    )
+    browser_mode.add_argument(
+        "--no-chrome",
+        dest="browser_mode",
+        action="store_const",
+        const="disabled",
+        help="Disable all browser tools for this coding session.",
+    )
     parser.add_argument(
         "--prompt-suggestions",
         nargs="?",

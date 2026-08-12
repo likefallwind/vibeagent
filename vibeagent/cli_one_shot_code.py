@@ -39,7 +39,7 @@ from .session_names import name_session, normalize_session_name
 from .session_usage import summarize_run_usage
 from .structured_output import StructuredOutputResult, generate_structured_output
 from .types import ApprovalPolicy, ChatMessage
-from .workspace_core import RunWorkspace, create_local_workspace
+from .workspace_core import BrowserMode, RunWorkspace, create_local_workspace
 from .workspace_permissions import ProjectPermissions
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .monitor_runtime import stop_session_monitors
@@ -74,6 +74,7 @@ def run_one_shot_code(
     bare_mode: bool = False,
     brief: bool = False,
     disable_slash_commands: bool = False,
+    browser_mode: BrowserMode = "auto",
     verbose: bool = False,
     prompt_suggestions: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
@@ -222,6 +223,7 @@ def run_one_shot_code(
         safe_mode=safe_mode,
         bare_mode=bare_mode,
         disable_slash_commands=disable_slash_commands,
+        browser_mode=browser_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -285,6 +287,7 @@ def run_one_shot_code(
         bare_mode=bare_mode,
         brief=brief,
         disable_slash_commands=disable_slash_commands,
+        browser_mode=browser_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,

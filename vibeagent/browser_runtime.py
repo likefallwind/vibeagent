@@ -31,6 +31,10 @@ _PASSTHROUGH_ENVIRONMENT = {
 }
 
 
+def browser_runtime_available() -> bool:
+    return shutil.which("agent-browser") is not None
+
+
 def execute_browser_action(workspace: RunWorkspace, action: BrowserAction) -> BrowserObservation:
     executable = shutil.which("agent-browser")
     session = _browser_session(workspace)
@@ -391,5 +395,6 @@ __all__ = [
     "BROWSER_TIMEOUT_SECONDS",
     "MAX_BROWSER_OUTPUT_CHARS",
     "MAX_BROWSER_SCREENSHOT_BYTES",
+    "browser_runtime_available",
     "execute_browser_action",
 ]

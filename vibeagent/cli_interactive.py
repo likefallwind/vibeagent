@@ -103,7 +103,7 @@ from .plugin_auto_update import (
 from .dynamic_workflow_agent import background_workflow_approval_handler, execute_workflow_agent_request
 from .dynamic_workflow_commands import handle_workflows_command
 from .dynamic_workflow_runtime import DynamicWorkflowManager
-from .workspace_core import create_local_workspace, create_run_workspace, normalize_additional_roots
+from .workspace_core import BrowserMode, create_local_workspace, create_run_workspace, normalize_additional_roots
 from .monitor_runtime import (
     collect_monitor_notifications,
     monitor_notifications_prompt,
@@ -164,6 +164,7 @@ def run_interactive_loop(
     initial_brief: bool = False,
     initial_disable_slash_commands: bool = False,
     initial_verbose: bool = False,
+    initial_browser_mode: BrowserMode = "auto",
     initial_setting_sources: tuple[str, ...] = ("user", "project", "local"),
     initial_settings_override_json: str | None = None,
     initial_invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -187,6 +188,7 @@ def run_interactive_loop(
     brief = initial_brief
     disable_slash_commands = initial_disable_slash_commands
     verbose = initial_verbose
+    browser_mode = initial_browser_mode
     setting_sources = initial_setting_sources
     settings_override_json = initial_settings_override_json
     invocation_plugin_dirs = initial_invocation_plugin_dirs
@@ -362,6 +364,7 @@ def run_interactive_loop(
                     bare_mode=bare_mode,
                     brief=brief,
                     disable_slash_commands=disable_slash_commands,
+                    browser_mode=browser_mode,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
                     invocation_plugin_dirs=invocation_plugin_dirs,
@@ -808,6 +811,7 @@ def run_interactive_loop(
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
                 verbose=verbose,
+                browser_mode=browser_mode,
                 attached_agent_id=initial_attached_background_agent_id,
             )
         if command and command.type in {"model", "effort", "btw", "recap"}:

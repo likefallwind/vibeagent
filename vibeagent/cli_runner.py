@@ -32,7 +32,7 @@ from .types import ApprovalPolicy
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .background_agent_config import BackgroundAgentConfig
 from .debug_runtime import DebugOptions
-from .workspace_core import create_local_workspace
+from .workspace_core import BrowserMode, create_local_workspace
 from .workspace_view_mode import resolve_verbose_mode
 
 
@@ -75,6 +75,7 @@ def run_one_shot(
     brief: bool = False,
     disable_slash_commands: bool = False,
     verbose: bool = False,
+    browser_mode: BrowserMode = "auto",
     prompt_suggestions: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
@@ -233,6 +234,7 @@ def run_one_shot(
                 brief=brief,
                 disable_slash_commands=disable_slash_commands,
                 verbose=verbose,
+                browser_mode=browser_mode,
                 prompt_suggestions=prompt_suggestions,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,

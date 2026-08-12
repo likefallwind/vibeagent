@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from uuid import uuid4
 
 from .session_id import is_valid_session_id
@@ -12,6 +12,9 @@ from .session_id import is_valid_session_id
 if TYPE_CHECKING:
     from .dynamic_agent_profiles import DynamicAgentProfile
     from .mcp_config import McpServerConfig
+
+
+BrowserMode = Literal["auto", "enabled", "disabled"]
 
 
 @dataclass(frozen=True)
@@ -34,6 +37,7 @@ class RunWorkspace:
     safe_mode: bool = False
     bare_mode: bool = False
     disable_slash_commands: bool = False
+    browser_mode: BrowserMode = "auto"
     setting_sources: tuple[str, ...] = ("user", "project", "local")
     settings_override_json: str | None = None
     invocation_plugin_dirs: tuple[Path, ...] = ()
@@ -70,11 +74,13 @@ def create_run_workspace(
     safe_mode: bool = False,
     bare_mode: bool = False,
     disable_slash_commands: bool = False,
+    browser_mode: BrowserMode = "auto",
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
     permission_prompt_tool: str | None = None,
 ) -> RunWorkspace:
+    _validate_browser_mode(browser_mode)
     # Project mode: work in the caller's directory and store task logs under .vibeagent/sessions/.
     base = Path(base_dir) if base_dir is not None else Path.cwd()
     project_root = base.resolve()
@@ -115,6 +121,7 @@ def create_run_workspace(
         safe_mode=safe_mode,
         bare_mode=bare_mode,
         disable_slash_commands=disable_slash_commands,
+        browser_mode=browser_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -131,11 +138,13 @@ def create_local_workspace(
     safe_mode: bool = False,
     bare_mode: bool = False,
     disable_slash_commands: bool = False,
+    browser_mode: BrowserMode = "auto",
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
     permission_prompt_tool: str | None = None,
 ) -> RunWorkspace:
+    _validate_browser_mode(browser_mode)
     from .project_trust import is_project_permissions_trusted
 
     project_root = Path(root).resolve()
@@ -150,6 +159,7 @@ def create_local_workspace(
         safe_mode=safe_mode,
         bare_mode=bare_mode,
         disable_slash_commands=disable_slash_commands,
+        browser_mode=browser_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -169,6 +179,11 @@ def normalize_additional_roots(project_root: Path, roots: tuple[Path, ...]) -> t
         seen.add(resolved)
         normalized.append(resolved)
     return tuple(normalized)
+
+
+def _validate_browser_mode(mode: str) -> None:
+    if mode not in {"auto", "enabled", "disabled"}:
+        raise ValueError("browser_mode must be auto, enabled, or disabled.")
 
 
 def make_run_id() -> str:

@@ -58,7 +58,7 @@ from .types import (
     TaskStep,
     UserInputHandler,
 )
-from .workspace_core import RunWorkspace
+from .workspace_core import BrowserMode, RunWorkspace
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .workspace_permissions import ProjectPermissions
 from .peer_runtime import PeerSessionRuntime
@@ -93,6 +93,7 @@ def run_agent(
     safe_mode: bool = False,
     bare_mode: bool = False,
     disable_slash_commands: bool = False,
+    browser_mode: BrowserMode = "auto",
     brief: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
@@ -129,6 +130,7 @@ def run_agent(
         safe_mode=safe_mode,
         bare_mode=bare_mode,
         disable_slash_commands=disable_slash_commands,
+        browser_mode=browser_mode,
         brief=brief,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,

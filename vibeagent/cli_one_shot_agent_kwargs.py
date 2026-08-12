@@ -6,7 +6,7 @@ from .cli_output import build_approval_handler, prompt_user_input
 from .config import ExecutionConfig
 from .project_trust import is_project_permissions_trusted
 from .types import AgentLogger, ApprovalHandler, ApprovalPolicy
-from .workspace_core import RunWorkspace
+from .workspace_core import BrowserMode, RunWorkspace
 from .workspace_permissions import ProjectPermissions
 from .peer_runtime import PeerSessionRuntime
 from .dynamic_agent_profiles import DynamicAgentProfile
@@ -36,6 +36,7 @@ def build_one_shot_agent_kwargs(
     bare_mode: bool = False,
     brief: bool = False,
     disable_slash_commands: bool = False,
+    browser_mode: BrowserMode = "auto",
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -87,6 +88,7 @@ def build_one_shot_agent_kwargs(
         "bare_mode": bare_mode,
         "brief": brief,
         "disable_slash_commands": disable_slash_commands,
+        "browser_mode": browser_mode,
         "setting_sources": setting_sources,
         "settings_override_json": settings_override_json,
         "invocation_plugin_dirs": invocation_plugin_dirs,

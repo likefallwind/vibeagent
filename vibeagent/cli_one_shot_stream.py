@@ -11,7 +11,7 @@ from .cli_subagent_forwarding import SubagentStreamForwarder
 from .debug_runtime import combine_event_observers
 from .session_event_observers import observe_session_events
 from .session_event_observers import SessionEventObserver
-from .workspace_core import RunWorkspace, create_run_workspace
+from .workspace_core import BrowserMode, RunWorkspace, create_run_workspace
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,7 @@ def build_one_shot_stream_scope(
     safe_mode: bool = False,
     bare_mode: bool = False,
     disable_slash_commands: bool = False,
+    browser_mode: BrowserMode = "auto",
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -55,6 +56,8 @@ def build_one_shot_stream_scope(
         workspace_kwargs["bare_mode"] = True
     if disable_slash_commands:
         workspace_kwargs["disable_slash_commands"] = True
+    if browser_mode != "auto":
+        workspace_kwargs["browser_mode"] = browser_mode
     if setting_sources != ("user", "project", "local"):
         workspace_kwargs["setting_sources"] = setting_sources
     if settings_override_json is not None:

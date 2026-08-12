@@ -188,8 +188,16 @@ The deferred tools `browser_open`, `browser_snapshot`, `browser_act`,
 exercise a real HTTP(S) UI, inspect accessibility references, fill and click
 controls, read DOM/console/error state, capture workspace screenshots, and
 release the isolated browser session. Every browser call uses the normal
-approval policy. VibeAgent supplies a private per-session name, ignores project
-and user `agent-browser` configuration, removes proxy/profile/credential
+approval policy. `--chrome` checks the runtime before the first model request
+and eagerly exposes all six tools to the main agent and code subagents;
+`--no-chrome` removes their prompt guidance and blocks initial visibility,
+ToolSearch activation, subagent access, and direct calls. The default `auto`
+mode retains deferred discovery. Both explicit modes propagate through
+interactive background handoff and resumed sessions. These flags control
+VibeAgent's isolated `agent-browser` runtime and do not claim a connection to
+the proprietary Claude browser extension. VibeAgent supplies a private
+per-session name, ignores project and user `agent-browser` configuration,
+removes proxy/profile/credential
 environment variables, bounds returned text, and locks page navigation to the
 approved host. Browser URLs reject credentials, mixed public/private DNS
 answers, and link-local, multicast, reserved, or unspecified addresses.

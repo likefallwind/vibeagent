@@ -27,7 +27,7 @@ from .session_branching import create_session_branch
 from .session_names import name_session, normalize_session_name
 from .session_conversation import load_session_conversation
 from .types import ApprovalPolicy, ChatMessage
-from .workspace_core import RunWorkspace, create_local_workspace, create_run_workspace
+from .workspace_core import BrowserMode, RunWorkspace, create_local_workspace, create_run_workspace
 from .debug_runtime import DebugOptions, resolve_debug_options
 
 
@@ -56,6 +56,7 @@ class InteractiveStartupContext:
     brief: bool = False
     disable_slash_commands: bool = False
     verbose: bool = False
+    browser_mode: BrowserMode = "auto"
     setting_sources: tuple[str, ...] = ("user", "project", "local")
     settings_override_json: str | None = None
     invocation_plugin_dirs: tuple[Path, ...] = ()
@@ -97,6 +98,7 @@ def resolve_interactive_startup_context(
         "brief": getattr(args, "brief", False),
         "disable_slash_commands": getattr(args, "disable_slash_commands", False),
         "verbose": getattr(args, "verbose", False),
+        "browser_mode": getattr(args, "browser_mode", "auto"),
         "setting_sources": (
             ()
             if getattr(args, "bare", False)

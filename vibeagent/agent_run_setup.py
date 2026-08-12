@@ -37,7 +37,9 @@ from .session_environment import (
 from .session_working_directory import inherit_session_cwd
 from .scheduled_task_store import inherit_schedule_store, schedule_store_path
 from .types import ApprovalPolicy, ChatMessage
-from .workspace_core import RunWorkspace, create_run_workspace, normalize_additional_roots
+from .workspace_core import BrowserMode, RunWorkspace, create_run_workspace, normalize_additional_roots
+from .browser_runtime import browser_runtime_available
+from .tool_definition_browser import BROWSER_TOOL_NAMES
 from .workspace_hooks import ProjectHooks, merge_project_hooks, read_project_hooks
 from .workspace_permissions import (
     ProjectPermissions,
@@ -85,6 +87,7 @@ def prepare_agent_run(
     safe_mode: bool = False,
     bare_mode: bool = False,
     disable_slash_commands: bool = False,
+    browser_mode: BrowserMode = "auto",
     brief: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
@@ -106,6 +109,7 @@ def prepare_agent_run(
         safe_mode,
         bare_mode,
         disable_slash_commands,
+        browser_mode,
         setting_sources,
         settings_override_json,
         invocation_plugin_dirs,
@@ -184,6 +188,8 @@ def prepare_agent_run(
     excluded_tool_names = main_profile.disallowed_tool_names
     if current_workspace.disable_slash_commands:
         excluded_tool_names |= frozenset({"Skill", "skill", "project_skills"})
+    if current_workspace.browser_mode == "disabled":
+        excluded_tool_names |= BROWSER_TOOL_NAMES
     if not brief:
         excluded_tool_names |= frozenset({"SendUserMessage", "send_user_message"})
     tasks_inherited, task_restore_error = inherit_task_store(current_workspace, task_source_run_id)
@@ -327,6 +333,29 @@ def prepare_agent_run(
         excluded_names=excluded_tool_names,
         allowed_names=main_profile.allowed_tool_names,
     )
+    browser_available: bool | None = None
+    if current_workspace.browser_mode == "enabled":
+        browser_available = browser_runtime_available()
+        if not browser_available:
+            raise ValueError(
+                "--chrome requires agent-browser to be installed and available on PATH."
+            )
+        activate_agent_tool_names(
+            active_tool_names,
+            BROWSER_TOOL_NAMES,
+            effective_approval_policy,
+            excluded_tool_names,
+            main_profile.allowed_tool_names,
+        )
+    append_session_event(
+        current_workspace.session_dir,
+        "browser_mode",
+        {
+            "mode": current_workspace.browser_mode,
+            "runtime_available": browser_available,
+            "active_tools": sorted(BROWSER_TOOL_NAMES & active_tool_names),
+        },
+    )
     if brief:
         activate_agent_tool_names(
             active_tool_names,
@@ -428,6 +457,7 @@ def _prepare_workspace(
     safe_mode: bool,
     bare_mode: bool,
     disable_slash_commands: bool,
+    browser_mode: BrowserMode,
     setting_sources: tuple[str, ...],
     settings_override_json: str | None,
     invocation_plugin_dirs: tuple[Path, ...],
@@ -445,6 +475,7 @@ def _prepare_workspace(
         safe_mode=safe_mode,
         bare_mode=bare_mode,
         disable_slash_commands=disable_slash_commands,
+        browser_mode=browser_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -472,6 +503,8 @@ def _prepare_workspace(
             current_workspace,
             disable_slash_commands=disable_slash_commands,
         )
+    if workspace is not None and browser_mode != current_workspace.browser_mode:
+        current_workspace = replace(current_workspace, browser_mode=browser_mode)
     if workspace is not None and setting_sources != current_workspace.setting_sources:
         current_workspace = replace(current_workspace, setting_sources=setting_sources)
     if workspace is not None and settings_override_json != current_workspace.settings_override_json:

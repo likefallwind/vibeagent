@@ -120,5 +120,7 @@ BROWSER_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
 ]
 
+BROWSER_TOOL_NAMES = frozenset(str(tool["name"]) for tool in BROWSER_TOOL_DEFINITIONS)
 
-__all__ = ["BROWSER_TOOL_DEFINITIONS"]
+
+__all__ = ["BROWSER_TOOL_DEFINITIONS", "BROWSER_TOOL_NAMES"]

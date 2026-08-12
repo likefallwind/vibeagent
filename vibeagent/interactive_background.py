@@ -10,6 +10,7 @@ from .background_agent_types import BackgroundAgentView
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .session_names import read_session_name
 from .types import ApprovalPolicy
+from .workspace_core import BrowserMode
 
 
 DEFAULT_BACKGROUND_PROMPT = (
@@ -44,6 +45,7 @@ def create_interactive_background_request(
     bare_mode: bool = False,
     disable_slash_commands: bool = False,
     verbose: bool = False,
+    browser_mode: BrowserMode = "auto",
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -70,6 +72,10 @@ def create_interactive_background_request(
         argv.append("--disable-slash-commands")
     if verbose:
         argv.append("--verbose")
+    if browser_mode == "enabled":
+        argv.append("--chrome")
+    elif browser_mode == "disabled":
+        argv.append("--no-chrome")
     if setting_sources != ("user", "project", "local"):
         argv.extend(["--setting-sources", ",".join(setting_sources)])
     if settings_override_json is not None:
