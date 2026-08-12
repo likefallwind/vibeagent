@@ -32,6 +32,7 @@ class RunWorkspace:
     autocompact_tokens: int | None = None
     append_subagent_system_prompt: str | None = None
     safe_mode: bool = False
+    bare_mode: bool = False
     setting_sources: tuple[str, ...] = ("user", "project", "local")
     settings_override_json: str | None = None
     invocation_plugin_dirs: tuple[Path, ...] = ()
@@ -66,6 +67,7 @@ def create_run_workspace(
     strict_mcp_config: bool = False,
     additional_roots: tuple[Path, ...] = (),
     safe_mode: bool = False,
+    bare_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -109,6 +111,7 @@ def create_run_workspace(
         strict_mcp_config=strict_mcp_config,
         additional_roots=normalize_additional_roots(project_root, additional_roots),
         safe_mode=safe_mode,
+        bare_mode=bare_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -123,6 +126,7 @@ def create_local_workspace(
     strict_mcp_config: bool = False,
     additional_roots: tuple[Path, ...] = (),
     safe_mode: bool = False,
+    bare_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -140,6 +144,7 @@ def create_local_workspace(
         strict_mcp_config=strict_mcp_config,
         additional_roots=normalize_additional_roots(project_root, additional_roots),
         safe_mode=safe_mode,
+        bare_mode=bare_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,

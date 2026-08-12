@@ -468,6 +468,12 @@ The automated suite currently covers these 1.0 surfaces:
   Claude-compatible `--safe-mode` diagnostic boundary that suppresses custom
   instructions, agents, skills, commands, plugins, hooks, MCP, LSP, workflows,
   status-line customization, and auto-memory without weakening permissions.
+- Reproducible scripting: Claude-compatible `--bare` skips automatic
+  instructions, agents, commands, skills, hooks, installed plugins, MCP
+  servers, auto-memory, and settings files while retaining built-in tools,
+  permissions, explicit prompts, and explicit `--settings`, `--agents`,
+  `--mcp-config`, and invocation-plugin sources. The boundary propagates
+  through interactive, one-shot, resume, fork, ephemeral, and background runs.
 - Invocation settings: Claude-compatible `--settings` accepts a bounded inline
   JSON object or file, while `--setting-sources` selects user, project, and local
   files. One immutable override reaches provider environment, permissions,

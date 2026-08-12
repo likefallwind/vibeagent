@@ -144,6 +144,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Run Setup hooks with the maintenance matcher before a print-mode task.",
     )
     parser.add_argument(
+        "--bare",
+        action="store_true",
+        help="Skip automatic instructions, hooks, skills, plugins, MCP servers, and memory.",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable redacted debug logging; use --debug='api,mcp' to filter categories.",

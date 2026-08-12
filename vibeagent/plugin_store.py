@@ -438,7 +438,12 @@ def enabled_plugin_manifests(
     )
     invocation_names = {manifest.name for manifest in invocation_manifests}
     manifests: list[PluginManifest] = []
-    for plugin in list_installed_plugins(project_root, workspace=workspace):
+    installed_plugins = (
+        []
+        if workspace is not None and workspace.bare_mode
+        else list_installed_plugins(project_root, workspace=workspace)
+    )
+    for plugin in installed_plugins:
         if not plugin.enabled or plugin.error is not None:
             continue
         if plugin.name in invocation_names:

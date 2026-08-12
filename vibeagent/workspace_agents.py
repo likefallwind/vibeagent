@@ -141,10 +141,14 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
         for profile in workspace.dynamic_agent_profiles
     ]
     home = user_home()
-    roots = [
-        *((workspace.root / relative_root, source) for relative_root, source in AGENT_ROOTS),
-        (home / ".claude/agents", "user"),
-    ]
+    roots = (
+        []
+        if workspace.bare_mode
+        else [
+            *((workspace.root / relative_root, source) for relative_root, source in AGENT_ROOTS),
+            (home / ".claude/agents", "user"),
+        ]
+    )
     for root, source in roots:
         boundary = workspace.root if source != "user" else home
         if not root.exists() or not root.is_dir() or has_symlink_component(boundary, root):

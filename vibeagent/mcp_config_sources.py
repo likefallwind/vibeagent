@@ -40,6 +40,10 @@ def read_scoped_mcp_server_configs(
 
     selected: dict[str, McpServerConfig] = {}
     explicit_paths = _deduped_paths(workspace.mcp_config_paths)
+    if workspace.bare_mode:
+        _append_plugin_configs(workspace, selected, read_path, read_document)
+        _append_explicit_configs(workspace, selected, explicit_paths, read_path)
+        return sorted(selected.values(), key=lambda config: config.name)
     if workspace.strict_mcp_config:
         _append_explicit_configs(
             workspace,
@@ -49,32 +53,12 @@ def read_scoped_mcp_server_configs(
         )
         return sorted(selected.values(), key=lambda config: config.name)
 
-    plugin_components = enabled_plugin_component_files(workspace, "mcp")
-    for component in plugin_components:
-        _merge_configs(
-            selected,
-            read_path(
-                workspace,
-                component.path,
-                component,
-            ),
-            replace_existing=False,
-        )
-    for manifest in enabled_plugin_manifests(workspace.root, workspace=workspace):
-        if manifest.inline_mcp_servers is None:
-            continue
-        component = inline_plugin_component(manifest, "mcp")
-        label = f"{component.source}:{component.relative_path}#mcpServers"
-        _merge_configs(
-            selected,
-            read_document(
-                workspace,
-                {"mcpServers": manifest.inline_mcp_servers},
-                label,
-                component,
-            ),
-            replace_existing=False,
-        )
+    plugin_components = _append_plugin_configs(
+        workspace,
+        selected,
+        read_path,
+        read_document,
+    )
 
     scoped_documents = read_user_mcp_documents(workspace)
     user_document = next(
@@ -126,6 +110,36 @@ def read_scoped_mcp_server_configs(
         read_path,
     )
     return sorted(selected.values(), key=lambda config: config.name)
+
+
+def _append_plugin_configs(
+    workspace: RunWorkspace,
+    selected: dict[str, McpServerConfig],
+    read_path: McpPathReader,
+    read_document: McpDocumentReader,
+) -> list[PluginComponentFile]:
+    components = enabled_plugin_component_files(workspace, "mcp")
+    for component in components:
+        _merge_configs(
+            selected,
+            read_path(workspace, component.path, component),
+            replace_existing=False,
+        )
+    for manifest in enabled_plugin_manifests(workspace.root, workspace=workspace):
+        if manifest.inline_mcp_servers is None:
+            continue
+        component = inline_plugin_component(manifest, "mcp")
+        _merge_configs(
+            selected,
+            read_document(
+                workspace,
+                {"mcpServers": manifest.inline_mcp_servers},
+                f"{component.source}:{component.relative_path}#mcpServers",
+                component,
+            ),
+            replace_existing=False,
+        )
+    return components
 
 
 def _append_explicit_configs(

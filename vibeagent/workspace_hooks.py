@@ -39,9 +39,11 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
     hooks: list[ProjectHook] = []
     sources: list[str] = []
     try:
+        settings_configs = claude_settings_files(workspace)
         configs = (
-            *claude_settings_files(workspace),
-            project_config_file(workspace, HOOK_CONFIG_PATH),
+            settings_configs
+            if workspace.bare_mode
+            else (*settings_configs, project_config_file(workspace, HOOK_CONFIG_PATH))
         )
         for config in configs:
             if not settings_file_exists(config):

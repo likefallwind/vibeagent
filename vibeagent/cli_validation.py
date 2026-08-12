@@ -20,6 +20,10 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
     compat_error = getattr(args, "compat_error", None)
     if compat_error is not None:
         return compat_error
+    if args.safe_mode and args.bare:
+        return "--safe-mode and --bare cannot be combined."
+    if args.bare and args.setting_sources is not None:
+        return "--bare does not load settings files; pass explicit settings with --settings."
     if args.safe_mode and (args.agent is not None or args.agents is not None):
         return "--safe-mode cannot be combined with --agent or --agents."
     if args.safe_mode and (args.mcp_config or args.strict_mcp_config):

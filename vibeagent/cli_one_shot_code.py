@@ -66,6 +66,7 @@ def run_one_shot_code(
     resolved_mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
     safe_mode: bool = False,
+    bare_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -182,6 +183,7 @@ def run_one_shot_code(
                 strict_mcp_config=strict_mcp_config,
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -199,6 +201,7 @@ def run_one_shot_code(
         strict_mcp_config=strict_mcp_config,
         additional_roots=additional_directories,
         safe_mode=safe_mode,
+        bare_mode=bare_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -252,6 +255,7 @@ def run_one_shot_code(
         mcp_config_paths=resolved_mcp_config_paths,
         strict_mcp_config=strict_mcp_config,
         safe_mode=safe_mode,
+        bare_mode=bare_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -300,6 +304,7 @@ def run_one_shot_code(
             project_root,
             prior_context.run_id,
             safe_mode=safe_mode,
+            bare_mode=bare_mode,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
             invocation_plugin_dirs=invocation_plugin_dirs,
@@ -323,6 +328,7 @@ def run_one_shot_code(
             result.run_id,
             additional_roots=additional_directories,
             safe_mode=safe_mode,
+            bare_mode=bare_mode,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
             invocation_plugin_dirs=invocation_plugin_dirs,
@@ -371,7 +377,12 @@ def run_one_shot_code(
                     break
                 if result.stop_reason in {"tool_deferred", "tool_deferred_unavailable"}:
                     break
-                workspace = create_local_workspace(project_root, result.run_id, safe_mode=safe_mode)
+                workspace = create_local_workspace(
+                    project_root,
+                    result.run_id,
+                    safe_mode=safe_mode,
+                    bare_mode=bare_mode,
+                )
                 write_goal(workspace, goal_state)
                 if not result.success:
                     break
@@ -398,6 +409,7 @@ def run_one_shot_code(
                     result.run_id,
                     additional_roots=additional_directories,
                     safe_mode=safe_mode,
+                    bare_mode=bare_mode,
                 )
                 run_kwargs.pop("setup_trigger", None)
                 run_kwargs.pop("task_source_run_id", None)

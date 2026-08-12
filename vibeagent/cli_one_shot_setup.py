@@ -30,6 +30,7 @@ def resolve_one_shot_project_setup(
     project_root: Path,
     mcp_config_paths: list[str] | tuple[str, ...] | None,
     safe_mode: bool = False,
+    bare_mode: bool = False,
     invocation_plugin_dirs: tuple[Path, ...] = (),
     resolve_code_task_func: Callable[..., tuple[str, dict[str, object] | None]] = resolve_one_shot_code_task,
     resolve_mcp_config_paths_func: Callable[[Path, list[str] | tuple[str, ...] | None], tuple[Path, ...]] = (
@@ -42,10 +43,16 @@ def resolve_one_shot_project_setup(
     }
     if safe_mode:
         task_kwargs["safe_mode"] = True
+    if bare_mode:
+        task_kwargs["bare_mode"] = True
     if invocation_plugin_dirs:
         task_kwargs["invocation_plugin_dirs"] = invocation_plugin_dirs
     resolved_task, task_metadata = resolve_code_task_func(task, **task_kwargs)
-    resolved_mcp_config_paths = () if safe_mode else resolve_mcp_config_paths_func(project_root, mcp_config_paths)
+    resolved_mcp_config_paths = (
+        ()
+        if safe_mode
+        else resolve_mcp_config_paths_func(project_root, mcp_config_paths)
+    )
     return OneShotProjectSetup(
         task=resolved_task,
         task_metadata=task_metadata,

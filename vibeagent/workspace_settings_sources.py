@@ -23,7 +23,7 @@ def claude_settings_files(workspace: RunWorkspace) -> tuple[WorkspaceSettingsFil
     user_path = home / ".claude/settings.json"
     project_path = workspace.root / ".claude/settings.json"
     local_path = workspace.root / ".claude/settings.local.json"
-    selected = set(workspace.setting_sources)
+    selected = set() if workspace.bare_mode else set(workspace.setting_sources)
     files: list[WorkspaceSettingsFile] = []
     if "user" in selected:
         files.append(_effective_settings_file(workspace, user_path, home, "~/.claude/settings.json", True))

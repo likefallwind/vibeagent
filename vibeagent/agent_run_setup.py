@@ -82,6 +82,7 @@ def prepare_agent_run(
     mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
     safe_mode: bool = False,
+    bare_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -100,6 +101,7 @@ def prepare_agent_run(
         mcp_config_paths,
         strict_mcp_config,
         safe_mode,
+        bare_mode,
         setting_sources,
         settings_override_json,
         invocation_plugin_dirs,
@@ -206,6 +208,31 @@ def prepare_agent_run(
                 "disabled": [
                     "agents", "auto_memory", "commands", "hooks", "instructions",
                     "lsp", "mcp", "plugins", "skills", "status_line", "workflows",
+                ],
+            },
+        )
+    elif current_workspace.bare_mode:
+        append_session_event(
+            current_workspace.session_dir,
+            "bare_mode",
+            {
+                "enabled": True,
+                "auto_discovery_disabled": [
+                    "agents",
+                    "commands",
+                    "hooks",
+                    "instructions",
+                    "mcp",
+                    "memory",
+                    "plugins",
+                    "skills",
+                ],
+                "explicit_sources_retained": [
+                    "agents",
+                    "mcp_config",
+                    "plugins",
+                    "settings",
+                    "system_prompt",
                 ],
             },
         )
@@ -366,6 +393,7 @@ def _prepare_workspace(
     mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
     safe_mode: bool,
+    bare_mode: bool,
     setting_sources: tuple[str, ...],
     settings_override_json: str | None,
     invocation_plugin_dirs: tuple[Path, ...],
@@ -381,6 +409,7 @@ def _prepare_workspace(
         strict_mcp_config=strict_mcp_config,
         additional_roots=additional_directories,
         safe_mode=safe_mode,
+        bare_mode=bare_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -398,6 +427,8 @@ def _prepare_workspace(
         current_workspace = replace(current_workspace, strict_mcp_config=strict_mcp_config)
     if workspace is not None and safe_mode != current_workspace.safe_mode:
         current_workspace = replace(current_workspace, safe_mode=safe_mode)
+    if workspace is not None and bare_mode != current_workspace.bare_mode:
+        current_workspace = replace(current_workspace, bare_mode=bare_mode)
     if workspace is not None and setting_sources != current_workspace.setting_sources:
         current_workspace = replace(current_workspace, setting_sources=setting_sources)
     if workspace is not None and settings_override_json != current_workspace.settings_override_json:

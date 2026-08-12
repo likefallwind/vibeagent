@@ -104,7 +104,12 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "mcp_config_paths": args.mcp_config,
         "strict_mcp_config": args.strict_mcp_config,
         "safe_mode": args.safe_mode,
-        "setting_sources": parse_setting_sources(args.setting_sources),
+        "bare_mode": args.bare,
+        "setting_sources": (
+            ()
+            if args.bare and args.setting_sources is None
+            else parse_setting_sources(args.setting_sources)
+        ),
         "settings_override_json": parse_invocation_settings(
             args.settings,
             invocation_root=invocation_root,
@@ -169,6 +174,7 @@ def resolve_one_shot_code_task(
     request_mode: str,
     project_root: Path,
     safe_mode: bool = False,
+    bare_mode: bool = False,
     invocation_plugin_dirs: tuple[Path, ...] = (),
     expand_project_command_func: Callable[[Path, str], tuple[str, dict[str, object] | None]] = (
         expand_one_shot_project_command
@@ -178,15 +184,17 @@ def resolve_one_shot_code_task(
         return task, None
     if safe_mode:
         return expand_project_command_func(project_root, task, safe_mode=True)
-    if invocation_plugin_dirs:
+    if bare_mode or invocation_plugin_dirs:
         from .workspace_core import create_local_workspace
 
         return expand_project_command_func(
             project_root,
             task,
+            bare_mode=bare_mode,
             workspace=create_local_workspace(
                 project_root,
                 "plugin-command-expansion",
+                bare_mode=bare_mode,
                 invocation_plugin_dirs=invocation_plugin_dirs,
             ),
         )

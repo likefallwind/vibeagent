@@ -154,6 +154,7 @@ def run_interactive_loop(
     initial_model: str | None = None,
     initial_approval: ApprovalPolicy = "ask",
     initial_safe_mode: bool = False,
+    initial_bare_mode: bool = False,
     initial_setting_sources: tuple[str, ...] = ("user", "project", "local"),
     initial_settings_override_json: str | None = None,
     initial_invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -173,6 +174,7 @@ def run_interactive_loop(
     mode = "code"
     approval_policy: ApprovalPolicy = initial_approval
     safe_mode = initial_safe_mode
+    bare_mode = initial_bare_mode
     setting_sources = initial_setting_sources
     settings_override_json = initial_settings_override_json
     invocation_plugin_dirs = initial_invocation_plugin_dirs
@@ -183,6 +185,7 @@ def run_interactive_loop(
         approval_policy,
         initial_session_id=initial_resume_run_id,
         safe_mode=safe_mode,
+        bare_mode=bare_mode,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -227,6 +230,7 @@ def run_interactive_loop(
                 Path.cwd(),
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -236,6 +240,7 @@ def run_interactive_loop(
             resume_run_id or "pending-directory-hooks",
             additional_roots=additional_directories,
             safe_mode=safe_mode,
+            bare_mode=bare_mode,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
             invocation_plugin_dirs=invocation_plugin_dirs,
@@ -314,6 +319,7 @@ def run_interactive_loop(
                     additional_directories=additional_directories,
                     autocompact_tokens=initial_autocompact_tokens,
                     safe_mode=safe_mode,
+                    bare_mode=bare_mode,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
                     invocation_plugin_dirs=invocation_plugin_dirs,
@@ -357,6 +363,7 @@ def run_interactive_loop(
             result.run_id,
             additional_roots=additional_directories,
             safe_mode=safe_mode,
+            bare_mode=bare_mode,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
             invocation_plugin_dirs=invocation_plugin_dirs,
@@ -465,6 +472,7 @@ def run_interactive_loop(
                 resume_run_id,
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -505,6 +513,7 @@ def run_interactive_loop(
                 resume_run_id,
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -547,6 +556,7 @@ def run_interactive_loop(
                 resume_run_id,
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -556,6 +566,7 @@ def run_interactive_loop(
                 Path.cwd(),
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -708,6 +719,7 @@ def run_interactive_loop(
                         resume_run_id or "plugin-command-expansion",
                         additional_roots=additional_directories,
                         safe_mode=safe_mode,
+                        bare_mode=bare_mode,
                         setting_sources=setting_sources,
                         settings_override_json=settings_override_json,
                         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -745,6 +757,7 @@ def run_interactive_loop(
                 append_system_prompt=append_system_prompt,
                 additional_directories=additional_directories,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -783,16 +796,22 @@ def run_interactive_loop(
             print(update.text)
             continue
         project_command_namespace = command_namespace
-        if command and invocation_plugin_dirs and command.type in {"custom_commands", "agents", "skills"}:
+        if command and (invocation_plugin_dirs or bare_mode) and command.type in {"custom_commands", "agents", "skills"}:
             catalog_workspace = pending_workspace or create_local_workspace(
                 Path.cwd(),
                 resume_run_id or "plugin-catalog",
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
             )
+            if initial_dynamic_agent_profiles:
+                catalog_workspace = replace(
+                    catalog_workspace,
+                    dynamic_agent_profiles=initial_dynamic_agent_profiles,
+                )
             project_command_namespace = dict(command_namespace)
             project_command_namespace["get_custom_commands_text"] = lambda: format_project_prompt_commands(
                 Path.cwd(), workspace=catalog_workspace
@@ -939,6 +958,7 @@ def run_interactive_loop(
                 resume_run_id or "plugin-reload",
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -983,6 +1003,7 @@ def run_interactive_loop(
                         resume_run_id,
                         additional_roots=additional_directories,
                         safe_mode=safe_mode,
+                        bare_mode=bare_mode,
                         setting_sources=setting_sources,
                         settings_override_json=settings_override_json,
                         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -1008,6 +1029,7 @@ def run_interactive_loop(
                                 Path.cwd(),
                                 additional_roots=additional_directories,
                                 safe_mode=safe_mode,
+                                bare_mode=bare_mode,
                                 setting_sources=setting_sources,
                                 settings_override_json=settings_override_json,
                                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -1047,6 +1069,7 @@ def run_interactive_loop(
                     target,
                     additional_roots=target_additional_directories,
                     safe_mode=safe_mode,
+                    bare_mode=bare_mode,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
                     invocation_plugin_dirs=invocation_plugin_dirs,
@@ -1067,6 +1090,7 @@ def run_interactive_loop(
                     approval_policy,
                     initial_session_id=source_run_id,
                     safe_mode=safe_mode,
+                    bare_mode=bare_mode,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
                     invocation_plugin_dirs=invocation_plugin_dirs,
@@ -1084,6 +1108,7 @@ def run_interactive_loop(
                 approval_policy,
                 initial_session_id=target_workspace.run_id,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -1196,6 +1221,7 @@ def run_interactive_loop(
                     selected,
                     additional_roots=next_additional_directories,
                     safe_mode=safe_mode,
+                    bare_mode=bare_mode,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
                     invocation_plugin_dirs=invocation_plugin_dirs,
@@ -1229,6 +1255,7 @@ def run_interactive_loop(
             pending_workspace = replace(
                 branch.workspace,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,

@@ -20,6 +20,7 @@ class InteractiveProjectRuntime:
         *,
         initial_session_id: str | None = None,
         safe_mode: bool = False,
+        bare_mode: bool = False,
         setting_sources: tuple[str, ...] = ("user", "project", "local"),
         settings_override_json: str | None = None,
         invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -30,11 +31,12 @@ class InteractiveProjectRuntime:
             approval_policy,
         )
         self.safe_mode = safe_mode
+        self.bare_mode = bare_mode
         self.setting_sources = setting_sources
         self.settings_override_json = settings_override_json
         self.invocation_plugin_dirs = invocation_plugin_dirs
         self.plugin_updates = PluginAutoUpdateRuntime(self.project_root)
-        if not safe_mode:
+        if not safe_mode and not bare_mode:
             self.plugin_updates.start()
         self.workflow: DynamicWorkflowManager | None = None
         self._owned_session_ids = (
@@ -57,7 +59,7 @@ class InteractiveProjectRuntime:
             self.peer.update_approval_policy(approval_policy)
 
     def start_plugin_updates(self) -> bool:
-        return False if self.safe_mode else self.plugin_updates.start()
+        return False if self.safe_mode or self.bare_mode else self.plugin_updates.start()
 
     def set_workflow(self, workflow: DynamicWorkflowManager) -> DynamicWorkflowManager:
         self.close_workflow()
@@ -86,6 +88,7 @@ class InteractiveProjectRuntime:
                     session_id,
                     additional_roots=additional_roots,
                     safe_mode=self.safe_mode,
+                    bare_mode=self.bare_mode,
                     setting_sources=self.setting_sources,
                     settings_override_json=self.settings_override_json,
                     invocation_plugin_dirs=self.invocation_plugin_dirs,

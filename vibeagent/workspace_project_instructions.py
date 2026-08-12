@@ -27,8 +27,8 @@ def read_project_instruction_sources(
     max_files: int = 20,
 ) -> dict[str, object]:
     _validate_instruction_limits(max_bytes, max_files)
-    if workspace.safe_mode:
-        return _safe_mode_instruction_report()
+    if workspace.safe_mode or workspace.bare_mode:
+        return _disabled_instruction_report(workspace)
     documents = discover_instruction_documents(workspace)
     scanned = _select_owner_groups(documents, max_files)
     startup = startup_instruction_documents(scanned)
@@ -77,8 +77,12 @@ def read_path_instruction_context(
     consumer_id: str = DEFAULT_INSTRUCTION_CONSUMER,
 ) -> dict[str, object]:
     _validate_instruction_limits(max_bytes, max_files)
-    if workspace.safe_mode:
-        return {**_safe_mode_instruction_report(), "paths": list(dict.fromkeys(relative_paths)), "consumer": consumer_id}
+    if workspace.safe_mode or workspace.bare_mode:
+        return {
+            **_disabled_instruction_report(workspace),
+            "paths": list(dict.fromkeys(relative_paths)),
+            "consumer": consumer_id,
+        }
     documents = discover_path_instruction_documents(workspace, relative_paths)
     matching = matching_instruction_documents(documents, relative_paths)
     selected = _select_owner_groups(matching, max_files)
@@ -105,7 +109,8 @@ def read_path_instruction_context(
     }
 
 
-def _safe_mode_instruction_report() -> dict[str, object]:
+def _disabled_instruction_report(workspace: RunWorkspace) -> dict[str, object]:
+    mode = "safe mode" if workspace.safe_mode else "bare mode"
     return {
         "ok": True,
         "files": [],
@@ -114,7 +119,7 @@ def _safe_mode_instruction_report() -> dict[str, object]:
         "omitted_files": 0,
         "truncated": False,
         "text": "",
-        "message": "Project instructions are disabled by safe mode.",
+        "message": f"Project instructions are disabled by {mode}.",
     }
 
 

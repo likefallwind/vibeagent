@@ -69,6 +69,7 @@ def run_one_shot(
     mcp_config_paths: list[str] | tuple[str, ...] | None = None,
     strict_mcp_config: bool = False,
     safe_mode: bool = False,
+    bare_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -131,6 +132,7 @@ def run_one_shot(
                 "project_root": project_root,
                 "mcp_config_paths": mcp_config_paths,
                 "safe_mode": safe_mode,
+                "bare_mode": bare_mode,
             }
             if invocation_plugin_dirs:
                 project_setup_kwargs["invocation_plugin_dirs"] = invocation_plugin_dirs
@@ -181,6 +183,7 @@ def run_one_shot(
                 strict_mcp_config=strict_mcp_config,
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -203,6 +206,7 @@ def run_one_shot(
                 resolved_mcp_config_paths=resolved_mcp_config_paths,
                 strict_mcp_config=strict_mcp_config,
                 safe_mode=safe_mode,
+                bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,

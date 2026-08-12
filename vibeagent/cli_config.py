@@ -25,7 +25,11 @@ def build_provider_env(
     trust_project_settings: bool = False,
 ) -> dict[str, str | None]:
     config_root = project_root or Path.cwd()
-    setting_sources = parse_setting_sources(getattr(args, "setting_sources", None))
+    setting_sources = (
+        ()
+        if getattr(args, "bare", False)
+        else parse_setting_sources(getattr(args, "setting_sources", None))
+    )
     settings_override_json = parse_invocation_settings(
         getattr(args, "settings", None),
         invocation_root=Path.cwd(),

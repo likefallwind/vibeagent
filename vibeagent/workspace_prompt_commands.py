@@ -172,10 +172,14 @@ def _discover_project_prompt_commands(
 ) -> list[dict[str, object]]:
     discovered: list[dict[str, object]] = []
     home = user_home()
-    roots = [
-        *((root / relative_root, source) for relative_root, source in COMMAND_ROOTS),
-        (home / ".claude/commands", "user"),
-    ]
+    roots = (
+        []
+        if workspace is not None and workspace.bare_mode
+        else [
+            *((root / relative_root, source) for relative_root, source in COMMAND_ROOTS),
+            (home / ".claude/commands", "user"),
+        ]
+    )
     for command_root, source in roots:
         boundary = home if source == "user" else root
         if not command_root.exists() or not command_root.is_dir() or has_symlink_component(boundary, command_root):

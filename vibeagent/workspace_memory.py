@@ -88,7 +88,7 @@ def with_agent_memory(workspace: RunWorkspace, name: str, scope: str) -> RunWork
 
 
 def auto_memory_enabled(workspace: RunWorkspace, env: dict[str, str] | None = None) -> bool:
-    if workspace.safe_mode:
+    if workspace.safe_mode or workspace.bare_mode:
         return False
     source = os.environ if env is None else env
     if str(source.get("VIBEAGENT_DISABLE_AUTO_MEMORY", "")).strip().lower() in _DISABLE_VALUES:

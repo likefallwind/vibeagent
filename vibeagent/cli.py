@@ -394,6 +394,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_model=context.model,
         initial_approval=context.approval,
         initial_safe_mode=context.safe_mode,
+        initial_bare_mode=context.bare_mode,
         initial_setting_sources=context.setting_sources,
         initial_settings_override_json=context.settings_override_json,
         initial_invocation_plugin_dirs=context.invocation_plugin_dirs,

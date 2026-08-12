@@ -35,6 +35,10 @@ local changes when asked, and resume from recorded session context.
 
 ## Current Evidence
 
+- `tests.test_bare_mode` covers the independent `--bare` boundary, automatic
+  user/project customization suppression, explicit dynamic-agent, MCP,
+  settings-hook, and invocation-plugin retention, private session evidence,
+  normal stdout isolation, and resume/background propagation.
 - `tests.test_debug_runtime` and
   `tests.test_cli_background_agents.CliBackgroundAgentTests.test_background_persists_debug_options_for_worker`
   cover Claude-compatible equals-form category filtering, separator and task-text

@@ -404,6 +404,7 @@ python -m vibeagent --settings ./review-settings.json --setting-sources user,pro
 python -m vibeagent --plugin-dir ./extensions/team-tools "use the local review plugin"
 python -m vibeagent --plugin-dir ./dist/team-tools.zip "test the packaged review plugin"
 python -m vibeagent --plugin-url https://plugins.example.com/team-tools.zip "test the remote build artifact"
+python -m vibeagent --bare -p "summarize README.md without host customizations"
 python -m vibeagent --system-prompt-file ./prompts/reviewer.txt "inspect the change"
 python -m vibeagent --append-system-prompt "Be concise." --append-system-prompt-file ./prompts/project-rules.txt
 python -m vibeagent -p --append-subagent-system-prompt "Cite exact file paths." "delegate the investigation"
@@ -428,6 +429,17 @@ tools, explicit invocation prompts, permissions, and sandbox enforcement.
 Custom agent and MCP CLI flags, plus Setup-hook modes, are rejected when the
 flag is active. The setting propagates through resume, fork, background, goal,
 and subagent execution.
+
+`--bare` is the reproducible scripting boundary. It skips automatic discovery
+of project/user instructions, agents, commands, skills, hooks, installed
+plugins, MCP servers, auto-memory, and settings files, while retaining built-in
+file and shell tools, permissions, model configuration, and explicit system
+prompt flags. Unlike safe mode, bare mode permits explicit `--settings`,
+`--agents`, `--mcp-config`, `--plugin-dir`, and
+`--plugin-url` inputs; invocation plugins may contribute their own commands,
+skills, agents, hooks, and MCP servers. The mode remains active across
+interactive, one-shot, resumed, forked, ephemeral, worktree, and background
+runs without changing normal stdout or machine output.
 
 `--settings JSON_OR_PATH` applies one bounded invocation-only settings object
 after the selected files. `--setting-sources user,project,local` selects which

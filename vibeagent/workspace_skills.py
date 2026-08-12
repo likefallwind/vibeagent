@@ -142,11 +142,15 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
         return []
     discovered: list[dict[str, object]] = []
     home = user_home()
-    roots = [
-        (effective_skill_root(workspace, user=False), "claude"),
-        (workspace.root / ".agents/skills", "agents"),
-        (effective_skill_root(workspace, user=True), "user"),
-    ]
+    roots = (
+        []
+        if workspace.bare_mode
+        else [
+            (effective_skill_root(workspace, user=False), "claude"),
+            (workspace.root / ".agents/skills", "agents"),
+            (effective_skill_root(workspace, user=True), "user"),
+        ]
+    )
     for root, source in roots:
         boundary = _skill_boundary(workspace, home, root, source)
         if not root.exists() or not root.is_dir() or has_symlink_component(boundary, root):
@@ -174,7 +178,12 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
 
     nested_root = effective_nested_skill_root(workspace)
     nested_boundary = workspace.session_dir if nested_root != workspace.root else workspace.root
-    locations, _ = discover_nested_skill_locations(nested_root, max_skills=MAX_SKILL_SCAN)
+    locations = []
+    if not workspace.bare_mode:
+        locations, _ = discover_nested_skill_locations(
+            nested_root,
+            max_skills=MAX_SKILL_SCAN,
+        )
     for location in locations:
         local_name = location.path.parent.name
         if not SKILL_NAME_PATTERN.fullmatch(local_name):

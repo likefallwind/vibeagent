@@ -41,6 +41,7 @@ def create_interactive_background_request(
     append_system_prompt: str | None,
     additional_directories: tuple[Path, ...],
     safe_mode: bool = False,
+    bare_mode: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -61,6 +62,8 @@ def create_interactive_background_request(
         argv.extend(["--add-dir", path.resolve().as_posix()])
     if safe_mode:
         argv.append("--safe-mode")
+    if bare_mode:
+        argv.append("--bare")
     if setting_sources != ("user", "project", "local"):
         argv.extend(["--setting-sources", ",".join(setting_sources)])
     if settings_override_json is not None:

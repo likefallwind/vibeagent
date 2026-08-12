@@ -52,6 +52,7 @@ class InteractiveStartupContext:
     model: str | None = None
     approval: ApprovalPolicy = "ask"
     safe_mode: bool = False
+    bare_mode: bool = False
     setting_sources: tuple[str, ...] = ("user", "project", "local")
     settings_override_json: str | None = None
     invocation_plugin_dirs: tuple[Path, ...] = ()
@@ -89,7 +90,13 @@ def resolve_interactive_startup_context(
         "model": model_override_from_args(args),
         "approval": getattr(args, "approval", "ask"),
         "safe_mode": getattr(args, "safe_mode", False),
-        "setting_sources": parse_setting_sources(getattr(args, "setting_sources", None)),
+        "bare_mode": getattr(args, "bare", False),
+        "setting_sources": (
+            ()
+            if getattr(args, "bare", False)
+            and getattr(args, "setting_sources", None) is None
+            else parse_setting_sources(getattr(args, "setting_sources", None))
+        ),
         "settings_override_json": parse_invocation_settings(
             getattr(args, "settings", None),
             invocation_root=Path.cwd(),
@@ -178,6 +185,7 @@ def _with_resumed_workspace(
             context.run_id,
             additional_roots=context.additional_directories,
             safe_mode=context.safe_mode,
+            bare_mode=context.bare_mode,
             setting_sources=context.setting_sources,
             settings_override_json=context.settings_override_json,
             invocation_plugin_dirs=context.invocation_plugin_dirs,
@@ -230,6 +238,7 @@ def _with_forked_session(
         pending_workspace=replace(
             branch.workspace,
             safe_mode=context.safe_mode,
+            bare_mode=context.bare_mode,
             setting_sources=context.setting_sources,
             settings_override_json=context.settings_override_json,
             invocation_plugin_dirs=context.invocation_plugin_dirs,
@@ -255,6 +264,7 @@ def _with_requested_name(
                 project_root,
                 additional_roots=context.additional_directories,
                 safe_mode=context.safe_mode,
+                bare_mode=context.bare_mode,
                 setting_sources=context.setting_sources,
                 settings_override_json=context.settings_override_json,
                 invocation_plugin_dirs=context.invocation_plugin_dirs,
