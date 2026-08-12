@@ -63,6 +63,7 @@ def run_one_shot_code(
     permission_overrides: ProjectPermissions | None,
     resolved_mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
+    safe_mode: bool = False,
     output_mode: CliOutputMode,
     output_json: bool,
     print_mode: bool,
@@ -172,6 +173,7 @@ def run_one_shot_code(
                 mcp_config_paths=resolved_mcp_config_paths,
                 strict_mcp_config=strict_mcp_config,
                 additional_roots=additional_directories,
+                safe_mode=safe_mode,
             )
             if prior_context.source == "resume"
             and prior_context.run_id is not None
@@ -185,6 +187,7 @@ def run_one_shot_code(
         mcp_config_paths=resolved_mcp_config_paths,
         strict_mcp_config=strict_mcp_config,
         additional_roots=additional_directories,
+        safe_mode=safe_mode,
         force_workspace=fork_session or session_name is not None or ephemeral_workspace is not None,
         workspace=resumed_workspace,
         forward_subagent_text=forward_subagent_text,
@@ -207,6 +210,7 @@ def run_one_shot_code(
         permission_overrides=permission_overrides,
         mcp_config_paths=resolved_mcp_config_paths,
         strict_mcp_config=strict_mcp_config,
+        safe_mode=safe_mode,
         machine_output=output_mode.machine,
         stream_json=output_mode.stream_json,
         print_mode=print_mode,
@@ -246,7 +250,7 @@ def run_one_shot_code(
             )
         if prior_messages:
             run_kwargs["prior_messages"] = prior_messages
-        source_workspace = create_local_workspace(project_root, prior_context.run_id)
+        source_workspace = create_local_workspace(project_root, prior_context.run_id, safe_mode=safe_mode)
         if continuing_source_session or ephemeral_workspace is not None:
             deferred_state = read_deferred_tool_state(source_workspace)
             if deferred_state is not None:
@@ -265,6 +269,7 @@ def run_one_shot_code(
             result.run_dir,
             result.run_id,
             additional_roots=additional_directories,
+            safe_mode=safe_mode,
         )
 
     def end_session() -> None:
@@ -310,7 +315,7 @@ def run_one_shot_code(
                     break
                 if result.stop_reason in {"tool_deferred", "tool_deferred_unavailable"}:
                     break
-                workspace = create_local_workspace(project_root, result.run_id)
+                workspace = create_local_workspace(project_root, result.run_id, safe_mode=safe_mode)
                 write_goal(workspace, goal_state)
                 if not result.success:
                     break
@@ -336,6 +341,7 @@ def run_one_shot_code(
                     project_root,
                     result.run_id,
                     additional_roots=additional_directories,
+                    safe_mode=safe_mode,
                 )
                 run_kwargs.pop("setup_trigger", None)
                 run_kwargs.pop("task_source_run_id", None)

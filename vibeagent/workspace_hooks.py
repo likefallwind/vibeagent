@@ -29,6 +29,8 @@ MAX_HOOK_MATCHER_CHARS = 500
 
 
 def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
+    if workspace.safe_mode:
+        return ProjectHooks()
     hooks: list[ProjectHook] = []
     sources: list[str] = []
     try:

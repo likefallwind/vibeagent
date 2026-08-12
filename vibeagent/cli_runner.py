@@ -67,6 +67,7 @@ def run_one_shot(
     model_timeout_ms: int | None = None,
     mcp_config_paths: list[str] | tuple[str, ...] | None = None,
     strict_mcp_config: bool = False,
+    safe_mode: bool = False,
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
     append_subagent_system_prompt: str | None = None,
@@ -124,6 +125,7 @@ def run_one_shot(
                 request_mode=request_mode,
                 project_root=project_root,
                 mcp_config_paths=mcp_config_paths,
+                safe_mode=safe_mode,
             )
         except ValueError as error:
             return emit_error(str(error), exit_code=2)
@@ -169,6 +171,7 @@ def run_one_shot(
                 mcp_config_paths=resolved_mcp_config_paths,
                 strict_mcp_config=strict_mcp_config,
                 additional_roots=additional_directories,
+                safe_mode=safe_mode,
             )
         )
         with session_scope as ephemeral:
@@ -185,6 +188,7 @@ def run_one_shot(
                 permission_overrides=permission_overrides,
                 resolved_mcp_config_paths=resolved_mcp_config_paths,
                 strict_mcp_config=strict_mcp_config,
+                safe_mode=safe_mode,
                 output_mode=output_mode,
                 output_json=output_json,
                 print_mode=print_mode,

@@ -399,6 +399,7 @@ printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent --i
 printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent -p --input-format stream-json --output-format stream-json --replay-user-messages -
 printf '{"prompt":"inspect the change"}\n' | python -m vibeagent --input-format json -
 python -m vibeagent --append-system-prompt "Prefer focused tests before broad suites." "inspect the change"
+python -m vibeagent --safe-mode --cwd ../my-project "diagnose startup without project customizations"
 python -m vibeagent --system-prompt-file ./prompts/reviewer.txt "inspect the change"
 python -m vibeagent --append-system-prompt "Be concise." --append-system-prompt-file ./prompts/project-rules.txt
 python -m vibeagent -p --append-subagent-system-prompt "Cite exact file paths." "delegate the investigation"
@@ -414,6 +415,15 @@ python -m vibeagent --autocompact 200k "inspect a large repository"
 python -m vibeagent 'review @src/app.py and @"docs/design notes.md"'
 printf "summarize the project risks\n" | python -m vibeagent -
 ```
+
+`--safe-mode` (or `CLAUDE_CODE_SAFE_MODE=1`) starts a clean diagnostic session.
+It disables project instructions, skills, custom agents and commands, plugins,
+hooks, MCP servers, LSP configuration, workflows, status-line customization,
+and auto-memory while preserving authentication, model selection, built-in
+tools, explicit invocation prompts, permissions, and sandbox enforcement.
+Custom agent and MCP CLI flags, plus Setup-hook modes, are rejected when the
+flag is active. The setting propagates through resume, fork, background, goal,
+and subagent execution.
 
 `--background` / `--bg` detaches one persistent, one-shot coding session and
 returns a project-local agent ID immediately. Management commands and the

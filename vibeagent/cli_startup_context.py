@@ -48,6 +48,7 @@ class InteractiveStartupContext:
     attached_background_agent_id: str | None = None
     model: str | None = None
     approval: ApprovalPolicy = "ask"
+    safe_mode: bool = False
 
 
 def resolve_interactive_startup_context(
@@ -80,6 +81,7 @@ def resolve_interactive_startup_context(
         "attached_background_agent_id": getattr(args, "_attached_background_agent_id", None),
         "model": model_override_from_args(args),
         "approval": getattr(args, "approval", "ask"),
+        "safe_mode": getattr(args, "safe_mode", False),
     }
     session_resume = args.resume if args.resume is not None else args.session_id
     if session_resume is None and args.compact is None:
@@ -152,6 +154,7 @@ def _with_resumed_workspace(
             project_root,
             context.run_id,
             additional_roots=context.additional_directories,
+            safe_mode=context.safe_mode,
         ),
     )
 
@@ -198,7 +201,7 @@ def _with_forked_session(
         context,
         run_id=branch.workspace.run_id,
         message="\n".join(message_parts),
-        pending_workspace=branch.workspace,
+        pending_workspace=replace(branch.workspace, safe_mode=context.safe_mode),
         branch_source_run_id=branch.source_run_id,
     )
 
@@ -219,6 +222,7 @@ def _with_requested_name(
             workspace = create_run_workspace(
                 project_root,
                 additional_roots=context.additional_directories,
+                safe_mode=context.safe_mode,
             )
             run_id = workspace.run_id
         name_session(project_root, run_id, normalized)

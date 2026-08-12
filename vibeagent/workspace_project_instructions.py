@@ -27,6 +27,8 @@ def read_project_instruction_sources(
     max_files: int = 20,
 ) -> dict[str, object]:
     _validate_instruction_limits(max_bytes, max_files)
+    if workspace.safe_mode:
+        return _safe_mode_instruction_report()
     documents = discover_instruction_documents(workspace)
     scanned = _select_owner_groups(documents, max_files)
     startup = startup_instruction_documents(scanned)
@@ -75,6 +77,8 @@ def read_path_instruction_context(
     consumer_id: str = DEFAULT_INSTRUCTION_CONSUMER,
 ) -> dict[str, object]:
     _validate_instruction_limits(max_bytes, max_files)
+    if workspace.safe_mode:
+        return {**_safe_mode_instruction_report(), "paths": list(dict.fromkeys(relative_paths)), "consumer": consumer_id}
     documents = discover_path_instruction_documents(workspace, relative_paths)
     matching = matching_instruction_documents(documents, relative_paths)
     selected = _select_owner_groups(matching, max_files)
@@ -98,6 +102,19 @@ def read_path_instruction_context(
             if selected
             else "No new path-scoped instructions loaded."
         ),
+    }
+
+
+def _safe_mode_instruction_report() -> dict[str, object]:
+    return {
+        "ok": True,
+        "files": [],
+        "total_files": 0,
+        "scanned_files": 0,
+        "omitted_files": 0,
+        "truncated": False,
+        "text": "",
+        "message": "Project instructions are disabled by safe mode.",
     }
 
 

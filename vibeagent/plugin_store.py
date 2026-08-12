@@ -429,6 +429,8 @@ def enabled_plugin_manifests(
     *,
     workspace: RunWorkspace | None = None,
 ) -> list[PluginManifest]:
+    if workspace is not None and workspace.safe_mode:
+        return []
     manifests: list[PluginManifest] = []
     for plugin in list_installed_plugins(project_root, workspace=workspace):
         if not plugin.enabled or plugin.error is not None:

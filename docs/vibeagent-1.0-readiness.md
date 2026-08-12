@@ -462,7 +462,10 @@ The automated suite currently covers these 1.0 surfaces:
   in main and subagent contexts and become eligible for reload after compaction.
 - Safety boundaries: workspace path guards, approval policy, hard command
   blocks, final-review blockers, protected files, source-aware user/project
-  permissions, environment propagation, hooks, and sandbox checks.
+  permissions, environment propagation, hooks, sandbox checks, and a
+  Claude-compatible `--safe-mode` diagnostic boundary that suppresses custom
+  instructions, agents, skills, commands, plugins, hooks, MCP, LSP, workflows,
+  status-line customization, and auto-memory without weakening permissions.
 
 The source of truth for exact test names and gates is
 [`docs/vibeagent-1.0.md`](vibeagent-1.0.md).

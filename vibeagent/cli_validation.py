@@ -20,6 +20,12 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
     compat_error = getattr(args, "compat_error", None)
     if compat_error is not None:
         return compat_error
+    if args.safe_mode and (args.agent is not None or args.agents is not None):
+        return "--safe-mode cannot be combined with --agent or --agents."
+    if args.safe_mode and (args.mcp_config or args.strict_mcp_config):
+        return "--safe-mode cannot be combined with --mcp-config or --strict-mcp-config."
+    if args.safe_mode and (args.maintenance or args.setup_trigger == "init"):
+        return "--safe-mode cannot run custom Setup hooks through --init or --maintenance."
     if args.background and (not args.task or has_local_flag(args) or args.chat):
         return "--background requires a one-shot coding task."
     if args.background and args.task == ["-"]:

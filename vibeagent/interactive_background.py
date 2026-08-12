@@ -39,6 +39,7 @@ def create_interactive_background_request(
     system_prompt: str | None,
     append_system_prompt: str | None,
     additional_directories: tuple[Path, ...],
+    safe_mode: bool = False,
     attached_agent_id: str | None = None,
 ) -> InteractiveBackgroundRequest:
     task = prompt.strip() if prompt and prompt.strip() else DEFAULT_BACKGROUND_PROMPT
@@ -54,6 +55,8 @@ def create_interactive_background_request(
     _append_option(argv, "--append-system-prompt", append_system_prompt)
     for path in additional_directories:
         argv.extend(["--add-dir", path.resolve().as_posix()])
+    if safe_mode:
+        argv.append("--safe-mode")
     argv.extend(["--", task])
     return InteractiveBackgroundRequest(
         project_root=project_root.resolve(),

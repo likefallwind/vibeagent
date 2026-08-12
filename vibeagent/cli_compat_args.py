@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from .cli_resume_args import normalize_resume_arguments
+from .safe_mode import resolve_safe_mode
 
 
 PERMISSION_MODE_ALIASES = {
@@ -101,6 +102,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Append invocation-scoped instructions to every direct and nested subagent (print mode only).",
     )
     parser.add_argument(
+        "--safe-mode",
+        action="store_true",
+        help="Disable custom instructions, skills, agents, plugins, hooks, MCP, LSP, workflows, and auto-memory.",
+    )
+    parser.add_argument(
         "--maintenance",
         action="store_true",
         help="Run Setup hooks with the maintenance matcher before a print-mode task.",
@@ -110,6 +116,7 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
 def normalize_compat_arguments(args: argparse.Namespace) -> argparse.Namespace:
     args.compat_error = None
     args.setup_trigger = None
+    args.safe_mode = resolve_safe_mode(args.safe_mode)
     if args.print_mode and args.init is not None:
         consumed_task = args.init
         args.init = None

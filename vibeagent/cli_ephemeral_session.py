@@ -23,6 +23,7 @@ def ephemeral_session_scope(
     mcp_config_paths: tuple[Path, ...] = (),
     strict_mcp_config: bool = False,
     additional_roots: tuple[Path, ...] = (),
+    safe_mode: bool = False,
 ) -> Iterator[EphemeralSessionScope]:
     with TemporaryDirectory(prefix="vibeagent-ephemeral-") as temporary:
         record_root = Path(temporary).resolve()
@@ -34,6 +35,7 @@ def ephemeral_session_scope(
             mcp_config_paths=mcp_config_paths,
             strict_mcp_config=strict_mcp_config,
             additional_roots=normalize_additional_roots(project_root.resolve(), additional_roots),
+            safe_mode=safe_mode,
         )
         yield EphemeralSessionScope(workspace=workspace, record_root=record_root)
 

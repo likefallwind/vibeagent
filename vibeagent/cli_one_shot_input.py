@@ -99,6 +99,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "model_timeout_ms": args.model_timeout_ms,
         "mcp_config_paths": args.mcp_config,
         "strict_mcp_config": args.strict_mcp_config,
+        "safe_mode": args.safe_mode,
         "system_prompt": system_prompt,
         "append_system_prompt": append_system_prompt,
         "append_subagent_system_prompt": (
@@ -146,12 +147,15 @@ def resolve_one_shot_code_task(
     *,
     request_mode: str,
     project_root: Path,
+    safe_mode: bool = False,
     expand_project_command_func: Callable[[Path, str], tuple[str, dict[str, object] | None]] = (
         expand_one_shot_project_command
     ),
 ) -> tuple[str, dict[str, object] | None]:
     if request_mode != "code":
         return task, None
+    if safe_mode:
+        return expand_project_command_func(project_root, task, safe_mode=True)
     return expand_project_command_func(project_root, task)
 
 

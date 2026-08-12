@@ -48,14 +48,18 @@ def run_interactive_project_command(
     commands: dict[str, Any],
     approval_policy: str,
     root: str | Path = ".",
+    *,
+    safe_mode: bool = False,
 ) -> str | None:
     if command.type == "help":
         return commands["get_help_text"]()
     if command.type == "config":
         return commands["get_config_text"]()
     if command.type == "custom_commands":
-        return commands["get_custom_commands_text"]()
+        return "Custom commands are disabled by safe mode." if safe_mode else commands["get_custom_commands_text"]()
     if command.type == "agents":
+        if safe_mode:
+            return "Custom agents are disabled by safe mode."
         return _option_limited_text(
             command,
             commands,
@@ -64,6 +68,8 @@ def run_interactive_project_command(
             "get_agents_text",
         )
     if command.type == "skills":
+        if safe_mode:
+            return "Custom skills are disabled by safe mode."
         return _option_limited_text(
             command,
             commands,
@@ -158,12 +164,14 @@ def run_interactive_project_command(
             return error
         return commands["get_manifests_text"](**kwargs) if uses_named_options else commands["get_manifests_text"]()
     if command.type == "instructions":
+        if safe_mode:
+            return "Project instructions are disabled by safe mode."
         kwargs, error, uses_named_options = commands["parse_interactive_instructions_argument"](command.argument)
         if error:
             return error
         return commands["get_instructions_text"](**kwargs) if uses_named_options else commands["get_instructions_text"]()
     if command.type == "hooks":
-        return commands["get_hooks_text"]()
+        return "Custom hooks are disabled by safe mode." if safe_mode else commands["get_hooks_text"]()
     if command.type == "todos":
         path, kwargs, error, uses_named_options = commands["parse_interactive_todos_argument"](command.argument)
         if error:

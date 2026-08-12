@@ -36,7 +36,7 @@ CUSTOM_REFRESH_SECONDS = 1.0
 
 
 class SubagentPanel:
-    def __init__(self, project_root: Path, *, stream: TextIO | None = None) -> None:
+    def __init__(self, project_root: Path, *, stream: TextIO | None = None, safe_mode: bool = False) -> None:
         self.project_root = project_root.resolve()
         self.stream = stream or sys.stdout
         self.enabled = getattr(self.stream, "isatty", lambda: False)() is True
@@ -56,7 +56,7 @@ class SubagentPanel:
         self._last_custom_at = 0.0
         self._custom_rows: dict[str, str] = {}
         self._suspended = False
-        if self.enabled:
+        if self.enabled and not safe_mode:
             try:
                 self.config = resolve_subagent_status_line(self.project_root)
             except (OSError, UnicodeError, ValueError) as error:

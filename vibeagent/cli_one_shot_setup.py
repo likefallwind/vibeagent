@@ -29,17 +29,20 @@ def resolve_one_shot_project_setup(
     request_mode: str,
     project_root: Path,
     mcp_config_paths: list[str] | tuple[str, ...] | None,
+    safe_mode: bool = False,
     resolve_code_task_func: Callable[..., tuple[str, dict[str, object] | None]] = resolve_one_shot_code_task,
     resolve_mcp_config_paths_func: Callable[[Path, list[str] | tuple[str, ...] | None], tuple[Path, ...]] = (
         resolve_mcp_config_paths
     ),
 ) -> OneShotProjectSetup:
-    resolved_task, task_metadata = resolve_code_task_func(
-        task,
-        request_mode=request_mode,
-        project_root=project_root,
-    )
-    resolved_mcp_config_paths = resolve_mcp_config_paths_func(project_root, mcp_config_paths)
+    task_kwargs: dict[str, object] = {
+        "request_mode": request_mode,
+        "project_root": project_root,
+    }
+    if safe_mode:
+        task_kwargs["safe_mode"] = True
+    resolved_task, task_metadata = resolve_code_task_func(task, **task_kwargs)
+    resolved_mcp_config_paths = () if safe_mode else resolve_mcp_config_paths_func(project_root, mcp_config_paths)
     return OneShotProjectSetup(
         task=resolved_task,
         task_metadata=task_metadata,

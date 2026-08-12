@@ -128,6 +128,8 @@ def format_project_agent_catalog(workspace: RunWorkspace, max_agents: int = 20) 
 
 
 def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]:
+    if workspace.safe_mode:
+        return []
     discovered: list[dict[str, object]] = [
         {
             **profile.catalog_metadata(),

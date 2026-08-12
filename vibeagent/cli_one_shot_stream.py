@@ -24,6 +24,7 @@ def build_one_shot_stream_scope(
     mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
     additional_roots: tuple[Path, ...] = (),
+    safe_mode: bool = False,
     force_workspace: bool = False,
     workspace: RunWorkspace | None = None,
     forward_subagent_text: bool = False,
@@ -37,6 +38,8 @@ def build_one_shot_stream_scope(
         "mcp_config_paths": mcp_config_paths,
         "strict_mcp_config": strict_mcp_config,
     }
+    if safe_mode:
+        workspace_kwargs["safe_mode"] = True
     if additional_roots:
         workspace_kwargs["additional_roots"] = additional_roots
     workspace = workspace or create_workspace_func(project_root, **workspace_kwargs)

@@ -19,14 +19,17 @@ class InteractiveProjectRuntime:
         approval_policy: ApprovalPolicy,
         *,
         initial_session_id: str | None = None,
+        safe_mode: bool = False,
     ) -> None:
         self.project_root = project_root.resolve()
         self.peer: PeerSessionRuntime | None = create_peer_runtime(
             self.project_root,
             approval_policy,
         )
+        self.safe_mode = safe_mode
         self.plugin_updates = PluginAutoUpdateRuntime(self.project_root)
-        self.plugin_updates.start()
+        if not safe_mode:
+            self.plugin_updates.start()
         self.workflow: DynamicWorkflowManager | None = None
         self._owned_session_ids = (
             {initial_session_id} if initial_session_id is not None else set()
@@ -48,7 +51,7 @@ class InteractiveProjectRuntime:
             self.peer.update_approval_policy(approval_policy)
 
     def start_plugin_updates(self) -> bool:
-        return self.plugin_updates.start()
+        return False if self.safe_mode else self.plugin_updates.start()
 
     def set_workflow(self, workflow: DynamicWorkflowManager) -> DynamicWorkflowManager:
         self.close_workflow()
@@ -76,6 +79,7 @@ class InteractiveProjectRuntime:
                     self.project_root,
                     session_id,
                     additional_roots=additional_roots,
+                    safe_mode=self.safe_mode,
                 )
             )
         self._owned_session_ids.clear()

@@ -34,6 +34,8 @@ def read_scoped_mcp_server_configs(
     read_path: McpPathReader,
     read_document: McpDocumentReader,
 ) -> list[McpServerConfig]:
+    if workspace.safe_mode:
+        return []
     from .mcp_config import MCP_CONFIG_NAME
 
     selected: dict[str, McpServerConfig] = {}

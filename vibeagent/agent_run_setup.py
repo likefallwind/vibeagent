@@ -81,6 +81,7 @@ def prepare_agent_run(
     permission_overrides: ProjectPermissions | None,
     mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
+    safe_mode: bool = False,
     system_prompt: str | None,
     append_system_prompt: str | None,
     append_subagent_system_prompt: str | None = None,
@@ -95,6 +96,7 @@ def prepare_agent_run(
         workspace,
         mcp_config_paths,
         strict_mcp_config,
+        safe_mode,
         trust_project_permissions,
         additional_directories,
         dynamic_agent_profiles,
@@ -189,6 +191,18 @@ def prepare_agent_run(
     )
     if prior_messages:
         messages = continue_conversation(prior_messages, messages)
+    if current_workspace.safe_mode:
+        append_session_event(
+            current_workspace.session_dir,
+            "safe_mode",
+            {
+                "enabled": True,
+                "disabled": [
+                    "agents", "auto_memory", "commands", "hooks", "instructions",
+                    "lsp", "mcp", "plugins", "skills", "status_line", "workflows",
+                ],
+            },
+        )
     _append_task_event(
         current_workspace,
         effective_task,
@@ -327,6 +341,7 @@ def _prepare_workspace(
     workspace: RunWorkspace | None,
     mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
+    safe_mode: bool,
     trust_project_permissions: bool,
     additional_directories: tuple[Path, ...],
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...],
@@ -338,6 +353,7 @@ def _prepare_workspace(
         mcp_config_paths=mcp_config_paths,
         strict_mcp_config=strict_mcp_config,
         additional_roots=additional_directories,
+        safe_mode=safe_mode,
     )
     if workspace is not None and additional_directories:
         merged_roots = normalize_additional_roots(
@@ -350,9 +366,23 @@ def _prepare_workspace(
         current_workspace = replace(current_workspace, mcp_config_paths=absolute_mcp_paths)
     if workspace is not None and strict_mcp_config != current_workspace.strict_mcp_config:
         current_workspace = replace(current_workspace, strict_mcp_config=strict_mcp_config)
+    if workspace is not None and safe_mode != current_workspace.safe_mode:
+        current_workspace = replace(current_workspace, safe_mode=safe_mode)
+    if safe_mode:
+        current_workspace = replace(
+            current_workspace,
+            mcp_config_paths=(),
+            strict_mcp_config=False,
+            dynamic_agent_profiles=(),
+            profile_mcp_server_configs=(),
+        )
     if trust_project_permissions and not current_workspace.project_config_trusted:
         current_workspace = replace(current_workspace, project_config_trusted=True)
-    if dynamic_agent_profiles and dynamic_agent_profiles != current_workspace.dynamic_agent_profiles:
+    if (
+        not safe_mode
+        and dynamic_agent_profiles
+        and dynamic_agent_profiles != current_workspace.dynamic_agent_profiles
+    ):
         current_workspace = replace(
             current_workspace,
             dynamic_agent_profiles=dynamic_agent_profiles,

@@ -138,6 +138,8 @@ def discover_project_skill_metadata(workspace: RunWorkspace) -> list[dict[str, o
 
 
 def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]:
+    if workspace.safe_mode:
+        return []
     discovered: list[dict[str, object]] = []
     home = user_home()
     roots = [

@@ -149,6 +149,7 @@ def run_interactive_loop(
     initial_attached_background_agent_id: str | None = None,
     initial_model: str | None = None,
     initial_approval: ApprovalPolicy = "ask",
+    initial_safe_mode: bool = False,
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print(f"VibeAgent {__version__}")
@@ -163,11 +164,13 @@ def run_interactive_loop(
     effort_locked = initial_effort_locked
     mode = "code"
     approval_policy: ApprovalPolicy = initial_approval
+    safe_mode = initial_safe_mode
     approval_handler = build_approval_handler(approval_policy)
     project_runtime = InteractiveProjectRuntime(
         Path.cwd(),
         approval_policy,
         initial_session_id=initial_resume_run_id,
+        safe_mode=safe_mode,
     )
     chat_history: list[ChatMessage] = []
     conversation_messages: list[ChatMessage] = list(initial_conversation_messages)
@@ -207,15 +210,19 @@ def run_interactive_loop(
             Path.cwd(),
             resume_run_id or "pending-directory-hooks",
             additional_roots=additional_directories,
+            safe_mode=safe_mode,
         )
-        turn_append_system_prompt, directory_hook_errors = collect_directory_added_turn_context(
-            notification_workspace,
-            append_system_prompt,
-        )
+        if safe_mode:
+            turn_append_system_prompt, directory_hook_errors = append_system_prompt, ()
+        else:
+            turn_append_system_prompt, directory_hook_errors = collect_directory_added_turn_context(
+                notification_workspace,
+                append_system_prompt,
+            )
         for error in directory_hook_errors:
             print(f"DirectoryAdded hook warning: {error}")
         client = client or create_interactive_client(interactive_provider_env(Path.cwd(), model_override))
-        panel = SubagentPanel(Path.cwd())
+        panel = SubagentPanel(Path.cwd(), safe_mode=safe_mode)
         panel.authorize_custom(approval_handler, approval_policy)
         initial_panel_error = panel.config_error
         if panel.config_error:
@@ -270,6 +277,7 @@ def run_interactive_loop(
                     dynamic_agent_profiles=initial_dynamic_agent_profiles,
                     additional_directories=additional_directories,
                     autocompact_tokens=initial_autocompact_tokens,
+                    safe_mode=safe_mode,
                     **(
                         {"model_stream_handler": stream_renderer.agent_event}
                         if stream_renderer is not None
@@ -309,6 +317,7 @@ def run_interactive_loop(
             Path.cwd(),
             result.run_id,
             additional_roots=additional_directories,
+            safe_mode=safe_mode,
         )
         project_runtime.register_session(result.run_id)
         pending_branch_source_run_id = None
@@ -376,7 +385,7 @@ def run_interactive_loop(
                 changed = config_change_runtime.poll(iteration=0)
                 for message in changed.system_messages:
                     print(f"\n{message}")
-            if idle_notification.due() and resume_run_id is not None:
+            if not safe_mode and idle_notification.due() and resume_run_id is not None:
                 notification = run_interactive_notification_hooks(
                     Path.cwd(),
                     resume_run_id,
@@ -393,7 +402,7 @@ def run_interactive_loop(
                 )
                 for message in notification.system_messages:
                     print(f"\n{message}")
-            for notification in project_runtime.collect_plugin_notifications():
+            for notification in (() if safe_mode else project_runtime.collect_plugin_notifications()):
                 print(f"\n{format_plugin_auto_update_notification(notification)}")
             if project_runtime.peer is not None:
                 peer_task = peer_messages_as_task(project_runtime.peer)
@@ -408,10 +417,12 @@ def run_interactive_loop(
                 Path.cwd(),
                 resume_run_id,
                 additional_roots=additional_directories,
+                safe_mode=safe_mode,
             )
-            async_hook_notifications = collect_async_hook_notifications(
-                workspace,
-                rewake_only=True,
+            async_hook_notifications = (
+                []
+                if safe_mode
+                else collect_async_hook_notifications(workspace, rewake_only=True)
             )
             if async_hook_notifications:
                 print("\nAsynchronous hook requested attention.")
@@ -424,7 +435,7 @@ def run_interactive_loop(
                         ],
                     },
                 )
-            monitor_notifications = collect_monitor_notifications(workspace)
+            monitor_notifications = [] if safe_mode else collect_monitor_notifications(workspace)
             if monitor_notifications:
                 print("\nMonitor event received.")
                 run_code_task(
@@ -443,6 +454,7 @@ def run_interactive_loop(
                 Path.cwd(),
                 resume_run_id,
                 additional_roots=additional_directories,
+                safe_mode=safe_mode,
             )
             due = collect_due_scheduled_tasks(workspace)
             if due:
@@ -481,9 +493,10 @@ def run_interactive_loop(
                 Path.cwd(),
                 resume_run_id,
                 additional_roots=additional_directories,
+                safe_mode=safe_mode,
             )
             if resume_run_id is not None
-            else create_run_workspace(Path.cwd(), additional_roots=additional_directories)
+            else create_run_workspace(Path.cwd(), additional_roots=additional_directories, safe_mode=safe_mode)
         )
         if initial_dynamic_agent_profiles:
             workspace = replace(
@@ -521,6 +534,8 @@ def run_interactive_loop(
         value: str,
         summary: str | None = None,
     ) -> None:
+        if safe_mode:
+            return
         try:
             run_interactive_session_hook(
                 Path.cwd(),
@@ -544,7 +559,7 @@ def run_interactive_loop(
             idle_notification = IdleNotificationTimer()
             file_changed_runtime = None
             config_change_runtime = None
-            if resume_run_id is not None:
+            if resume_run_id is not None and not safe_mode:
                 try:
                     execution_config = resolve_execution_config(Path.cwd())
                     file_changed_runtime = create_interactive_file_changed_runtime(
@@ -611,6 +626,9 @@ def run_interactive_loop(
         command = parse_local_command(task)
         custom_command: dict[str, object] | None = None
         if command is None and task.startswith("/"):
+            if safe_mode:
+                print("Custom commands and skill invocations are disabled by safe mode.")
+                continue
             try:
                 custom_command = expand_code_task_project_command(Path.cwd(), task)
             except ValueError as error:
@@ -644,6 +662,7 @@ def run_interactive_loop(
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
                 additional_directories=additional_directories,
+                safe_mode=safe_mode,
                 attached_agent_id=initial_attached_background_agent_id,
             )
         if command and command.type in {"model", "effort", "btw", "recap"}:
@@ -677,7 +696,9 @@ def run_interactive_loop(
             print(update.text)
             continue
         if command and (
-            project_text := run_interactive_project_command(command, command_namespace, approval_policy, Path.cwd())
+            project_text := run_interactive_project_command(
+                command, command_namespace, approval_policy, Path.cwd(), safe_mode=safe_mode
+            )
         ) is not None:
             print(project_text)
             continue
@@ -770,9 +791,15 @@ def run_interactive_loop(
                 print(f"\nGoal error: {format_error(error)}")
             continue
         if command and command.type == "workflows":
+            if safe_mode:
+                print("Custom workflows are disabled by safe mode.")
+                continue
             print(handle_workflows_command(get_workflow_manager(), command.argument))
             continue
         if command and command.type == "plugin":
+            if safe_mode:
+                print("Plugins are disabled by safe mode.")
+                continue
             plugin_result = handle_plugin_command(Path.cwd(), command.argument)
             if plugin_result.changed:
                 project_runtime.close_workflow()
@@ -784,9 +811,15 @@ def run_interactive_loop(
             print(plugin_result.text)
             continue
         if command and command.type == "mcp":
+            if safe_mode:
+                print("MCP servers are disabled by safe mode.")
+                continue
             print(handle_mcp_command(Path.cwd(), command.argument).text)
             continue
         if command and command.type == "reload_plugins":
+            if safe_mode:
+                print("Plugins are disabled by safe mode.")
+                continue
             project_runtime.close_workflow()
             from .lsp_runtime import close_project_lsp
 
@@ -830,6 +863,7 @@ def run_interactive_loop(
                         Path.cwd(),
                         resume_run_id,
                         additional_roots=additional_directories,
+                        safe_mode=safe_mode,
                     )
                 project_runtime.close_workflow()
                 try:
@@ -845,12 +879,13 @@ def run_interactive_loop(
                     for directory in additional_directories
                     if directory not in previous_directories
                 )
-                if added:
+                if added and not safe_mode:
                     try:
                         if pending_workspace is None:
                             pending_workspace = create_run_workspace(
                                 Path.cwd(),
                                 additional_roots=additional_directories,
+                                safe_mode=safe_mode,
                             )
                         hooks = read_project_hooks(pending_workspace)
                         permissions = read_project_permissions(pending_workspace)
@@ -886,6 +921,7 @@ def run_interactive_loop(
                 target_workspace = create_run_workspace(
                     target,
                     additional_roots=target_additional_directories,
+                    safe_mode=safe_mode,
                 )
             except (OSError, ValueError) as error:
                 print(f"Cannot change project directory: {format_error(error)}")
@@ -902,6 +938,7 @@ def run_interactive_loop(
                     Path.cwd(),
                     approval_policy,
                     initial_session_id=source_run_id,
+                    safe_mode=safe_mode,
                 )
                 continue
 
@@ -915,6 +952,7 @@ def run_interactive_loop(
                 target,
                 approval_policy,
                 initial_session_id=target_workspace.run_id,
+                safe_mode=safe_mode,
             )
             file_changed_runtime = None
             config_change_runtime = None
@@ -1023,6 +1061,7 @@ def run_interactive_loop(
                     Path.cwd(),
                     selected,
                     additional_roots=next_additional_directories,
+                    safe_mode=safe_mode,
                 )
                 if command.type == "resume" and selected is not None
                 else None
@@ -1050,7 +1089,7 @@ def run_interactive_loop(
                 continue
             project_runtime.close_workflow()
             run_active_session_hook("session_end", "resume")
-            pending_workspace = branch.workspace
+            pending_workspace = replace(branch.workspace, safe_mode=safe_mode)
             pending_branch_source_run_id = branch.source_run_id
             resume_run_id = branch.workspace.run_id
             resume_context = branch.context

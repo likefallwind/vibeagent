@@ -387,6 +387,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_attached_background_agent_id=context.attached_background_agent_id,
         initial_model=context.model,
         initial_approval=context.approval,
+        initial_safe_mode=context.safe_mode,
     )
 if __name__ == "__main__":
     import sys

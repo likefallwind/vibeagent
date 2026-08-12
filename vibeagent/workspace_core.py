@@ -31,6 +31,7 @@ class RunWorkspace:
     maintain_shell_cwd: bool = True
     autocompact_tokens: int | None = None
     append_subagent_system_prompt: str | None = None
+    safe_mode: bool = False
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,7 @@ def create_run_workspace(
     mcp_config_paths: tuple[Path, ...] = (),
     strict_mcp_config: bool = False,
     additional_roots: tuple[Path, ...] = (),
+    safe_mode: bool = False,
 ) -> RunWorkspace:
     # Project mode: work in the caller's directory and store task logs under .vibeagent/sessions/.
     base = Path(base_dir) if base_dir is not None else Path.cwd()
@@ -98,6 +100,7 @@ def create_run_workspace(
         mcp_config_paths=tuple(_absolute_path(project_root, path) for path in mcp_config_paths),
         strict_mcp_config=strict_mcp_config,
         additional_roots=normalize_additional_roots(project_root, additional_roots),
+        safe_mode=safe_mode,
     )
 
 
@@ -107,6 +110,7 @@ def create_local_workspace(
     mcp_config_paths: tuple[Path, ...] = (),
     strict_mcp_config: bool = False,
     additional_roots: tuple[Path, ...] = (),
+    safe_mode: bool = False,
 ) -> RunWorkspace:
     from .project_trust import is_project_permissions_trusted
 
@@ -119,6 +123,7 @@ def create_local_workspace(
         mcp_config_paths=tuple(_absolute_path(project_root, path) for path in mcp_config_paths),
         strict_mcp_config=strict_mcp_config,
         additional_roots=normalize_additional_roots(project_root, additional_roots),
+        safe_mode=safe_mode,
     )
 
 

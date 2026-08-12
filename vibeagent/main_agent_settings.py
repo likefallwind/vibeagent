@@ -29,6 +29,8 @@ def resolve_main_agent_selection(
     workspace: RunWorkspace,
     explicit_agent: str | None,
 ) -> MainAgentSelection:
+    if workspace.safe_mode:
+        return MainAgentSelection()
     if explicit_agent is not None:
         return MainAgentSelection(
             name=_validate_reference(explicit_agent, "CLI --agent"),
