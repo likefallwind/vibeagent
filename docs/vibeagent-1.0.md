@@ -44,9 +44,11 @@ server, plist, registry, policy-helper, or WSL Windows-policy delivery.
 HTTP/CONNECT proxy and namespace relay enforce IDNA-normalized exact or leading
 `*.` `allowedDomains`, precedence-ordered `deniedDomains`, project-trust gates,
 and endpoint-managed `allowManagedDomainsOnly`. Clients that ignore proxy
-variables remain unable to use direct host networking. This claim does not
-include dynamic first-domain prompts, WebFetch-rule merging, TLS termination,
-or credential masking.
+variables remain unable to use direct host networking. Trusted static, CLI,
+and approved session `WebFetch(domain:...)` allow rules join the same proxy
+allowlist, while the managed-only lock filters them by source and sandbox
+denies remain authoritative. This claim does not include dynamic first-domain
+prompts, TLS termination, or credential masking.
 
 `VA1-SAFETY` includes specificity-ordered Bubblewrap read rules: trusted
 `allowRead` paths can reopen a narrower path inside a broader `denyRead`, while

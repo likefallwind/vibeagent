@@ -527,9 +527,11 @@ The automated suite currently covers these 1.0 surfaces:
   namespace-local relay enforce exact or leading-wildcard `allowedDomains`,
   precedence-ordered `deniedDomains`, project-trust gates, and endpoint-managed
   `allowManagedDomainsOnly` without granting direct egress to clients that
-  ignore proxy variables. Local HTTP, CONNECT, denied-host, and real Bubblewrap
-  tests cover the execution path. Dynamic first-domain prompts, WebFetch-rule
-  merging, TLS termination, and credential masking remain outside this claim.
+  ignore proxy variables. Trusted static, CLI, and approved session
+  `WebFetch(domain:...)` allow rules join the proxy allowlist; managed-only
+  policy filters those rules by source. Local HTTP, CONNECT, denied-host, and
+  real Bubblewrap tests cover the execution path. Dynamic first-domain prompts,
+  TLS termination, and credential masking remain outside this claim.
 - Sandbox read and credential deny policy: specificity-ordered `allowRead` and
   `denyRead` mounts support narrow read exceptions while exact ties resolve to
   deny. Endpoint-managed `allowManagedReadPathsOnly` filters non-managed

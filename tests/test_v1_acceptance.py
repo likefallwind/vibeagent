@@ -432,12 +432,13 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("docs/vibeagent-1.0.md", readme)
         self.assertIn("docs/vibeagent-1.0-readiness.md", readme)
 
-    def test_readme_distinguishes_sandbox_domains_from_webfetch_permissions(self) -> None:
+    def test_readme_explains_sandbox_and_webfetch_domain_merging(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
         self.assertIn("sandbox network domain allowlists", readme)
         self.assertIn("separate from project", readme)
         self.assertIn("permission `WebFetch(domain:...)` rules", readme)
+        self.assertIn("merged into the command proxy allowlist", readme)
         self.assertIn("WebFetch(domain:...)", readme)
         self.assertIn("WebFetch(domain:*.python.org)", readme)
         self.assertIn("private host-side HTTP/CONNECT proxy", readme)

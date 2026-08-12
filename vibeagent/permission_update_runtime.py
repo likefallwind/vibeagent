@@ -12,6 +12,7 @@ from typing import cast
 from .agent_profile_permissions import PROFILE_ACCEPT_EDITS_RULES
 from .cli_additional_directories import MAX_ADDITIONAL_DIRECTORIES
 from .types import ApprovalPolicy
+from .sandbox_permission_domains import sandbox_webfetch_allow_domains
 from .user_paths import user_home
 from .workspace_core import RunWorkspace, normalize_additional_roots
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
@@ -22,6 +23,7 @@ from .workspace_permissions import (
     ProjectPermissions,
     permission_rules_from_values,
 )
+from .workspace_sandbox import read_workspace_sandbox
 
 
 MAX_SETTINGS_BYTES = 512_000
@@ -151,6 +153,15 @@ def apply_permission_updates(
         managed_rules_only=permissions.managed_rules_only,
         bypass_permissions_disabled=permissions.bypass_permissions_disabled,
         auto_mode_disabled=permissions.auto_mode_disabled,
+    )
+    sandbox = read_workspace_sandbox(effective_workspace)
+    effective_workspace = replace(
+        effective_workspace,
+        sandbox_permission_domains=sandbox_webfetch_allow_domains(
+            effective_permissions,
+            project_config_trusted=effective_workspace.project_config_trusted,
+            managed_only=sandbox.managed_domains_only,
+        ),
     )
     return PermissionUpdateApplication(
         effective_workspace,

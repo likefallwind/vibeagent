@@ -25,6 +25,7 @@ def get_sandbox_report(root: str | Path = ".") -> dict[str, object]:
         "networkIsolationAvailable": config.network_available,
         "network": {
             "allowedDomains": list(config.allowed_domains),
+            "webFetchAllowedDomains": list(config.permission_allowed_domains),
             "deniedDomains": list(config.denied_domains),
             "allowManagedDomainsOnly": config.managed_domains_only,
             "strictAllowlist": config.network_disabled,
@@ -95,7 +96,7 @@ def format_sandbox_report_text(report: dict[str, object]) -> str:
             "  allowManagedDomainsOnly: "
             f"{'yes' if network.get('allowManagedDomainsOnly') else 'no'}"
         )
-        for field in ("allowedDomains", "deniedDomains"):
+        for field in ("allowedDomains", "webFetchAllowedDomains", "deniedDomains"):
             values = network.get(field)
             if isinstance(values, list) and values:
                 lines.append(f"  {field}:")

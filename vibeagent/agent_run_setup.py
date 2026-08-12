@@ -29,6 +29,7 @@ from .permission_tool_visibility import globally_denied_tool_names
 from .powershell_runtime import powershell_tool_availability
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
+from .sandbox_permission_domains import sandbox_webfetch_allow_domains
 from .session_tasks import inherit_task_store
 from .session_machine_index import try_register_machine_session
 from .session_environment import (
@@ -177,6 +178,15 @@ def prepare_agent_run(
         settings_approval_policy,
         project_permissions,
         main_profile.permission_mode,
+    )
+    preliminary_sandbox = read_workspace_sandbox(current_workspace)
+    current_workspace = replace(
+        current_workspace,
+        sandbox_permission_domains=sandbox_webfetch_allow_domains(
+            project_permissions,
+            project_config_trusted=current_workspace.project_config_trusted,
+            managed_only=preliminary_sandbox.managed_domains_only,
+        ),
     )
     permission_denied_tool_names = globally_denied_tool_names(project_permissions)
     main_profile = apply_tool_ceiling(
@@ -733,6 +743,9 @@ def _append_sandbox_event(workspace: RunWorkspace, sandbox_config: SandboxConfig
             "network_disabled": sandbox_config.network_disabled,
             "network_available": sandbox_config.network_available,
             "allowed_domains": list(sandbox_config.allowed_domains),
+            "permission_allowed_domains": list(
+                sandbox_config.permission_allowed_domains
+            ),
             "denied_domains": list(sandbox_config.denied_domains),
             "managed_domains_only": sandbox_config.managed_domains_only,
             "allow_read": [path.as_posix() for path in sandbox_config.allow_read],

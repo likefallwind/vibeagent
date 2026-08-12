@@ -9,7 +9,9 @@ from functools import lru_cache
 from pathlib import Path
 
 from .sandbox_network_policy import normalize_sandbox_domains
+from .sandbox_permission_domains import sandbox_webfetch_allow_domains
 from .workspace_core import RunWorkspace
+from .workspace_permissions import read_project_permissions
 from .workspace_sandbox_credentials import (
     MAX_SANDBOX_CREDENTIAL_ENTRIES,
     parse_sandbox_credential_denies,
@@ -45,6 +47,7 @@ class SandboxConfig:
     network_disabled: bool = False
     allowed_domains: tuple[str, ...] = ()
     denied_domains: tuple[str, ...] = ()
+    permission_allowed_domains: tuple[str, ...] = ()
     managed_domains_only: bool = False
     allow_write: tuple[Path, ...] = ()
     allow_read: tuple[Path, ...] = ()
@@ -231,8 +234,27 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
         allowed_entries = domain_values["allowedDomains"]
         if managed_domains_only:
             allowed_entries = [entry for entry in allowed_entries if entry[2]]
+        permissions = read_project_permissions(workspace)
+        static_permission_domains = (
+            sandbox_webfetch_allow_domains(
+                permissions,
+                project_config_trusted=workspace.project_config_trusted,
+                managed_only=managed_domains_only,
+            )
+            if permissions.error is None
+            else ()
+        )
+        runtime_permission_domains = (
+            () if managed_domains_only else workspace.sandbox_permission_domains
+        )
+        permission_allowed_domains = tuple(
+            dict.fromkeys((*static_permission_domains, *runtime_permission_domains))
+        )
         allowed_domains = normalize_sandbox_domains(
-            [value for value, _trusted, _managed in allowed_entries],
+            [
+                *(value for value, _trusted, _managed in allowed_entries),
+                *permission_allowed_domains,
+            ],
             field="allowedDomains",
         )
         denied_domains = normalize_sandbox_domains(
@@ -296,6 +318,7 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             network_disabled=network_disabled,
             allowed_domains=allowed_domains,
             denied_domains=denied_domains,
+            permission_allowed_domains=permission_allowed_domains,
             managed_domains_only=managed_domains_only,
             allow_write=allow_write,
             allow_read=allow_read,

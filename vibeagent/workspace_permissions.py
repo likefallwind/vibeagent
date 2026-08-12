@@ -12,7 +12,6 @@ from .redaction import redact_sensitive_text
 from .tool_catalog_core import tool_category
 from .workspace_core import RunWorkspace
 from .workspace_settings_sources import (
-    claude_settings_files,
     project_config_file,
     read_settings_payload,
     settings_file_exists,
@@ -52,6 +51,7 @@ class ProjectPermissionRule:
     specifier: str | None
     raw: str
     source: str
+    managed: bool = False
 
 
 @dataclass(frozen=True)
@@ -133,7 +133,11 @@ def read_project_permissions(workspace: RunWorkspace) -> ProjectPermissions:
             if not isinstance(permission_payload, dict):
                 raise ValueError(f"{config.source} permissions must be an object.")
             parsed = (
-                _parse_permission_rules(permission_payload, config.source)
+                _parse_permission_rules(
+                    permission_payload,
+                    config.source,
+                    managed=config.managed,
+                )
                 if config.managed or not managed_rules_only
                 else ()
             )
@@ -379,7 +383,12 @@ def permission_subjects(action: object) -> tuple[str, ...]:
     return ()
 
 
-def _parse_permission_rules(payload: dict[str, object], source: str) -> list[ProjectPermissionRule]:
+def _parse_permission_rules(
+    payload: dict[str, object],
+    source: str,
+    *,
+    managed: bool = False,
+) -> list[ProjectPermissionRule]:
     parsed: list[ProjectPermissionRule] = []
     for effect in PERMISSION_EFFECTS:
         values = payload.get(effect, [])
@@ -402,6 +411,7 @@ def _parse_permission_rules(payload: dict[str, object], source: str) -> list[Pro
                     specifier=specifier,
                     raw=raw,
                     source=source,
+                    managed=managed,
                 )
             )
     return parsed

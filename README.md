@@ -2617,8 +2617,14 @@ wildcards, and `deniedDomains` takes precedence. Endpoint-managed
 from every source. VibeAgent currently enforces a strict allowlist: explicit
 `strictAllowlist: false` fails closed because an isolated subprocess cannot yet
 surface Claude-compatible first-domain approval prompts. These sandbox network domain allowlists
-remain separate from project permission `WebFetch(domain:...)` rules; those
-rules are not merged into the command proxy. The proxy does not
+remain separate from project permission `WebFetch(domain:...)` rules as
+configuration surfaces, but trusted `allow` rules with exact or leading-wildcard
+domains are merged into the command proxy allowlist. User, managed, explicit
+CLI, approved session-update, and explicitly trusted project rules can widen
+the proxy. Endpoint-managed `allowManagedDomainsOnly` retains only managed
+`allowedDomains` and managed `WebFetch` rules. `deny` and `ask` permission rules
+do not widen command egress, and sandbox `deniedDomains` still takes precedence.
+The proxy does not
 terminate TLS, so its hostname decision has the same domain-fronting limitation
 as other non-terminating sandbox proxies. If Bubblewrap or network namespaces
 are unavailable, `failIfUnavailable: true` blocks execution; otherwise VibeAgent records a
