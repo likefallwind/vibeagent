@@ -634,7 +634,14 @@ local inspection commands, resume, continue, or compact modes.
 `acceptEdits` -> `ask` plus automatic `Write`, `Edit`, `MultiEdit`, and `NotebookEdit` allow rules,
 `bypassPermissions` -> `allow`). `dontAsk` never opens an approval prompt: read-only
 actions and trusted explicit allow rules can run, while every other action that
-requires approval is denied. `--max-turns` maps to `--max-iterations`.
+requires approval is denied. In interactive coding sessions, `/approval next`
+cycles `default` -> `acceptEdits` -> `plan` -> `auto`; starting with
+`--allow-dangerously-skip-permissions` inserts `bypassPermissions` after `plan`
+without activating it. Direct `/approval bypassPermissions` and PermissionRequest
+hook mode updates are rejected unless bypass was available at startup. The
+availability survives resumed workspaces and `/bg` handoff, while VibeAgent hard
+command and protected-path blocks remain active. `--max-turns` maps to
+`--max-iterations`.
 For unattended policy decisions, `-p --permission-prompt-tool MCP_TOOL` delegates
 only unresolved `ask` or `auto` prompts to an advertised MCP tool. References may
 use `mcp__SERVER__TOOL`, `SERVER/TOOL`, or a bare name that is unique across all

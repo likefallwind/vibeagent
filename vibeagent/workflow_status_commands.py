@@ -12,8 +12,9 @@ def get_status_report(
     append_system_prompt_set: bool = False,
     effort: str = "auto",
     autocompact: str = "auto",
+    permission_mode: str | None = None,
 ) -> dict[str, object]:
-    return {
+    report: dict[str, object] = {
         "version": __version__,
         "mode": mode,
         "approval": approval_policy,
@@ -25,24 +26,28 @@ def get_status_report(
         "appendSystemPrompt": "set" if append_system_prompt_set else "none",
         "message": "Runtime status resolved.",
     }
+    if permission_mode is not None:
+        report["permissionMode"] = permission_mode
+    return report
 
 
 def format_status_report_text(report: dict[str, object]) -> str:
     resume = str(report.get("resume") or "none")
-    return "\n".join(
-        [
-            "Status:",
-            f"  version: {report.get('version') or ''}",
-            f"  mode: {report.get('mode') or ''}",
-            f"  approval: {report.get('approval') or ''}",
-            f"  resume: {resume}",
-            f"  chatTurns: {int(report.get('chatTurns', 0) or 0)}",
-            f"  effort: {report.get('effort') or 'auto'}",
-            f"  autocompact: {report.get('autocompact') or 'auto'}",
-            f"  systemPrompt: {report.get('systemPrompt') or 'default'}",
-            f"  appendSystemPrompt: {report.get('appendSystemPrompt') or 'none'}",
-        ]
-    )
+    lines = [
+        "Status:",
+        f"  version: {report.get('version') or ''}",
+        f"  mode: {report.get('mode') or ''}",
+        f"  approval: {report.get('approval') or ''}",
+        f"  resume: {resume}",
+        f"  chatTurns: {int(report.get('chatTurns', 0) or 0)}",
+        f"  effort: {report.get('effort') or 'auto'}",
+        f"  autocompact: {report.get('autocompact') or 'auto'}",
+        f"  systemPrompt: {report.get('systemPrompt') or 'default'}",
+        f"  appendSystemPrompt: {report.get('appendSystemPrompt') or 'none'}",
+    ]
+    if "permissionMode" in report:
+        lines.insert(4, f"  permissionMode: {report.get('permissionMode') or ''}")
+    return "\n".join(lines)
 
 
 def get_status_text(
@@ -54,6 +59,7 @@ def get_status_text(
     append_system_prompt_set: bool = False,
     effort: str = "auto",
     autocompact: str = "auto",
+    permission_mode: str | None = None,
 ) -> str:
     return format_status_report_text(
         get_status_report(
@@ -65,5 +71,6 @@ def get_status_text(
             autocompact=autocompact,
             system_prompt_set=system_prompt_set,
             append_system_prompt_set=append_system_prompt_set,
+            permission_mode=permission_mode,
         )
     )

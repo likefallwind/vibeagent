@@ -188,6 +188,7 @@ class InteractiveApprovalLifecycleTests(unittest.TestCase):
                     create_chat_client_func=lambda _env: object(),
                     run_agent_func=run_agent,
                     get_resume_context_func=lambda _run_id: (None, None, ""),
+                    initial_bypass_permissions_available=True,
                 )
 
         handlers = [call.kwargs["approval_handler"] for call in run_agent.call_args_list]

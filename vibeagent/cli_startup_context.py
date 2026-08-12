@@ -29,6 +29,8 @@ from .session_conversation import load_session_conversation
 from .types import ApprovalPolicy, ChatMessage
 from .workspace_core import BrowserMode, RunWorkspace, create_local_workspace, create_run_workspace
 from .debug_runtime import DebugOptions, resolve_debug_options
+from .cli_permission_overrides import build_permission_overrides
+from .workspace_permissions import ProjectPermissions
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,9 @@ class InteractiveStartupContext:
     attached_background_agent_id: str | None = None
     model: str | None = None
     approval: ApprovalPolicy = "ask"
+    permission_mode: str | None = None
+    permission_overrides: ProjectPermissions = ProjectPermissions()
+    bypass_permissions_available: bool = False
     safe_mode: bool = False
     bare_mode: bool = False
     brief: bool = False
@@ -93,6 +98,12 @@ def resolve_interactive_startup_context(
         "attached_background_agent_id": getattr(args, "_attached_background_agent_id", None),
         "model": model_override_from_args(args),
         "approval": getattr(args, "approval", "ask"),
+        "permission_mode": getattr(args, "permission_mode", None),
+        "permission_overrides": build_permission_overrides(args),
+        "bypass_permissions_available": (
+            getattr(args, "allow_dangerously_skip_permissions", False)
+            or getattr(args, "approval", "ask") == "allow"
+        ),
         "safe_mode": getattr(args, "safe_mode", False),
         "bare_mode": getattr(args, "bare", False),
         "brief": getattr(args, "brief", False),

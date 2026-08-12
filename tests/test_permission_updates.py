@@ -9,16 +9,18 @@ from unittest.mock import Mock, patch
 from vibeagent.agent import run_agent
 from vibeagent.agent_hook_results import HookRunResult
 from vibeagent.agent_permission_request_hooks import (
+    PermissionRequestHookOutcome,
     PermissionRequestHookOutputError,
     parse_permission_request_hook_output,
 )
+from vibeagent.agent_permission_request_authorization import resolve_permission_request
 from vibeagent.permission_update_runtime import apply_permission_updates
 from vibeagent.workspace import create_run_workspace
 from vibeagent.workspace_permissions import (
     ProjectPermissions,
     match_project_permission,
 )
-from vibeagent.types import ApprovalDecision, AssistantResponse, RunCommandAction
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, RunCommandAction
 
 
 class PermissionClient:
@@ -315,6 +317,37 @@ class PermissionUpdateRuntimeTests(unittest.TestCase):
         self.assertEqual(updated.approval_policy, "ask")
         self.assertEqual(updated.applied, ())
         self.assertIn("did not start", updated.warnings[0])
+
+    def test_startup_unlock_allows_permission_hook_to_enter_bypass(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permission-update-") as base:
+            workspace = create_run_workspace(base, bypass_permissions_available=True)
+            action = RunCommandAction(type="run_command", command="git status")
+            resolution = resolve_permission_request(
+                workspace,
+                ProjectPermissions(),
+                "ask",
+                "run_command",
+                action,
+                ApprovalRequest("run_command", "git status", "command"),
+                None,
+                1,
+                lambda: PermissionRequestHookOutcome(
+                    behavior="allow",
+                    updated_permissions=(
+                        {
+                            "type": "setMode",
+                            "mode": "bypassPermissions",
+                            "destination": "session",
+                        },
+                    ),
+                ),
+                None,
+                None,
+            )
+
+        self.assertTrue(resolution.terminal_allowed)
+        self.assertEqual(resolution.approval_policy, "allow")
+        self.assertEqual(resolution.application.applied[0]["mode"], "bypassPermissions")
 
     def test_persisted_mode_and_directory_apply_to_next_agent_run(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-permission-update-") as base:

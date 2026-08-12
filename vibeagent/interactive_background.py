@@ -46,6 +46,7 @@ def create_interactive_background_request(
     disable_slash_commands: bool = False,
     verbose: bool = False,
     browser_mode: BrowserMode = "auto",
+    bypass_permissions_available: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -76,6 +77,8 @@ def create_interactive_background_request(
         argv.append("--chrome")
     elif browser_mode == "disabled":
         argv.append("--no-chrome")
+    if bypass_permissions_available:
+        argv.append("--allow-dangerously-skip-permissions")
     if setting_sources != ("user", "project", "local"):
         argv.extend(["--setting-sources", ",".join(setting_sources)])
     if settings_override_json is not None:

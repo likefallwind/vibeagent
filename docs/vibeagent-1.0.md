@@ -442,6 +442,10 @@ local changes when asked, and resume from recorded session context.
 - CLI `-p --exclude-dynamic-system-prompt-sections` moves machine-specific
   default-prompt guidance into the first user message for cross-machine cache
   reuse without dropping context, and is ignored for replacement system prompts.
+- CLI `--allow-dangerously-skip-permissions` unlocks but does not activate
+  `bypassPermissions`; interactive `/approval next` cycles permission modes,
+  applies and removes `acceptEdits` rules, and preserves the unlock through
+  PermissionRequest hooks, resumed workspaces, and background handoff.
 - CLI `--add-dir` inputs grant interactive and one-shot coding sessions access
   to additional file roots across read, edit, search, code-intelligence,
   prompt-reference, and command-cwd workflows. Added roots remain isolated from

@@ -680,12 +680,12 @@ class CliInteractiveStateTests(unittest.TestCase):
                 patch("vibeagent.cli.run_agent", run_agent),
                 redirect_stdout(stdout),
             ):
-                exit_code = main()
+                exit_code = main(["--allow-dangerously-skip-permissions"])
 
         self.assertEqual(exit_code, 0)
         output = stdout.getvalue()
-        self.assertIn("Approval policy: allow", output)
-        self.assertIn("Approval policy: deny", output)
+        self.assertIn("Permission mode: bypassPermissions", output)
+        self.assertIn("Permission mode: deny", output)
         first_handler = run_agent.call_args_list[0].kwargs["approval_handler"]
         second_handler = run_agent.call_args_list[1].kwargs["approval_handler"]
         self.assertEqual(run_agent.call_args_list[0].kwargs["approval_policy"], "allow")
@@ -724,6 +724,47 @@ class CliInteractiveStateTests(unittest.TestCase):
             [call.kwargs["approval_policy"] for call in run_agent.call_args_list],
             ["plan", "allow"],
         )
+
+    def test_interactive_accept_edits_passes_only_edit_allow_rules(self) -> None:
+        result = AgentResult(
+            success=True,
+            message="done",
+            run_dir=Path(tempfile.gettempdir()),
+            run_id="test-run",
+            iterations=1,
+            observations=[],
+            steps=[],
+        )
+        run_agent = Mock(return_value=result)
+
+        with (
+            patch("builtins.input", side_effect=["edit file", "/exit"]),
+            patch("vibeagent.cli.create_chat_client", return_value=object()),
+            patch("vibeagent.cli.run_agent", run_agent),
+            redirect_stdout(io.StringIO()),
+        ):
+            exit_code = main(["--permission-mode", "acceptEdits"])
+
+        permissions = run_agent.call_args.kwargs["permission_overrides"]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["approval_policy"], "ask")
+        self.assertEqual(
+            [rule.raw for rule in permissions.rules],
+            ["Write", "Edit", "MultiEdit", "NotebookEdit"],
+        )
+        self.assertFalse(run_agent.call_args.kwargs["bypass_permissions_available"])
+
+    def test_interactive_status_reports_permission_mode_separately(self) -> None:
+        stdout = io.StringIO()
+        with (
+            patch("builtins.input", side_effect=["/status", "/exit"]),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--permission-mode", "acceptEdits"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("approval: ask", stdout.getvalue())
+        self.assertIn("permissionMode: acceptEdits", stdout.getvalue())
 
     def test_main_interactive_system_prompt_commands_affect_code_and_chat_turns(self) -> None:
         result = AgentResult(

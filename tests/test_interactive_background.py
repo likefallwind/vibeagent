@@ -105,6 +105,25 @@ class InteractiveBackgroundTests(unittest.TestCase):
 
         self.assertEqual(request.prompt, DEFAULT_BACKGROUND_PROMPT)
 
+    def test_request_preserves_bypass_permission_availability(self) -> None:
+        request = create_interactive_background_request(
+            Path("."),
+            "run-1",
+            None,
+            approval_policy="plan",
+            model=None,
+            agent=None,
+            dynamic_agent_profiles=(),
+            effort=None,
+            autocompact_tokens=None,
+            system_prompt=None,
+            append_system_prompt=None,
+            additional_directories=(),
+            bypass_permissions_available=True,
+        )
+
+        self.assertIn("--allow-dangerously-skip-permissions", request.argv)
+
     def test_normal_interactive_launches_new_background_agent(self) -> None:
         request = create_interactive_background_request(
             Path("."),

@@ -114,6 +114,14 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Claude-compatible alias for --approval allow on one-shot coding tasks.",
     )
     parser.add_argument(
+        "--allow-dangerously-skip-permissions",
+        action="store_true",
+        help=(
+            "Make bypassPermissions available for later session mode changes "
+            "without starting in that mode."
+        ),
+    )
+    parser.add_argument(
         "--permission-prompt-tool",
         metavar="MCP_TOOL",
         help=(

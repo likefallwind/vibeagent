@@ -29,7 +29,7 @@ class CliResumeContextTests(unittest.TestCase):
             patch("vibeagent.cli.get_resume_context", return_value=("run-1", "context", "Resume context loaded from session run-1.")),
             redirect_stdout(stdout),
         ):
-            exit_code = main()
+            exit_code = main(["--allow-dangerously-skip-permissions"])
 
         output = stdout.getvalue()
         self.assertEqual(exit_code, 0)
@@ -38,6 +38,7 @@ class CliResumeContextTests(unittest.TestCase):
         self.assertIn("resume: none", output)
         self.assertIn("mode: chat", output)
         self.assertIn("approval: allow", output)
+        self.assertIn("permissionMode: bypassPermissions", output)
         self.assertIn("resume: run-1", output)
         create_chat_client.assert_not_called()
 

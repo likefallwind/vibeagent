@@ -40,7 +40,6 @@ from .cli_json_local_flags import run_interactive_json_command
 from .cli_output import (
     build_approval_handler,
     format_error,
-    handle_approval_command,
     print_agent_result,
     prompt_project_permission_trust,
     prompt_user_input,
@@ -86,6 +85,10 @@ from .goal_state import (
 )
 from .interactive_shell import SHELL_MODE_USAGE, parse_shell_mode_input, run_interactive_shell
 from .interactive_background import create_interactive_background_request
+from .interactive_permission_mode import (
+    initial_interactive_permission_state,
+    update_interactive_permission_state,
+)
 from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatClient, ChatMessage
 from .dynamic_agent_profiles import DynamicAgentProfile
@@ -109,7 +112,7 @@ from .monitor_runtime import (
     monitor_notifications_prompt,
 )
 from .workspace_hooks import read_project_hooks
-from .workspace_permissions import read_project_permissions
+from .workspace_permissions import ProjectPermissions, read_project_permissions
 from .workspace_view_mode import resolve_verbose_mode
 from .cli_verbose_output import VerboseTranscriptRenderer
 from .model_streaming import supports_model_streaming
@@ -159,6 +162,9 @@ def run_interactive_loop(
     initial_attached_background_agent_id: str | None = None,
     initial_model: str | None = None,
     initial_approval: ApprovalPolicy = "ask",
+    initial_permission_mode: str | None = None,
+    initial_permission_overrides: ProjectPermissions = ProjectPermissions(),
+    initial_bypass_permissions_available: bool = False,
     initial_safe_mode: bool = False,
     initial_bare_mode: bool = False,
     initial_brief: bool = False,
@@ -182,7 +188,14 @@ def run_interactive_loop(
     effort_override: str | None = initial_effort
     effort_locked = initial_effort_locked
     mode = "code"
-    approval_policy: ApprovalPolicy = initial_approval
+    permission_state = initial_interactive_permission_state(
+        permission_mode=initial_permission_mode,
+        approval_policy=initial_approval,
+        permission_overrides=initial_permission_overrides,
+        allow_bypass=initial_bypass_permissions_available,
+    )
+    approval_policy = permission_state.approval_policy
+    permission_overrides = permission_state.permission_overrides
     safe_mode = initial_safe_mode
     bare_mode = initial_bare_mode
     brief = initial_brief
@@ -237,6 +250,7 @@ def run_interactive_loop(
     def run_code_task(task: str, task_metadata: dict[str, object] | None = None) -> tuple[object, str | None]:
         nonlocal client, resume_run_id, resume_context, pending_workspace, pending_branch_source_run_id
         nonlocal conversation_messages, approval_policy, approval_handler
+        nonlocal permission_state, permission_overrides
         execution_config = resolve_execution_config(Path.cwd())
         active_workspace = pending_workspace
         settings_workspace = active_workspace or create_local_workspace(
@@ -339,6 +353,8 @@ def run_interactive_loop(
                     model_timeout_ms=execution_config.model_timeout_ms,
                     approval_handler=selected_approval_handler,
                     approval_policy=approval_policy,
+                    permission_overrides=permission_overrides,
+                    bypass_permissions_available=permission_state.bypass_available,
                     trust_project_permissions=project_permissions_trusted,
                     user_input_handler=selected_user_input_handler,
                     prior_context=resume_context,
@@ -393,6 +409,15 @@ def run_interactive_loop(
             and result_approval_policy != approval_policy
         ):
             approval_policy = result_approval_policy
+            permission_state = initial_interactive_permission_state(
+                permission_mode=None,
+                approval_policy=approval_policy,
+                permission_overrides=permission_overrides,
+                allow_bypass=(
+                    permission_state.bypass_available or approval_policy == "allow"
+                ),
+            )
+            permission_overrides = permission_state.permission_overrides
             approval_handler = build_approval_handler(approval_policy)
             project_runtime.update_approval_policy(approval_policy)
         conversation_messages = list(getattr(result, "conversation", []))
@@ -812,6 +837,7 @@ def run_interactive_loop(
                 invocation_plugin_dirs=invocation_plugin_dirs,
                 verbose=verbose,
                 browser_mode=browser_mode,
+                bypass_permissions_available=permission_state.bypass_available,
                 attached_agent_id=initial_attached_background_agent_id,
             )
         if command and command.type in {"model", "effort", "btw", "recap"}:
@@ -927,6 +953,7 @@ def run_interactive_loop(
                 autocompact=format_autocompact_setting(initial_autocompact_tokens),
                 system_prompt_set=bool(system_prompt),
                 append_system_prompt_set=bool(append_system_prompt),
+                permission_mode=permission_state.mode,
             )
         ) is not None:
             print(state_text)
@@ -1180,9 +1207,14 @@ def run_interactive_loop(
             print(f"Conversation preserved in new session: {resume_run_id}")
             continue
         if command and command.type == "approval":
-            previous_policy = approval_policy
-            approval_policy, text = handle_approval_command(command.argument, approval_policy)
-            if approval_policy != previous_policy:
+            previous_state = permission_state
+            permission_state, text = update_interactive_permission_state(
+                permission_state,
+                command.argument,
+            )
+            approval_policy = permission_state.approval_policy
+            permission_overrides = permission_state.permission_overrides
+            if approval_policy != previous_state.approval_policy:
                 approval_handler = build_approval_handler(approval_policy)
                 project_runtime.update_approval_policy(approval_policy)
             print(text)

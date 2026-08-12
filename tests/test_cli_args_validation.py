@@ -378,6 +378,17 @@ class CliArgsValidationTests(unittest.TestCase):
             "--dangerously-skip-permissions requires a one-shot coding task.",
         )
 
+    def test_cli_allows_bypass_unlock_and_accept_edits_for_interactive_code(self) -> None:
+        unlock = cli_module.parse_args(["--allow-dangerously-skip-permissions"])
+        accept_edits = cli_module.parse_args(["--permission-mode", "acceptEdits"])
+        chat = cli_module.parse_args(
+            ["--chat", "--allow-dangerously-skip-permissions", "hello"]
+        )
+
+        self.assertIsNone(cli_module.validate_cli_args(unlock))
+        self.assertIsNone(cli_module.validate_cli_args(accept_edits))
+        self.assertIn("coding sessions only", cli_module.validate_cli_args(chat) or "")
+
     def test_cli_continue_without_task_is_valid_but_not_with_local_flags(self) -> None:
         continue_args = cli_module.parse_args(["-c"])
         local_args = cli_module.parse_args(["-c", "--tools"])

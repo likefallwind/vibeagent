@@ -4,7 +4,7 @@ import argparse
 
 from .cli_local_flag_detection import has_local_flag, has_non_model_local_flag
 from .cli_local_option_validation import validate_local_option_dependencies
-from .cli_permission_overrides import has_permission_overrides, permission_override_validation_error
+from .cli_permission_overrides import permission_override_validation_error
 from .cli_resume_args import validate_resume_arguments
 from .cli_tool_restrictions import parse_cli_tool_names
 from .model_fallback import normalize_fallback_models
@@ -187,6 +187,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--model MODEL requires a one-shot task or --save-config."
     if args.dangerously_skip_permissions and (not args.task or has_local_flag(args) or args.chat):
         return "--dangerously-skip-permissions requires a one-shot coding task."
+    if args.allow_dangerously_skip_permissions and (has_local_flag(args) or args.chat):
+        return "--allow-dangerously-skip-permissions is available for coding sessions only."
     if args.no_auto_compact and (not args.task or has_local_flag(args) or args.chat):
         return "--no-auto-compact requires a one-shot coding task."
     if args.worktree is not None and (has_local_flag(args) or args.chat):
@@ -251,7 +253,13 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
     override_error = permission_override_validation_error(args)
     if override_error is not None:
         return override_error
-    if has_permission_overrides(args) and (not args.task or has_local_flag(args) or args.chat):
+    tool_permission_overrides = bool(args.allowed_tools or args.disallowed_tools)
+    accept_edits_mode = getattr(args, "permission_mode", None) == "acceptEdits"
+    if tool_permission_overrides and (not args.task or has_local_flag(args) or args.chat):
+        return "permission overrides can only be used with one-shot coding tasks."
+    if accept_edits_mode and (has_local_flag(args) or args.chat):
+        return "--permission-mode acceptEdits is available for coding sessions only."
+    if accept_edits_mode and not args.task and (args.json or args.output_format != "text"):
         return "permission overrides can only be used with one-shot coding tasks."
     dependency_error = validate_local_option_dependencies(args)
     if dependency_error is not None:

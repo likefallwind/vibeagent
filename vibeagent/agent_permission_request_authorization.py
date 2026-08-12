@@ -144,7 +144,9 @@ def resolve_permission_request(
             permissions,
             approval_policy,
             outcome.updated_permissions,
-            bypass_available=approval_policy == "allow",
+            bypass_available=(
+                approval_policy == "allow" or workspace.bypass_permissions_available
+            ),
         )
     except (OSError, TypeError, ValueError) as error:
         append_session_event(

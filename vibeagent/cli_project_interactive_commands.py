@@ -195,6 +195,7 @@ def run_interactive_project_state_command(
     autocompact: str = "auto",
     system_prompt_set: bool = False,
     append_system_prompt_set: bool = False,
+    permission_mode: str | None = None,
 ) -> str | None:
     if command.type == "status":
         return commands["get_status_text"](
@@ -206,6 +207,7 @@ def run_interactive_project_state_command(
             autocompact=autocompact,
             system_prompt_set=system_prompt_set,
             append_system_prompt_set=append_system_prompt_set,
+            permission_mode=permission_mode,
         )
     if command.type == "context":
         return commands["get_context_text"](resume_run_id=resume_run_id, resume_context=resume_context)

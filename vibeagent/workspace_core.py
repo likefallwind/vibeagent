@@ -39,6 +39,7 @@ class RunWorkspace:
     disable_slash_commands: bool = False
     browser_mode: BrowserMode = "auto"
     exclude_dynamic_system_prompt_sections: bool = False
+    bypass_permissions_available: bool = False
     setting_sources: tuple[str, ...] = ("user", "project", "local")
     settings_override_json: str | None = None
     invocation_plugin_dirs: tuple[Path, ...] = ()
@@ -77,6 +78,7 @@ def create_run_workspace(
     disable_slash_commands: bool = False,
     browser_mode: BrowserMode = "auto",
     exclude_dynamic_system_prompt_sections: bool = False,
+    bypass_permissions_available: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -125,6 +127,7 @@ def create_run_workspace(
         disable_slash_commands=disable_slash_commands,
         browser_mode=browser_mode,
         exclude_dynamic_system_prompt_sections=exclude_dynamic_system_prompt_sections,
+        bypass_permissions_available=bypass_permissions_available,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -143,6 +146,7 @@ def create_local_workspace(
     disable_slash_commands: bool = False,
     browser_mode: BrowserMode = "auto",
     exclude_dynamic_system_prompt_sections: bool = False,
+    bypass_permissions_available: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -165,6 +169,7 @@ def create_local_workspace(
         disable_slash_commands=disable_slash_commands,
         browser_mode=browser_mode,
         exclude_dynamic_system_prompt_sections=exclude_dynamic_system_prompt_sections,
+        bypass_permissions_available=bypass_permissions_available,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,

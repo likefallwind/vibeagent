@@ -342,6 +342,9 @@ The automated suite currently covers these 1.0 surfaces:
 - Claude-compatible print-mode dynamic system-section exclusion, preserving all
   machine-specific context in the first user message while keeping the default
   system prompt stable for cross-machine prompt-cache reuse.
+- Interactive permission-mode cycling with real `acceptEdits` rules and
+  startup-gated `bypassPermissions` availability across local commands,
+  PermissionRequest hooks, resumed workspaces, and background handoff.
 - Interactive and one-shot additional working directories, including
   invocation-relative CLI resolution, model-visible absolute roots, core file
   and command execution, configuration isolation, sandbox mounts, and rejection

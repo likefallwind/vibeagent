@@ -631,7 +631,18 @@ class CliOneShotInputTests(unittest.TestCase):
         self.assertTrue(args.dangerously_skip_permissions)
         self.assertEqual(args.approval, "allow")
         self.assertEqual(kwargs["approval_policy"], "allow")
+        self.assertTrue(kwargs["bypass_permissions_available"])
         self.assertIsNone(cli_module.validate_cli_args(args))
+
+    def test_cli_can_unlock_bypass_without_starting_in_it(self) -> None:
+        args = cli_module.parse_args(
+            ["--allow-dangerously-skip-permissions", "inspect", "repo"]
+        )
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertEqual(kwargs["approval_policy"], "ask")
+        self.assertTrue(kwargs["bypass_permissions_available"])
 
     def test_cli_session_id_alias_maps_to_resume_arg(self) -> None:
         args = cli_module.parse_args(["--session-id", "run-1", "continue"])
