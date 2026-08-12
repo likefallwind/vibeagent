@@ -445,18 +445,20 @@ printf "summarize the project risks\n" | python -m vibeagent -
 ```
 
 `--safe-mode` (or `CLAUDE_CODE_SAFE_MODE=1`) starts a clean diagnostic session.
-It disables project instructions, skills, custom agents and commands, plugins,
-non-managed hooks, MCP servers, LSP configuration, workflows, status-line customization,
-and auto-memory while preserving authentication, model selection, built-in
+It disables project instructions, non-managed skills, custom agents and
+commands, plugins, non-managed hooks and MCP servers, LSP configuration,
+workflows, status-line customization, and auto-memory while preserving
+authentication, model selection, built-in
 tools, explicit invocation prompts, permissions, and sandbox enforcement.
 Custom agent and MCP CLI flags, plus Setup-hook modes, are rejected when the
 flag is active. The setting propagates through resume, fork, background, goal,
-and subagent execution. File-based endpoint-managed policies and managed Hooks
-remain active, so safe mode cannot weaken administrator controls.
+and subagent execution. File-based endpoint-managed policies, skills, agents,
+Hooks, and an exclusive `managed-mcp.json` remain active, so safe mode cannot
+weaken administrator controls.
 
 `--bare` is the reproducible scripting boundary. It skips automatic discovery
 of project/user instructions, agents, commands, skills, non-managed hooks, installed
-plugins, MCP servers, auto-memory, and ordinary settings files, while retaining built-in
+plugins, non-managed MCP servers, auto-memory, and ordinary settings files, while retaining built-in
 file and shell tools, permissions, model configuration, and explicit system
 prompt flags. Unlike safe mode, bare mode permits explicit `--settings`,
 `--agents`, `--mcp-config`, `--plugin-dir`, and
@@ -490,7 +492,16 @@ managed security controls below are enforced explicitly as non-overridable locks
 `permissions.disableBypassPermissionsMode`, and `permissions.disableAutoMode`
 are enforced through main agents, profiles, PermissionRequest updates, safe/bare
 sessions, and subagents. `--permissions --json` reports the active locks and
-their exact managed file sources. This release implements file delivery; it does
+their exact managed file sources. `strictPluginOnlyCustomization` accepts
+`true` or the `skills`, `agents`, `hooks`, and `mcp` surface names. Each locked
+surface rejects user, project, local, and explicit profile definitions while
+retaining plugin components and system-managed definitions. Managed skills and
+agents load from `.claude/skills/` and `.claude/agents/` under the same platform
+system directory and take precedence over same-name project/user definitions.
+`managed-mcp.json` uses the normal MCP server schema and, when present, has
+exclusive control: project, user, plugin, explicit CLI, and inline profile MCP
+servers are suppressed; an empty server map disables MCP. These controls remain
+effective in safe and bare sessions. This release implements file delivery; it does
 not claim Anthropic server delivery, macOS plist, Windows registry, policy-helper,
 or WSL Windows-policy inheritance.
 

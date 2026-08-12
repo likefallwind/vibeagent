@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
+from .managed_customization import managed_mcp_path, read_managed_customization_policy
 from .mcp_protocol import MCP_HTTP_PROTOCOL_VERSION, MCP_STDIO_PROTOCOL_VERSION
 from .plugin_runtime import (
     PluginComponentFile,
@@ -85,7 +86,12 @@ def read_mcp_server_configs(workspace: RunWorkspace) -> list[McpServerConfig]:
         read_document=_read_mcp_server_configs_from_document,
     )
     selected = {config.name: config for config in configs}
-    for config in workspace.profile_mcp_server_configs:
+    profile_configs = (
+        ()
+        if managed_mcp_path().exists() or managed_mcp_path().is_symlink()
+        else workspace.profile_mcp_server_configs
+    )
+    for config in profile_configs:
         if config.name in selected:
             raise ValueError(
                 f"Profile MCP server {config.name!r} conflicts with {selected[config.name].config_path}."
@@ -95,11 +101,21 @@ def read_mcp_server_configs(workspace: RunWorkspace) -> list[McpServerConfig]:
 
 
 def mcp_config_paths(workspace: RunWorkspace) -> list[Path]:
+    managed_path = managed_mcp_path()
+    if managed_path.exists() or managed_path.is_symlink():
+        return [managed_path]
     paths: list[Path] = []
     project_config = workspace.root / MCP_CONFIG_NAME
-    if not workspace.strict_mcp_config and not workspace.bare_mode and project_config.exists():
+    strict_plugins = read_managed_customization_policy(workspace).locks("mcp")
+    if (
+        not strict_plugins
+        and not workspace.strict_mcp_config
+        and not workspace.bare_mode
+        and project_config.exists()
+    ):
         paths.append(project_config)
-    paths.extend(workspace.mcp_config_paths)
+    if not strict_plugins:
+        paths.extend(workspace.mcp_config_paths)
     if not workspace.strict_mcp_config:
         paths.extend(component.path for component in enabled_plugin_component_files(workspace, "mcp"))
     deduped: list[Path] = []

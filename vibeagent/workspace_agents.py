@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .managed_customization import (
+    managed_component_root,
+    read_managed_customization_policy,
+)
 from .plugin_runtime import (
     PluginComponentFile,
     enabled_plugin_component_files,
@@ -11,7 +15,7 @@ from .plugin_runtime import (
 from .plugin_store import read_installed_plugin_manifest
 from .scoped_component_selection import select_preferred_components
 from .user_paths import user_home
-from .workspace_agent_profile_parser import AGENT_NAME_PATTERN, AGENT_REFERENCE_PATTERN, parse_agent_content
+from .workspace_agent_profile_parser import AGENT_REFERENCE_PATTERN, parse_agent_content
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import (
     has_symlink_component,
@@ -65,7 +69,8 @@ def read_project_agent(workspace: RunWorkspace, name: str) -> dict[str, object]:
             "bytes": len(profile.prompt.encode("utf-8")),
             "message": f"Loaded invocation-scoped agent profile {normalized!r} from --agents.",
         }
-    path = workspace.root / str(agent["path"])
+    selected_path = Path(str(agent["path"]))
+    path = selected_path if selected_path.is_absolute() else workspace.root / selected_path
     raw = _read_agent_bytes(path)
     content = raw.decode("utf-8")
     metadata, body = parse_agent_content(path, content)
@@ -128,9 +133,9 @@ def format_project_agent_catalog(workspace: RunWorkspace, max_agents: int = 20) 
 
 
 def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]:
-    if workspace.safe_mode:
-        return []
-    discovered: list[dict[str, object]] = [
+    customization = read_managed_customization_policy(workspace)
+    strict_plugins = customization.locks("agents")
+    discovered: list[dict[str, object]] = [] if workspace.safe_mode or strict_plugins else [
         {
             **profile.catalog_metadata(),
             "path": f"<cli --agents:{profile.name}>",
@@ -143,15 +148,26 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
     home = user_home()
     roots = (
         []
-        if workspace.bare_mode
+        if workspace.bare_mode or workspace.safe_mode or strict_plugins
         else [
             *((workspace.root / relative_root, source) for relative_root, source in AGENT_ROOTS),
             (home / ".claude/agents", "user"),
         ]
     )
+    if not workspace.bare_mode:
+        roots.append((managed_component_root("agents"), "managed"))
     for root, source in roots:
-        boundary = workspace.root if source != "user" else home
-        if not root.exists() or not root.is_dir() or has_symlink_component(boundary, root):
+        boundary = (
+            managed_component_root("agents").parent.parent
+            if source == "managed"
+            else (workspace.root if source != "user" else home)
+        )
+        if (
+            boundary.is_symlink()
+            or not root.exists()
+            or not root.is_dir()
+            or has_symlink_component(boundary, root)
+        ):
             continue
         for path in _agent_files(root):
             relative_path = plugin_component_path_reference(workspace.root, path)
@@ -167,7 +183,12 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
                 }
             )
 
-    for component in enabled_plugin_component_files(workspace, "agent"):
+    plugin_components = (
+        ()
+        if workspace.safe_mode
+        else enabled_plugin_component_files(workspace, "agent")
+    )
+    for component in plugin_components:
         path = component.path
         relative_path = plugin_component_path_reference(workspace.root, path)
         available, metadata, message = _inspect_agent_file(component.plugin_root, path)
@@ -279,6 +300,8 @@ def _catalog_profile_metadata(
 
 
 def _agent_source_priority(source: str) -> int:
+    if source == "managed":
+        return -1
     if source == "cli":
         return 0
     if source in {"claude", "agents"}:

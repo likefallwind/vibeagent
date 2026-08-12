@@ -376,6 +376,14 @@ The automated suite currently covers these 1.0 surfaces:
   and fail-closed malformed, link, count, and size handling. Server-managed,
   plist, registry, policy-helper, and WSL Windows-policy delivery remain outside
   this claim.
+- Managed customization supply-chain locks: `strictPluginOnlyCustomization`
+  independently limits skills, agents, hooks, and MCP to plugin and managed
+  sources; unknown future surface names are ignored. System-directory skills
+  and agents have managed precedence and survive safe mode. `managed-mcp.json`
+  has exclusive control over project, user, plugin, explicit, and profile MCP
+  definitions, including the empty-map disable case. Selective locks, source
+  precedence, safe mode, profile bypass rejection, and all-source filtering are
+  covered by focused tests.
 - Interactive and one-shot additional working directories, including
   invocation-relative CLI resolution, model-visible absolute roots, core file
   and command execution, configuration isolation, sandbox mounts, and rejection

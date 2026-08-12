@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .managed_customization import managed_mcp_path, read_managed_customization_policy
 from .mcp_user_config import read_user_mcp_documents
 from .plugin_runtime import (
     PluginComponentFile,
@@ -34,12 +35,27 @@ def read_scoped_mcp_server_configs(
     read_path: McpPathReader,
     read_document: McpDocumentReader,
 ) -> list[McpServerConfig]:
-    if workspace.safe_mode:
-        return []
     from .mcp_config import MCP_CONFIG_NAME
 
     selected: dict[str, McpServerConfig] = {}
+    managed_path = managed_mcp_path()
+    if managed_path.exists() or managed_path.is_symlink():
+        if managed_path.parent.is_symlink():
+            raise ValueError(
+                f"Managed MCP directory must not be a symbolic link: {managed_path.parent}"
+            )
+        return sorted(
+            read_path(workspace, managed_path, None),
+            key=lambda config: config.name,
+        )
+    if workspace.safe_mode:
+        return []
+    strict_plugins = read_managed_customization_policy(workspace).locks("mcp")
     explicit_paths = _deduped_paths(workspace.mcp_config_paths)
+    if strict_plugins:
+        if not workspace.strict_mcp_config:
+            _append_plugin_configs(workspace, selected, read_path, read_document)
+        return sorted(selected.values(), key=lambda config: config.name)
     if workspace.bare_mode:
         _append_plugin_configs(workspace, selected, read_path, read_document)
         _append_explicit_configs(workspace, selected, explicit_paths, read_path)

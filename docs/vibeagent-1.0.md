@@ -40,6 +40,15 @@ controls remain effective through safe/bare sessions, profiles, subagents, and
 PermissionRequest updates. Unsafe files fail closed. This claim does not include
 server, plist, registry, policy-helper, or WSL Windows-policy delivery.
 
+`VA1-SAFETY` enforces managed customization supply-chain controls.
+`strictPluginOnlyCustomization` independently locks skills, agents, hooks, and
+MCP to plugin and managed sources while ignoring future surface names. Managed
+skills and agents load from the platform policy directory with highest
+precedence, and managed Hooks remain active in safe mode. A system
+`managed-mcp.json` exclusively replaces user, project, plugin, explicit, and
+profile MCP definitions; an empty server map disables MCP completely. The same
+restrictions survive safe and bare execution.
+
 `VA1-SAFETY` also includes strict Bubblewrap network egress. A private built-in
 HTTP/CONNECT proxy and namespace relay enforce IDNA-normalized exact or leading
 `*.` `allowedDomains`, precedence-ordered `deniedDomains`, project-trust gates,

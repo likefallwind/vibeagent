@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 
 from .agent_profile_permissions import apply_agent_permission_mode
 from .agent_profile_mcp import with_agent_mcp_servers
+from .managed_customization import read_managed_customization_policy
 from .types import DelegateTaskAction
 from .workspace_agents import read_project_agent
 from .workspace_core import RunWorkspace
@@ -98,12 +99,17 @@ def load_delegate_profile_runtime(
                 f"Project agent permissionMode {permission_mode} requires trusted project configuration."
             )
         raw_hooks = profile.get("hooks")
+        strict_plugin_hooks = read_managed_customization_policy(workspace).locks("hooks")
         profile_hooks = (
             parse_inline_hooks(
                 raw_hooks,
                 f"{profile_source}:{action.agent}#hooks",
             )
-            if isinstance(raw_hooks, dict) and not profile_source.startswith("plugin:")
+            if (
+                isinstance(raw_hooks, dict)
+                and not profile_source.startswith("plugin:")
+                and (not strict_plugin_hooks or profile_source == "managed")
+            )
             else None
         )
         mcp_servers = (

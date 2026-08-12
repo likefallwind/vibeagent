@@ -3,6 +3,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from .managed_customization import (
+    managed_component_root,
+    read_managed_customization_policy,
+)
 from .nested_skill_discovery import discover_nested_skill_locations
 from .plugin_runtime import (
     PluginComponentFile,
@@ -142,22 +146,29 @@ def discover_project_skill_metadata(workspace: RunWorkspace) -> list[dict[str, o
 def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]:
     if workspace.disable_slash_commands:
         return []
-    if workspace.safe_mode:
-        return []
+    customization = read_managed_customization_policy(workspace)
+    strict_plugins = customization.locks("skills")
     discovered: list[dict[str, object]] = []
     home = user_home()
     roots = (
         []
-        if workspace.bare_mode
+        if workspace.bare_mode or workspace.safe_mode or strict_plugins
         else [
             (effective_skill_root(workspace, user=False), "claude"),
             (workspace.root / ".agents/skills", "agents"),
             (effective_skill_root(workspace, user=True), "user"),
         ]
     )
+    if not workspace.bare_mode:
+        roots.append((managed_component_root("skills"), "managed"))
     for root, source in roots:
         boundary = _skill_boundary(workspace, home, root, source)
-        if not root.exists() or not root.is_dir() or has_symlink_component(boundary, root):
+        if (
+            boundary.is_symlink()
+            or not root.exists()
+            or not root.is_dir()
+            or has_symlink_component(boundary, root)
+        ):
             continue
         try:
             children = sorted(root.iterdir(), key=lambda path: path.name)[:MAX_SKILL_SCAN]
@@ -183,7 +194,7 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
     nested_root = effective_nested_skill_root(workspace)
     nested_boundary = workspace.session_dir if nested_root != workspace.root else workspace.root
     locations = []
-    if not workspace.bare_mode:
+    if not workspace.bare_mode and not workspace.safe_mode and not strict_plugins:
         locations, _ = discover_nested_skill_locations(
             nested_root,
             max_skills=MAX_SKILL_SCAN,
@@ -211,7 +222,12 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
             }
         )
 
-    for component in enabled_plugin_component_files(workspace, "skill"):
+    plugin_components = (
+        ()
+        if workspace.safe_mode
+        else enabled_plugin_component_files(workspace, "skill")
+    )
+    for component in plugin_components:
         path = component.path
         relative_path = plugin_component_path_reference(workspace.root, path)
         try:
@@ -260,7 +276,8 @@ def _effective_skill_path(workspace: RunWorkspace, skill: dict[str, object]) -> 
         return effective_skill_root(workspace, user=False) / str(skill["name"]) / "SKILL.md"
     if source == "nested_claude":
         return effective_nested_skill_root(workspace) / str(skill["path"])
-    return workspace.root / str(skill["path"])
+    path = Path(str(skill["path"]))
+    return path if path.is_absolute() else workspace.root / path
 
 
 def _skill_boundary(
@@ -271,6 +288,8 @@ def _skill_boundary(
 ) -> Path:
     if source == "user":
         physical_root = home / ".claude/skills"
+    elif source == "managed":
+        return managed_component_root("skills").parent.parent
     elif source == "nested_claude":
         physical_root = workspace.root
     else:
@@ -285,6 +304,8 @@ def _skill_source_priority(source: str) -> int:
         return 1
     if source in {"claude", "agents", "nested_claude"}:
         return 2
+    if source == "managed":
+        return 0
     return 3
 
 

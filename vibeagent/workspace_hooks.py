@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from .action_tool_aliases import tool_name_candidates
+from .managed_customization import read_managed_customization_policy
 from .plugin_runtime import (
     PluginComponentFile,
     enabled_plugin_component_files,
@@ -39,6 +40,8 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
     sources: list[str] = []
     managed_only = False
     try:
+        customization = read_managed_customization_policy(workspace)
+        strict_plugins = customization.locks("hooks")
         settings_configs = claude_settings_files(workspace)
         for config in settings_configs:
             if not config.managed or not settings_file_exists(config):
@@ -50,7 +53,7 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
                     raise ValueError(f"{config.source} allowManagedHooksOnly must be a boolean.")
                 managed_only = value
         managed_hooks_only = workspace.safe_mode or managed_only
-        if managed_hooks_only:
+        if managed_hooks_only or strict_plugins:
             configs = tuple(config for config in settings_configs if config.managed)
         else:
             configs = settings_configs if workspace.bare_mode else settings_files_with_project_config(

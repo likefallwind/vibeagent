@@ -461,6 +461,15 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("Gitignore-style", readme)
         self.assertIn("Expansion above 500 paths fails closed", readme)
 
+    def test_readme_documents_managed_customization_supply_chain(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("strictPluginOnlyCustomization", readme)
+        self.assertIn("Managed skills and", readme)
+        self.assertIn("`managed-mcp.json`", readme)
+        self.assertIn("an empty server map disables MCP", readme)
+        self.assertIn("effective in safe and bare sessions", readme)
+
     def test_acceptance_plan_links_to_readiness_audit(self) -> None:
         plan = PLAN_PATH.read_text(encoding="utf-8")
 
