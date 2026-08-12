@@ -402,6 +402,7 @@ python -m vibeagent --append-system-prompt "Prefer focused tests before broad su
 python -m vibeagent --safe-mode --cwd ../my-project "diagnose startup without project customizations"
 python -m vibeagent --settings ./review-settings.json --setting-sources user,project "inspect the change"
 python -m vibeagent --plugin-dir ./extensions/team-tools "use the local review plugin"
+python -m vibeagent --plugin-dir ./dist/team-tools.zip "test the packaged review plugin"
 python -m vibeagent --system-prompt-file ./prompts/reviewer.txt "inspect the change"
 python -m vibeagent --append-system-prompt "Be concise." --append-system-prompt-file ./prompts/project-rules.txt
 python -m vibeagent -p --append-subagent-system-prompt "Cite exact file paths." "delegate the investigation"
@@ -1707,9 +1708,15 @@ command hooks, MCP servers, language servers, background monitors, and executabl
 the Claude-compatible root layout: optional `.claude-plugin/plugin.json`,
 `skills/`, `commands/`, `agents/`, `bin/`, `monitors/monitors.json`,
 `hooks/hooks.json`, `.mcp.json`, and `.lsp.json`.
-Repeat `--plugin-dir PATH` to load up to 20 local plugin roots for one invocation
-without installing or changing settings. Relative paths resolve from the launch
-directory; roots and component paths must be regular non-symlink directories.
+Repeat `--plugin-dir PATH` to load up to 20 local plugin roots or ZIP archives
+for one invocation without installing or changing settings. Relative paths
+resolve from the launch directory. Directory roots and component paths must be
+regular and non-symlinked. ZIP archives are expanded into a private
+content-addressed user cache with bounded archive size, entry count, path depth,
+file count, and total bytes; traversal, absolute or duplicate paths, encryption,
+symbolic links, special files, malformed archives, and unsafe cache trees fail
+before a model request. Archives may contain the plugin at the ZIP root or under
+one wrapper directory.
 Invocation plugins participate in interactive catalogs, command expansion,
 provider-independent agents, skills, hooks, MCP, LSP, monitors, executables,
 resume, fork, worktree, background, and nested subagent paths. An invocation

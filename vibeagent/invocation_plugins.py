@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from .invocation_plugin_archives import materialize_invocation_plugin_archive
 from .plugin_manifest import read_plugin_manifest
 
 
@@ -31,8 +32,12 @@ def resolve_invocation_plugin_dirs(
             root = candidate.resolve(strict=True)
         except OSError as error:
             raise ValueError(f"--plugin-dir directory not found: {value}") from error
-        if lexical != root or candidate.is_symlink() or not root.is_dir():
-            raise ValueError(f"--plugin-dir must be a regular non-symlink directory: {value}")
+        if lexical != root or candidate.is_symlink():
+            raise ValueError(f"--plugin-dir must be a regular non-symlink directory or ZIP archive: {value}")
+        if root.is_file() and root.suffix.lower() == ".zip":
+            root = materialize_invocation_plugin_archive(root)
+        elif not root.is_dir():
+            raise ValueError(f"--plugin-dir must be a regular non-symlink directory or ZIP archive: {value}")
         manifest = read_plugin_manifest(root)
         previous = names.get(manifest.name)
         if previous is not None and previous != root:

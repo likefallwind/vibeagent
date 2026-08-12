@@ -121,7 +121,7 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         action="append",
         default=[],
         metavar="PATH",
-        help="Load a local plugin directory for this invocation; repeat for multiple plugins.",
+        help="Load a local plugin directory or ZIP archive for this invocation; repeat for multiple plugins.",
     )
     parser.add_argument(
         "--maintenance",

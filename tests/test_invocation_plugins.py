@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import Mock, patch
 
+from tests.test_invocation_plugin_archives import write_plugin_zip
 from tests.lsp_test_support import write_lsp_plugin
 from tests.test_plugin_monitors import write_monitor_plugin
 from tests.test_plugins import write_demo_plugin
@@ -23,6 +24,7 @@ from vibeagent.interactive_background import create_interactive_background_reque
 from vibeagent.lsp_config import read_lsp_server_configs
 from vibeagent.mcp_config import read_mcp_server_configs
 from vibeagent.plugin_environment import enabled_plugin_bin_paths
+from vibeagent.plugin_manifest import read_plugin_manifest
 from vibeagent.plugin_monitor_config import read_plugin_monitor_configs
 from vibeagent.plugin_store import enabled_plugin_manifests, install_local_plugin
 from vibeagent.workspace_agents import read_project_agents
@@ -180,6 +182,34 @@ class InvocationPluginTests(IsolatedUserHomeTestCase):
             run_agent.call_args.kwargs["settings_override_json"],
             '{"env":{"INVOCATION_CHAIN":"yes"}}',
         )
+
+    def test_cli_materializes_zip_before_persistent_one_shot(self) -> None:
+        with TemporaryDirectory(prefix="vibeagent-invocation-plugin-") as temporary:
+            root = Path(temporary)
+            plugin = write_demo_plugin(root)
+            archive = write_plugin_zip(plugin, root / "demo-plugin.zip", wrapped=True)
+            result = AgentResult(True, "done", root, "run-zip", 1, [], [])
+            run_agent = Mock(return_value=result)
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(
+                    [
+                        "--cwd",
+                        root.as_posix(),
+                        "--plugin-dir",
+                        archive.as_posix(),
+                        "inspect",
+                    ]
+                )
+
+        resolved = run_agent.call_args.kwargs["invocation_plugin_dirs"]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(len(resolved), 1)
+        self.assertIn("invocation-plugin-cache", resolved[0].as_posix())
+        self.assertEqual(read_plugin_manifest(resolved[0]).name, "demo-plugin")
 
     def test_safe_mode_rejects_plugin_dir(self) -> None:
         args = parse_args(["--safe-mode", "--plugin-dir", ".", "inspect"])

@@ -474,11 +474,13 @@ The automated suite currently covers these 1.0 surfaces:
   hooks, sandbox, agents, plugins, resume, fork, background, and subagents
   without recording setting contents in session events.
 - Invocation plugins: repeatable `--plugin-dir` validates up to 20 local
-  non-symlink plugin roots and loads their skills, commands, agents, hooks, MCP,
-  LSP, monitors, executables, and default settings without installation. The
-  same roots reach interactive catalogs, resume, fork, worktree, background,
-  and subagents; explicit same-name plugins override installed versions and
-  events disclose only the count.
+  non-symlink plugin roots or ZIP archives and loads their skills, commands,
+  agents, hooks, MCP, LSP, monitors, executables, and default settings without
+  installation. ZIP roots are materialized in a private content-addressed user
+  cache after bounded traversal, duplicate, encryption, link, special-file,
+  count, depth, and byte checks. The same roots reach interactive catalogs,
+  resume, fork, worktree, background, and subagents; explicit same-name plugins
+  override installed versions and events disclose only the count.
 - Recoverable command output: truncated finite Bash and PowerShell streams are
   retained as private current-session artifacts with exact `read_file`
   references and total byte counts. Invalid references, cross-session paths,
