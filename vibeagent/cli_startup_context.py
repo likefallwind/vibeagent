@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from .cli_context import (
@@ -11,7 +11,7 @@ from .cli_context import (
     normalize_resume_arg,
 )
 from .cli_additional_directories import resolve_additional_directories
-from .cli_config import model_override_from_args
+from .cli_config import model_override_from_args, provider_env_overrides_from_args
 from .cli_system_prompt_files import resolve_system_prompt_inputs
 from .commands import get_compact_context, get_resume_context
 from .context_compaction import resolve_autocompact_tokens
@@ -52,6 +52,7 @@ class InteractiveStartupContext:
     autocompact_tokens: int | None = None
     attached_background_agent_id: str | None = None
     model: str | None = None
+    provider_env_overrides: tuple[tuple[str, str], ...] = field(default=(), repr=False)
     approval: ApprovalPolicy = "ask"
     permission_mode: str | None = None
     permission_overrides: ProjectPermissions = ProjectPermissions()
@@ -97,6 +98,7 @@ def resolve_interactive_startup_context(
         "autocompact_tokens": resolve_autocompact_tokens(getattr(args, "autocompact", None)),
         "attached_background_agent_id": getattr(args, "_attached_background_agent_id", None),
         "model": model_override_from_args(args),
+        "provider_env_overrides": provider_env_overrides_from_args(args, project_root),
         "approval": getattr(args, "approval", "ask"),
         "permission_mode": getattr(args, "permission_mode", None),
         "permission_overrides": build_permission_overrides(args),

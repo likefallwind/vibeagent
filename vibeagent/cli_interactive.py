@@ -133,6 +133,7 @@ from .session_lifecycle_hooks import (
     run_interactive_session_hook,
 )
 from .workspace_core import RunWorkspace
+from .anthropic_betas import normalize_anthropic_betas
 from .debug_runtime import DebugOptions, DebugRuntime, combine_agent_loggers
 
 
@@ -161,6 +162,7 @@ def run_interactive_loop(
     initial_conversation_messages: tuple[ChatMessage, ...] = (),
     initial_attached_background_agent_id: str | None = None,
     initial_model: str | None = None,
+    initial_provider_env_overrides: tuple[tuple[str, str], ...] = (),
     initial_approval: ApprovalPolicy = "ask",
     initial_permission_mode: str | None = None,
     initial_permission_overrides: ProjectPermissions = ProjectPermissions(),
@@ -205,6 +207,9 @@ def run_interactive_loop(
     setting_sources = initial_setting_sources
     settings_override_json = initial_settings_override_json
     invocation_plugin_dirs = initial_invocation_plugin_dirs
+    invocation_anthropic_betas = normalize_anthropic_betas(
+        dict(initial_provider_env_overrides).get("ANTHROPIC_BETA")
+    )
     debug_runtime = DebugRuntime(initial_debug_options)
     approval_handler = build_approval_handler(approval_policy)
     project_runtime = InteractiveProjectRuntime(
@@ -239,6 +244,15 @@ def run_interactive_loop(
     if initial_resume_run_id is not None:
         restored_goal = read_session_goal(Path.cwd(), initial_resume_run_id)
         goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
+
+    def current_provider_env() -> dict[str, str | None]:
+        return interactive_provider_env(
+            Path.cwd(),
+            model_override,
+            setting_sources=setting_sources,
+            settings_override_json=settings_override_json,
+            provider_env_overrides=initial_provider_env_overrides,
+        )
 
     def create_interactive_client(provider_env: dict[str, str | None]) -> ChatClient:
         return configure_interactive_effort(
@@ -286,14 +300,7 @@ def run_interactive_loop(
             )
         for error in directory_hook_errors:
             print(f"DirectoryAdded hook warning: {error}")
-        client = client or create_interactive_client(
-            interactive_provider_env(
-                Path.cwd(),
-                model_override,
-                setting_sources=setting_sources,
-                settings_override_json=settings_override_json,
-            )
-        )
+        client = client or create_interactive_client(current_provider_env())
         panel = SubagentPanel(
             Path.cwd(),
             safe_mode=safe_mode,
@@ -484,12 +491,7 @@ def run_interactive_loop(
         recap = attempt_automatic_session_recap(
             recap_states[selected_mode],
             history=history,
-            provider_env=interactive_provider_env(
-                Path.cwd(),
-                model_override,
-                setting_sources=setting_sources,
-                settings_override_json=settings_override_json,
-            ),
+            provider_env=current_provider_env(),
             create_chat_client=create_interactive_client,
             run_recap=run_recap_func,
             execution_config=resolve_execution_config(Path.cwd()),
@@ -657,14 +659,7 @@ def run_interactive_loop(
         def execute_agent(request, cancel_requested):
             nonlocal client
             with workflow_client_lock:
-                client = client or create_interactive_client(
-                    interactive_provider_env(
-                        Path.cwd(),
-                        model_override,
-                        setting_sources=setting_sources,
-                        settings_override_json=settings_override_json,
-                    )
-                )
+                client = client or create_interactive_client(current_provider_env())
             return execute_workflow_agent_request(
                 workspace,
                 request,
@@ -834,6 +829,7 @@ def run_interactive_loop(
                 bare_mode=bare_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
+                anthropic_betas=invocation_anthropic_betas,
                 invocation_plugin_dirs=invocation_plugin_dirs,
                 verbose=verbose,
                 browser_mode=browser_mode,
@@ -857,6 +853,7 @@ def run_interactive_loop(
                 append_system_prompt=append_system_prompt,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
+                provider_env_overrides=initial_provider_env_overrides,
             )
             if update.model_changed or update.effort_changed:
                 with workflow_client_lock:
@@ -1382,14 +1379,7 @@ def run_interactive_loop(
         try:
             # Reuse client across turns so auth/model config is loaded once.
             execution_config = resolve_execution_config(Path.cwd())
-            client = client or create_interactive_client(
-                interactive_provider_env(
-                    Path.cwd(),
-                    model_override,
-                    setting_sources=setting_sources,
-                    settings_override_json=settings_override_json,
-                )
-            )
+            client = client or create_interactive_client(current_provider_env())
             if request_mode == "chat":
                 debug_runtime.emit("api", "chat_request", {"inputChars": len(task)})
                 with terminal_model_stream_scope(client) as stream_renderer:

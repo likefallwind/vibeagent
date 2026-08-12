@@ -4,7 +4,11 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
-from .cli_config import build_provider_env, provider_env_with_model_override
+from .cli_config import (
+    apply_provider_env_overrides,
+    build_provider_env,
+    provider_env_with_model_override,
+)
 from .config import resolve_provider_config
 
 
@@ -26,6 +30,7 @@ def resolve_interactive_model_selection(
     *,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    provider_env_overrides: tuple[tuple[str, str], ...] = (),
 ) -> InteractiveModelSelection:
     if argument is None:
         override = current_override
@@ -37,6 +42,7 @@ def resolve_interactive_model_selection(
         override,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
+        provider_env_overrides=provider_env_overrides,
     )
     provider = resolve_provider_config(provider_env)
     changed = argument is not None and override != current_override
@@ -63,6 +69,7 @@ def interactive_provider_env(
     *,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    provider_env_overrides: tuple[tuple[str, str], ...] = (),
 ) -> dict[str, str | None]:
     env = build_provider_env(
         argparse.Namespace(
@@ -76,6 +83,7 @@ def interactive_provider_env(
         ),
         Path(project_root),
     )
+    env = apply_provider_env_overrides(env, provider_env_overrides)
     if model_override is None:
         return env
     return provider_env_with_model_override(env, model_override)

@@ -67,6 +67,28 @@ class CliStartupContextTests(unittest.TestCase):
 
         self.assertEqual(context.autocompact_tokens, 200_000)
 
+    def test_provider_and_beta_overrides_are_forwarded_without_repr_secrets(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-startup-provider-") as base:
+            context = resolve_interactive_startup_context(
+                _args(
+                    provider="anthropic",
+                    model_name="claude-sonnet-5",
+                    api_key="temporary-secret",
+                    base_url="https://api.example",
+                    betas=["interleaved-thinking"],
+                ),
+                Path(base),
+                get_resume_context_func=Mock(),
+                get_compact_context_func=Mock(),
+            )
+
+        overrides = dict(context.provider_env_overrides)
+        self.assertEqual(overrides["VIBEAGENT_PROVIDER"], "anthropic")
+        self.assertEqual(overrides["ANTHROPIC_MODEL"], "claude-sonnet-5")
+        self.assertEqual(overrides["ANTHROPIC_API_KEY"], "temporary-secret")
+        self.assertEqual(overrides["ANTHROPIC_BETA"], "interleaved-thinking")
+        self.assertNotIn("temporary-secret", repr(context))
+
     def test_dynamic_agents_are_validated_for_interactive_startup(self) -> None:
         context = resolve_interactive_startup_context(
             _args(

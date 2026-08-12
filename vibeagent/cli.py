@@ -405,6 +405,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_conversation_messages=context.conversation,
         initial_attached_background_agent_id=context.attached_background_agent_id,
         initial_model=context.model,
+        initial_provider_env_overrides=context.provider_env_overrides,
         initial_approval=context.approval,
         initial_permission_mode=context.permission_mode,
         initial_permission_overrides=context.permission_overrides,

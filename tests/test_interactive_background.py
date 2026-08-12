@@ -37,6 +37,7 @@ class InteractiveBackgroundTests(unittest.TestCase):
             system_prompt="system",
             append_system_prompt="append",
             additional_directories=(Path("shared"),),
+            anthropic_betas=("interleaved-thinking", "files-api-2025-04-14"),
         )
 
         self.assertEqual(request.argv[-2:], ("--", "--model is task text"))
@@ -45,6 +46,8 @@ class InteractiveBackgroundTests(unittest.TestCase):
         self.assertIn("--approval", request.argv)
         self.assertIn("allow", request.argv)
         self.assertIn("--agents", request.argv)
+        self.assertEqual(request.argv.count("--betas"), 2)
+        self.assertIn("interleaved-thinking", request.argv)
         self.assertEqual(
             parse_dynamic_agent_profiles(serialize_dynamic_agent_profiles(profiles)),
             profiles,
@@ -67,6 +70,9 @@ class InteractiveBackgroundTests(unittest.TestCase):
                             command_namespace={},
                             initial_resume_run_id="run-1",
                             initial_attached_background_agent_id="0123456789ab",
+                            initial_provider_env_overrides=(
+                                ("ANTHROPIC_BETA", "interleaved-thinking"),
+                            ),
                         )
             finally:
                 os.chdir(previous)
@@ -74,6 +80,8 @@ class InteractiveBackgroundTests(unittest.TestCase):
         self.assertEqual(raised.exception.prompt, "finish the tests")
         self.assertEqual(raised.exception.run_id, "run-1")
         self.assertEqual(raised.exception.attached_agent_id, "0123456789ab")
+        self.assertIn("--betas", raised.exception.argv)
+        self.assertIn("interleaved-thinking", raised.exception.argv)
 
     def test_interactive_bg_without_session_stays_foreground(self) -> None:
         stdout = io.StringIO()

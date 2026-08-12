@@ -62,6 +62,28 @@ class ProviderTests(unittest.TestCase):
         with self.assertRaises(MissingAnthropicApiKeyError):
             create_chat_client({"VIBEAGENT_PROVIDER": "anthropic"})
 
+    def test_anthropic_beta_headers_require_api_key_authentication(self) -> None:
+        client = create_chat_client(
+            {
+                "VIBEAGENT_PROVIDER": "anthropic",
+                "ANTHROPIC_API_KEY": "api-key",
+                "ANTHROPIC_BETA": "interleaved-thinking,files-api-2025-04-14",
+            }
+        )
+
+        self.assertEqual(
+            client.betas,
+            ("interleaved-thinking", "files-api-2025-04-14"),
+        )
+        with self.assertRaisesRegex(ValueError, "API_KEY"):
+            create_chat_client(
+                {
+                    "VIBEAGENT_PROVIDER": "anthropic",
+                    "ANTHROPIC_AUTH_TOKEN": "oauth-token",
+                    "ANTHROPIC_BETA": "interleaved-thinking",
+                }
+            )
+
     def test_cli_overrides_route_to_anthropic_environment(self) -> None:
         args = argparse.Namespace(
             provider="anthropic",
@@ -69,6 +91,7 @@ class ProviderTests(unittest.TestCase):
             model_name=None,
             base_url="https://gateway.example/anthropic",
             api_key="temporary-key",
+            betas=["interleaved-thinking", "files-api-2025-04-14"],
         )
         with tempfile.TemporaryDirectory(prefix="vibeagent-anthropic-") as base, patch.dict("os.environ", {}, clear=True):
             env = build_provider_env(args, Path(base))
@@ -77,7 +100,24 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(env["ANTHROPIC_MODEL"], "claude-sonnet-4-6")
         self.assertEqual(env["ANTHROPIC_BASE_URL"], "https://gateway.example/anthropic")
         self.assertEqual(env["ANTHROPIC_API_KEY"], "temporary-key")
+        self.assertEqual(
+            env["ANTHROPIC_BETA"],
+            "interleaved-thinking,files-api-2025-04-14",
+        )
         self.assertNotIn("OPENAI_COMPAT_API_KEY", env)
+
+    def test_cli_beta_headers_reject_non_anthropic_provider(self) -> None:
+        args = argparse.Namespace(
+            provider="minimax",
+            model=None,
+            model_name=None,
+            base_url=None,
+            api_key=None,
+            betas=["interleaved-thinking"],
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-betas-") as base:
+            with self.assertRaisesRegex(ValueError, "only with --provider anthropic"):
+                build_provider_env(args, Path(base))
 
 
 if __name__ == "__main__":

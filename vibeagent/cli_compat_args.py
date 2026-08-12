@@ -220,6 +220,13 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Skip automatic instructions, hooks, skills, plugins, MCP servers, and memory.",
     )
     parser.add_argument(
+        "--betas",
+        action="append",
+        default=[],
+        metavar="BETA",
+        help="Add Anthropic API beta headers for this session; repeat or use comma-separated names.",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable redacted debug logging; use --debug='api,mcp' to filter categories.",

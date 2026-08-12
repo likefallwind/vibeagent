@@ -308,6 +308,11 @@ The automated suite currently covers these 1.0 surfaces:
   provider and replaces the shared client only after successful construction,
   and `/model default` restores configuration while coding/chat history remains
   intact and project settings remain unchanged.
+- Anthropic beta headers: repeatable or comma-separated `--betas` values are
+  bounded, deduplicated, and header-safe; API-key authentication carries them
+  through normal/streaming calls, profiles, subagents, resume, model switches,
+  and interactive background handoff, while non-Anthropic providers and OAuth
+  token authentication fail before a request.
 - Interactive effort selection: `/effort` reports `auto` or the current
   session override, supported Anthropic clients accept `low`, `medium`, `high`,
   `xhigh`, and `max`, `/effort auto` rebuilds the provider/model default client,

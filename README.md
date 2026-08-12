@@ -429,6 +429,7 @@ python -m vibeagent --cwd ../my-project --worktree feature-auth --tmux
 python -m vibeagent --cwd ../my-project --worktree feature-auth --tmux=classic "implement authentication"
 python -m vibeagent --provider deepseek --model deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
 python -m vibeagent --provider anthropic --effort high "inspect this repo thoroughly"
+python -m vibeagent --provider anthropic --betas interleaved-thinking "inspect this repo"
 python -m vibeagent --autocompact 200k "inspect a large repository"
 python -m vibeagent 'review @src/app.py and @"docs/design notes.md"'
 printf "summarize the project risks\n" | python -m vibeagent -
@@ -693,6 +694,13 @@ selected model/index, total and per-model use counts, overload transitions, and
 bounded primary/fallback errors. When combined with
 `--max-budget-usd`, all selected models consume the same budget and fallback evidence is
 retained even if the response reaches the cost limit.
+`--betas NAME` adds validated `anthropic-beta` request headers for Anthropic
+API-key sessions. Repeat the flag or use comma-separated names; duplicates are
+removed while preserving order. Beta headers reach normal, streaming, profile,
+subagent, resumed, interactive model-switch, and background calls. They are
+rejected for other providers and for `ANTHROPIC_AUTH_TOKEN` authentication, and
+names containing whitespace, control characters, or header delimiters fail
+before any provider request.
 Bare `--tools` is a provider-free local command that prints the tool catalog.
 On a one-shot coding task, `--tools "Read,Bash,Edit"` instead limits both the
 model-visible schemas and executable tools. Claude-compatible aliases expand to

@@ -97,7 +97,11 @@ class AnthropicClientTests(unittest.TestCase):
         self.assertEqual(body["temperature"], 0.3)
 
     def test_agent_profile_overrides_model_and_sends_output_effort(self) -> None:
-        client = AnthropicClient(api_key="anthropic-key", model="parent-model")
+        client = AnthropicClient(
+            api_key="anthropic-key",
+            model="parent-model",
+            betas=("interleaved-thinking", "files-api-2025-04-14"),
+        )
         profiled = client.with_agent_profile(model="claude-opus-5", effort="medium")
         with patch(
             "vibeagent.anthropic.urlopen",
@@ -108,8 +112,31 @@ class AnthropicClientTests(unittest.TestCase):
         body = json.loads(urlopen.call_args.args[0].data)
         self.assertEqual(body["model"], "claude-opus-5")
         self.assertEqual(body["output_config"], {"effort": "medium"})
+        self.assertEqual(
+            urlopen.call_args.args[0].get_header("Anthropic-beta"),
+            "interleaved-thinking,files-api-2025-04-14",
+        )
+        self.assertEqual(profiled.betas, client.betas)
         self.assertEqual(client.model, "parent-model")
         self.assertIsNone(client.effort)
+
+    def test_streaming_request_includes_beta_header(self) -> None:
+        payload = b"".join(
+            [
+                b'data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":"ok"}}\n\n',
+                b'data: {"type":"message_stop"}\n\n',
+            ]
+        )
+        client = AnthropicClient(api_key="key", betas=("interleaved-thinking",))
+        with patch("vibeagent.anthropic.urlopen", return_value=_FakeResponse(payload)) as urlopen:
+            client.complete_stream(
+                [ChatMessage(role="user", content="Hi")],
+                on_event=lambda event: None,
+            )
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.get_header("Anthropic-beta"), "interleaved-thinking")
+        self.assertEqual(request.get_header("Accept"), "text/event-stream")
 
 
 if __name__ == "__main__":

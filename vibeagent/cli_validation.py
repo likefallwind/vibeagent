@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 
+from .anthropic_betas import normalize_anthropic_betas
 from .cli_local_flag_detection import has_local_flag, has_non_model_local_flag
 from .cli_local_option_validation import validate_local_option_dependencies
 from .cli_permission_overrides import permission_override_validation_error
@@ -22,6 +23,13 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return compat_error
     if args.safe_mode and args.bare:
         return "--safe-mode and --bare cannot be combined."
+    if args.betas:
+        if has_local_flag(args):
+            return "--betas requires an interactive or one-shot model session."
+        try:
+            normalize_anthropic_betas(args.betas)
+        except ValueError as error:
+            return str(error)
     if args.bare and args.setting_sources is not None:
         return "--bare does not load settings files; pass explicit settings with --settings."
     if args.safe_mode and (args.agent is not None or args.agents is not None):

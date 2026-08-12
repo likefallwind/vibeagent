@@ -5,6 +5,7 @@ from typing import Any
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from .anthropic_betas import anthropic_beta_header, normalize_anthropic_betas
 from .anthropic_streaming import accumulate_anthropic_stream
 from .minimax import build_request_body, extract_content, extract_usage, summarize
 from .model_streaming import ProviderStreamHandler
@@ -39,6 +40,7 @@ class AnthropicClient(ChatClient):
         *,
         use_auth_token: bool = False,
         effort: str | None = None,
+        betas: tuple[str, ...] = (),
     ) -> None:
         if not api_key:
             raise MissingAnthropicApiKeyError()
@@ -47,6 +49,7 @@ class AnthropicClient(ChatClient):
         self.model = model
         self.use_auth_token = use_auth_token
         self.effort = effort
+        self.betas = normalize_anthropic_betas(betas)
 
     def with_agent_profile(
         self,
@@ -60,6 +63,7 @@ class AnthropicClient(ChatClient):
             model=model or self.model,
             use_auth_token=self.use_auth_token,
             effort=self.effort if effort is None else effort,
+            betas=self.betas,
         )
 
     def complete(
@@ -81,18 +85,10 @@ class AnthropicClient(ChatClient):
             body.pop("temperature", None)
         if self.effort is not None:
             body["output_config"] = {"effort": self.effort}
-        headers = {
-            "Content-Type": "application/json",
-            "anthropic-version": ANTHROPIC_API_VERSION,
-        }
-        if self.use_auth_token:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        else:
-            headers["x-api-key"] = self.api_key
         request = Request(
             f"{self.base_url}/v1/messages",
             data=json.dumps(body).encode("utf-8"),
-            headers=headers,
+            headers=self._request_headers(),
             method="POST",
         )
         try:
@@ -132,19 +128,10 @@ class AnthropicClient(ChatClient):
         if self.effort is not None:
             body["output_config"] = {"effort": self.effort}
         body["stream"] = True
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "text/event-stream",
-            "anthropic-version": ANTHROPIC_API_VERSION,
-        }
-        if self.use_auth_token:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        else:
-            headers["x-api-key"] = self.api_key
         request = Request(
             f"{self.base_url}/v1/messages",
             data=json.dumps(body).encode("utf-8"),
-            headers=headers,
+            headers=self._request_headers(stream=True),
             method="POST",
         )
         try:
@@ -161,3 +148,19 @@ class AnthropicClient(ChatClient):
         if not content:
             raise AnthropicResponseError("Anthropic streaming response did not include structured content.")
         return AssistantResponse(content=content, raw=data, usage=extract_usage(data))
+
+    def _request_headers(self, *, stream: bool = False) -> dict[str, str]:
+        headers = {
+            "Content-Type": "application/json",
+            "anthropic-version": ANTHROPIC_API_VERSION,
+        }
+        if stream:
+            headers["Accept"] = "text/event-stream"
+        beta_header = anthropic_beta_header(self.betas)
+        if beta_header is not None:
+            headers["anthropic-beta"] = beta_header
+        if self.use_auth_token:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        else:
+            headers["x-api-key"] = self.api_key
+        return headers

@@ -8,6 +8,33 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_betas_accept_repeated_names_and_reject_local_or_invalid_values(self) -> None:
+        valid = cli_module.parse_args(
+            [
+                "--provider",
+                "anthropic",
+                "--betas",
+                "interleaved-thinking",
+                "--betas",
+                "files-api-2025-04-14,interleaved-thinking",
+                "inspect",
+            ]
+        )
+        local = cli_module.parse_args(
+            ["--provider", "anthropic", "--betas", "interleaved-thinking", "--status"]
+        )
+        invalid = cli_module.parse_args(
+            ["--provider", "anthropic", "--betas", "bad\nheader", "inspect"]
+        )
+
+        self.assertEqual(
+            valid.betas,
+            ["interleaved-thinking", "files-api-2025-04-14,interleaved-thinking"],
+        )
+        self.assertIsNone(cli_module.validate_cli_args(valid))
+        self.assertIn("model session", cli_module.validate_cli_args(local) or "")
+        self.assertIn("beta names", cli_module.validate_cli_args(invalid) or "")
+
     def test_prompt_suggestions_require_print_coding_task_and_accept_boolean_values(self) -> None:
         enabled = cli_module.parse_args(["-p", "--prompt-suggestions", "inspect"])
         disabled = cli_module.parse_args(["-p", "--prompt-suggestions=false", "inspect"])

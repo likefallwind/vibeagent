@@ -42,6 +42,7 @@ def run_interactive_provider_command(
     append_system_prompt: str | None,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    provider_env_overrides: tuple[tuple[str, str], ...] = (),
 ) -> InteractiveProviderCommandResult:
     def provider_env() -> dict[str, str | None]:
         return interactive_provider_env(
@@ -49,6 +50,7 @@ def run_interactive_provider_command(
             current_override,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
+            provider_env_overrides=provider_env_overrides,
         )
 
     def create_session_client(provider_env: dict[str, str | None]) -> object:
@@ -69,6 +71,7 @@ def run_interactive_provider_command(
             create_chat_client=create_chat_client,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
+            provider_env_overrides=provider_env_overrides,
         )
     if command_type == "effort":
         return run_interactive_effort_command(
@@ -160,6 +163,7 @@ def run_interactive_model_command(
     create_chat_client: Callable[[dict[str, str | None]], object],
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    provider_env_overrides: tuple[tuple[str, str], ...] = (),
 ) -> InteractiveProviderCommandResult:
     try:
         selection = resolve_interactive_model_selection(
@@ -168,6 +172,7 @@ def run_interactive_model_command(
             current_override,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
+            provider_env_overrides=provider_env_overrides,
         )
         client = current_client
         if selection.changed:

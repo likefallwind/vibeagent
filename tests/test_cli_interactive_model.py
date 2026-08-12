@@ -64,6 +64,26 @@ class InteractiveModelTests(unittest.TestCase):
         self.assertTrue(reset.changed)
         self.assertEqual(reset.provider_env["ANTHROPIC_MODEL"], "configured-model")
 
+    def test_selection_preserves_invocation_provider_and_beta_overrides(self) -> None:
+        with patch(
+            "vibeagent.cli_interactive_model.build_provider_env",
+            return_value={"VIBEAGENT_PROVIDER": "minimax", "MINIMAX_MODEL": "default"},
+        ):
+            selected = resolve_interactive_model_selection(
+                ".",
+                "claude-opus-5",
+                None,
+                provider_env_overrides=(
+                    ("VIBEAGENT_PROVIDER", "anthropic"),
+                    ("ANTHROPIC_API_KEY", "key"),
+                    ("ANTHROPIC_BETA", "interleaved-thinking"),
+                ),
+            )
+
+        self.assertEqual(selected.provider_env["VIBEAGENT_PROVIDER"], "anthropic")
+        self.assertEqual(selected.provider_env["ANTHROPIC_MODEL"], "claude-opus-5")
+        self.assertEqual(selected.provider_env["ANTHROPIC_BETA"], "interleaved-thinking")
+
     def test_model_name_validation_is_bounded_and_unambiguous(self) -> None:
         self.assertEqual(normalize_interactive_model("  model/v2  "), "model/v2")
         self.assertIsNone(normalize_interactive_model("DEFAULT"))
@@ -188,6 +208,39 @@ class InteractiveModelTests(unittest.TestCase):
         self.assertEqual(len(clients), 1)
         self.assertEqual(agent_clients, [clients[0], clients[0]])
         self.assertIn("Model switch error: unsupported model", stdout.getvalue())
+
+    def test_interactive_cli_provider_overrides_survive_model_switch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-provider-overrides-") as base:
+            captured_envs: list[dict[str, str | None]] = []
+
+            def create_client(env: dict[str, str | None]) -> ModelClient:
+                captured_envs.append(dict(env))
+                return ModelClient(str(env["ANTHROPIC_MODEL"]))
+
+            with (
+                patch("builtins.input", side_effect=["/model claude-opus-5", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", side_effect=create_client),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(
+                    [
+                        "--cwd",
+                        base,
+                        "--provider",
+                        "anthropic",
+                        "--api-key",
+                        "temporary-key",
+                        "--betas",
+                        "interleaved-thinking",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(len(captured_envs), 1)
+        self.assertEqual(captured_envs[0]["VIBEAGENT_PROVIDER"], "anthropic")
+        self.assertEqual(captured_envs[0]["ANTHROPIC_MODEL"], "claude-opus-5")
+        self.assertEqual(captured_envs[0]["ANTHROPIC_API_KEY"], "temporary-key")
+        self.assertEqual(captured_envs[0]["ANTHROPIC_BETA"], "interleaved-thinking")
 
     def test_model_status_does_not_construct_client(self) -> None:
         provider_env = {

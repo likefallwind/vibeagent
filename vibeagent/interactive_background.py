@@ -49,6 +49,7 @@ def create_interactive_background_request(
     bypass_permissions_available: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
+    anthropic_betas: tuple[str, ...] = (),
     invocation_plugin_dirs: tuple[Path, ...] = (),
     attached_agent_id: str | None = None,
 ) -> InteractiveBackgroundRequest:
@@ -86,6 +87,8 @@ def create_interactive_background_request(
         settings_path.parent.mkdir(parents=True, exist_ok=True)
         write_private_text_atomic(settings_path, settings_override_json + "\n")
         argv.extend(["--settings", settings_path.as_posix()])
+    for beta in anthropic_betas:
+        argv.extend(["--betas", beta])
     for plugin_dir in invocation_plugin_dirs:
         argv.extend(["--plugin-dir", plugin_dir.as_posix()])
     argv.extend(["--", task])

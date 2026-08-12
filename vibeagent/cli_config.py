@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
 from pathlib import Path
 
+from .anthropic_betas import anthropic_beta_header
 from .config import load_project_config_env, project_config_path, read_project_config, save_project_config
 from .providers import get_provider_name
 from .workspace_environment import workspace_process_environment_from_root
@@ -48,6 +50,9 @@ def build_provider_env(
     arg_base_url = getattr(args, "base_url", None)
     arg_api_key = getattr(args, "api_key", None)
     provider = arg_provider or get_provider_name(env)
+    beta_header = anthropic_beta_header(getattr(args, "betas", None))
+    if beta_header is not None and provider != "anthropic":
+        raise ValueError("--betas is available only with --provider anthropic.")
     if arg_provider:
         env["VIBEAGENT_PROVIDER"] = arg_provider
     if arg_model_name:
@@ -68,7 +73,61 @@ def build_provider_env(
         else:
             env["OPENAI_COMPAT_API_KEY"] = arg_api_key
             env["DEEPSEEK_API_KEY"] = arg_api_key
+    if beta_header is not None:
+        env["ANTHROPIC_BETA"] = beta_header
     return env
+
+
+def provider_env_overrides_from_args(
+    args: argparse.Namespace,
+    project_root: Path,
+) -> tuple[tuple[str, str], ...]:
+    requested = any(
+        (
+            getattr(args, "provider", None),
+            model_override_from_args(args),
+            getattr(args, "base_url", None),
+            getattr(args, "api_key", None),
+            getattr(args, "betas", None),
+        )
+    )
+    if not requested:
+        return ()
+    resolved = build_provider_env(args, project_root)
+    provider = get_provider_name(resolved)
+    keys = ["VIBEAGENT_PROVIDER"] if getattr(args, "provider", None) else []
+    if model_override_from_args(args) is not None:
+        keys.append(_provider_key(provider, "MODEL"))
+    if getattr(args, "base_url", None) is not None:
+        keys.append(_provider_key(provider, "BASE_URL"))
+    if getattr(args, "api_key", None) is not None:
+        keys.append(_provider_key(provider, "API_KEY"))
+    if getattr(args, "betas", None):
+        keys.append("ANTHROPIC_BETA")
+    return tuple(
+        (key, value)
+        for key in keys
+        if isinstance((value := resolved.get(key)), str)
+    )
+
+
+def apply_provider_env_overrides(
+    env: dict[str, str | None],
+    overrides: Mapping[str, str] | tuple[tuple[str, str], ...],
+) -> dict[str, str | None]:
+    updated = dict(env)
+    updated.update(dict(overrides))
+    return updated
+
+
+def _provider_key(provider: str, suffix: str) -> str:
+    if provider == "minimax":
+        return f"MINIMAX_{suffix}"
+    if provider == "anthropic":
+        return f"ANTHROPIC_{suffix}"
+    if provider == "deepseek":
+        return f"DEEPSEEK_{suffix}"
+    return f"OPENAI_COMPAT_{suffix}"
 
 
 def provider_env_with_model_override(
