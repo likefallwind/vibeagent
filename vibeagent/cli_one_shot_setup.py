@@ -31,6 +31,7 @@ def resolve_one_shot_project_setup(
     mcp_config_paths: list[str] | tuple[str, ...] | None,
     safe_mode: bool = False,
     bare_mode: bool = False,
+    disable_slash_commands: bool = False,
     invocation_plugin_dirs: tuple[Path, ...] = (),
     resolve_code_task_func: Callable[..., tuple[str, dict[str, object] | None]] = resolve_one_shot_code_task,
     resolve_mcp_config_paths_func: Callable[[Path, list[str] | tuple[str, ...] | None], tuple[Path, ...]] = (
@@ -45,6 +46,8 @@ def resolve_one_shot_project_setup(
         task_kwargs["safe_mode"] = True
     if bare_mode:
         task_kwargs["bare_mode"] = True
+    if disable_slash_commands:
+        task_kwargs["disable_slash_commands"] = True
     if invocation_plugin_dirs:
         task_kwargs["invocation_plugin_dirs"] = invocation_plugin_dirs
     resolved_task, task_metadata = resolve_code_task_func(task, **task_kwargs)

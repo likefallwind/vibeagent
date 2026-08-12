@@ -106,6 +106,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "safe_mode": args.safe_mode,
         "bare_mode": args.bare,
         "brief": args.brief,
+        "disable_slash_commands": args.disable_slash_commands,
         "prompt_suggestions": args.prompt_suggestions and not _environment_flag_disabled(
             "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION"
         ),
@@ -184,6 +185,7 @@ def resolve_one_shot_code_task(
     project_root: Path,
     safe_mode: bool = False,
     bare_mode: bool = False,
+    disable_slash_commands: bool = False,
     invocation_plugin_dirs: tuple[Path, ...] = (),
     expand_project_command_func: Callable[[Path, str], tuple[str, dict[str, object] | None]] = (
         expand_one_shot_project_command
@@ -191,6 +193,12 @@ def resolve_one_shot_code_task(
 ) -> tuple[str, dict[str, object] | None]:
     if request_mode != "code":
         return task, None
+    if disable_slash_commands:
+        return expand_project_command_func(
+            project_root,
+            task,
+            disable_slash_commands=True,
+        )
     if safe_mode:
         return expand_project_command_func(project_root, task, safe_mode=True)
     if bare_mode or invocation_plugin_dirs:

@@ -48,6 +48,8 @@ def read_project_skills(workspace: RunWorkspace, max_skills: int = 100) -> dict[
 
 
 def read_project_skill(workspace: RunWorkspace, name: str, max_bytes: int = 20_000) -> dict[str, object]:
+    if workspace.disable_slash_commands:
+        raise ValueError("Skills and custom commands are disabled by --disable-slash-commands.")
     normalized = name.strip()
     if not SKILL_REFERENCE_PATTERN.fullmatch(normalized):
         raise ValueError(
@@ -138,6 +140,8 @@ def discover_project_skill_metadata(workspace: RunWorkspace) -> list[dict[str, o
 
 
 def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]:
+    if workspace.disable_slash_commands:
+        return []
     if workspace.safe_mode:
         return []
     discovered: list[dict[str, object]] = []

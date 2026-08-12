@@ -71,6 +71,7 @@ def run_one_shot(
     safe_mode: bool = False,
     bare_mode: bool = False,
     brief: bool = False,
+    disable_slash_commands: bool = False,
     prompt_suggestions: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
@@ -136,6 +137,7 @@ def run_one_shot(
                 "mcp_config_paths": mcp_config_paths,
                 "safe_mode": safe_mode,
                 "bare_mode": bare_mode,
+                "disable_slash_commands": disable_slash_commands,
             }
             if invocation_plugin_dirs:
                 project_setup_kwargs["invocation_plugin_dirs"] = invocation_plugin_dirs
@@ -187,6 +189,7 @@ def run_one_shot(
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
                 bare_mode=bare_mode,
+                disable_slash_commands=disable_slash_commands,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -211,6 +214,7 @@ def run_one_shot(
                 safe_mode=safe_mode,
                 bare_mode=bare_mode,
                 brief=brief,
+                disable_slash_commands=disable_slash_commands,
                 prompt_suggestions=prompt_suggestions,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,

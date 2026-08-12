@@ -42,6 +42,7 @@ def create_interactive_background_request(
     additional_directories: tuple[Path, ...],
     safe_mode: bool = False,
     bare_mode: bool = False,
+    disable_slash_commands: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -64,6 +65,8 @@ def create_interactive_background_request(
         argv.append("--safe-mode")
     if bare_mode:
         argv.append("--bare")
+    if disable_slash_commands:
+        argv.append("--disable-slash-commands")
     if setting_sources != ("user", "project", "local"):
         argv.extend(["--setting-sources", ",".join(setting_sources)])
     if settings_override_json is not None:

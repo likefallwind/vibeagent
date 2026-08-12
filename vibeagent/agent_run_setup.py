@@ -84,6 +84,7 @@ def prepare_agent_run(
     strict_mcp_config: bool,
     safe_mode: bool = False,
     bare_mode: bool = False,
+    disable_slash_commands: bool = False,
     brief: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
@@ -104,6 +105,7 @@ def prepare_agent_run(
         strict_mcp_config,
         safe_mode,
         bare_mode,
+        disable_slash_commands,
         setting_sources,
         settings_override_json,
         invocation_plugin_dirs,
@@ -180,6 +182,8 @@ def prepare_agent_run(
             ),
         )
     excluded_tool_names = main_profile.disallowed_tool_names
+    if current_workspace.disable_slash_commands:
+        excluded_tool_names |= frozenset({"Skill", "skill", "project_skills"})
     if not brief:
         excluded_tool_names |= frozenset({"SendUserMessage", "send_user_message"})
     tasks_inherited, task_restore_error = inherit_task_store(current_workspace, task_source_run_id)
@@ -331,6 +335,12 @@ def prepare_agent_run(
             excluded_tool_names,
             main_profile.allowed_tool_names,
         )
+    if current_workspace.disable_slash_commands:
+        append_session_event(
+            current_workspace.session_dir,
+            "slash_commands_disabled",
+            {"enabled": True},
+        )
     if powershell_availability.enabled:
         activate_agent_tool_names(
             active_tool_names,
@@ -417,6 +427,7 @@ def _prepare_workspace(
     strict_mcp_config: bool,
     safe_mode: bool,
     bare_mode: bool,
+    disable_slash_commands: bool,
     setting_sources: tuple[str, ...],
     settings_override_json: str | None,
     invocation_plugin_dirs: tuple[Path, ...],
@@ -433,6 +444,7 @@ def _prepare_workspace(
         additional_roots=additional_directories,
         safe_mode=safe_mode,
         bare_mode=bare_mode,
+        disable_slash_commands=disable_slash_commands,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -452,6 +464,14 @@ def _prepare_workspace(
         current_workspace = replace(current_workspace, safe_mode=safe_mode)
     if workspace is not None and bare_mode != current_workspace.bare_mode:
         current_workspace = replace(current_workspace, bare_mode=bare_mode)
+    if (
+        workspace is not None
+        and disable_slash_commands != current_workspace.disable_slash_commands
+    ):
+        current_workspace = replace(
+            current_workspace,
+            disable_slash_commands=disable_slash_commands,
+        )
     if workspace is not None and setting_sources != current_workspace.setting_sources:
         current_workspace = replace(current_workspace, setting_sources=setting_sources)
     if workspace is not None and settings_override_json != current_workspace.settings_override_json:

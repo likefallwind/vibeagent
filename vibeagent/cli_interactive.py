@@ -156,6 +156,7 @@ def run_interactive_loop(
     initial_safe_mode: bool = False,
     initial_bare_mode: bool = False,
     initial_brief: bool = False,
+    initial_disable_slash_commands: bool = False,
     initial_setting_sources: tuple[str, ...] = ("user", "project", "local"),
     initial_settings_override_json: str | None = None,
     initial_invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -177,6 +178,7 @@ def run_interactive_loop(
     safe_mode = initial_safe_mode
     bare_mode = initial_bare_mode
     brief = initial_brief
+    disable_slash_commands = initial_disable_slash_commands
     setting_sources = initial_setting_sources
     settings_override_json = initial_settings_override_json
     invocation_plugin_dirs = initial_invocation_plugin_dirs
@@ -233,6 +235,7 @@ def run_interactive_loop(
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
                 bare_mode=bare_mode,
+                disable_slash_commands=disable_slash_commands,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -243,6 +246,7 @@ def run_interactive_loop(
             additional_roots=additional_directories,
             safe_mode=safe_mode,
             bare_mode=bare_mode,
+            disable_slash_commands=disable_slash_commands,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
             invocation_plugin_dirs=invocation_plugin_dirs,
@@ -328,6 +332,7 @@ def run_interactive_loop(
                     safe_mode=safe_mode,
                     bare_mode=bare_mode,
                     brief=brief,
+                    disable_slash_commands=disable_slash_commands,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
                     invocation_plugin_dirs=invocation_plugin_dirs,
@@ -481,6 +486,7 @@ def run_interactive_loop(
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
                 bare_mode=bare_mode,
+                disable_slash_commands=disable_slash_commands,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -712,6 +718,9 @@ def run_interactive_loop(
                 print(f"Shell error: {format_error(error)}")
             continue
 
+        if disable_slash_commands and task.strip().startswith("/"):
+            print("Slash commands and skills are disabled by --disable-slash-commands.")
+            continue
         command = parse_local_command(task)
         custom_command: dict[str, object] | None = None
         if command is None and task.startswith("/"):
@@ -1264,6 +1273,7 @@ def run_interactive_loop(
                 branch.workspace,
                 safe_mode=safe_mode,
                 bare_mode=bare_mode,
+                disable_slash_commands=disable_slash_commands,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,

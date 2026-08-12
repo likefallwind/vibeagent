@@ -84,6 +84,8 @@ def expand_project_prompt_command(
     *,
     workspace: RunWorkspace | None = None,
 ) -> dict[str, object] | None:
+    if workspace is not None and workspace.disable_slash_commands:
+        raise ValueError("Skills and custom commands are disabled by --disable-slash-commands.")
     match = COMMAND_INVOCATION_PATTERN.fullmatch(invocation.strip())
     if match is None:
         return None
@@ -170,6 +172,8 @@ def _discover_project_prompt_commands(
     *,
     workspace: RunWorkspace | None = None,
 ) -> list[dict[str, object]]:
+    if workspace is not None and workspace.disable_slash_commands:
+        return []
     discovered: list[dict[str, object]] = []
     home = user_home()
     roots = (

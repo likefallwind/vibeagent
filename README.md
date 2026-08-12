@@ -845,6 +845,12 @@ Text one-shot updates use stderr so final stdout remains scriptable, while JSON
 output remains one final object. The tool is absent from the default agent
 catalog and cannot be activated by a direct call or `ToolSearch` without the
 flag; `--tools`, profile restrictions, and deny rules remain authoritative.
+`--disable-slash-commands` disables all built-in and custom slash commands and
+skills for the coding session. Skill metadata is omitted from prompts, the
+`Skill` and `project_skills` tools cannot be discovered or called, and the
+boundary is retained by resumed, ephemeral, and background runs. Unlike
+`--safe-mode` or `--bare`, other project configuration such as hooks, MCP,
+permissions, agents, and instructions remains enabled.
 `-p --prompt-suggestions[=true|false]` makes one tool-free, non-retrying model
 request after a successful completed coding turn to predict a concise next user
 prompt. The request reuses the completed conversation, active model/fallback,

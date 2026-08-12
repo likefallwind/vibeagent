@@ -70,6 +70,7 @@ def run_one_shot_code(
     safe_mode: bool = False,
     bare_mode: bool = False,
     brief: bool = False,
+    disable_slash_commands: bool = False,
     prompt_suggestions: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
@@ -189,6 +190,7 @@ def run_one_shot_code(
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
                 bare_mode=bare_mode,
+                disable_slash_commands=disable_slash_commands,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
@@ -207,6 +209,7 @@ def run_one_shot_code(
         additional_roots=additional_directories,
         safe_mode=safe_mode,
         bare_mode=bare_mode,
+        disable_slash_commands=disable_slash_commands,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -268,6 +271,7 @@ def run_one_shot_code(
         safe_mode=safe_mode,
         bare_mode=bare_mode,
         brief=brief,
+        disable_slash_commands=disable_slash_commands,
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
@@ -317,6 +321,7 @@ def run_one_shot_code(
             prior_context.run_id,
             safe_mode=safe_mode,
             bare_mode=bare_mode,
+            disable_slash_commands=disable_slash_commands,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
             invocation_plugin_dirs=invocation_plugin_dirs,
@@ -342,6 +347,7 @@ def run_one_shot_code(
             additional_roots=additional_directories,
             safe_mode=safe_mode,
             bare_mode=bare_mode,
+            disable_slash_commands=disable_slash_commands,
             setting_sources=setting_sources,
             settings_override_json=settings_override_json,
             invocation_plugin_dirs=invocation_plugin_dirs,
@@ -395,6 +401,7 @@ def run_one_shot_code(
                     result.run_id,
                     safe_mode=safe_mode,
                     bare_mode=bare_mode,
+                    disable_slash_commands=disable_slash_commands,
                 )
                 write_goal(workspace, goal_state)
                 if not result.success:
@@ -423,6 +430,7 @@ def run_one_shot_code(
                     additional_roots=additional_directories,
                     safe_mode=safe_mode,
                     bare_mode=bare_mode,
+                    disable_slash_commands=disable_slash_commands,
                 )
                 run_kwargs.pop("setup_trigger", None)
                 run_kwargs.pop("task_source_run_id", None)

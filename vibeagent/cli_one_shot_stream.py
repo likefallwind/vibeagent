@@ -29,6 +29,7 @@ def build_one_shot_stream_scope(
     additional_roots: tuple[Path, ...] = (),
     safe_mode: bool = False,
     bare_mode: bool = False,
+    disable_slash_commands: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
@@ -52,6 +53,8 @@ def build_one_shot_stream_scope(
         workspace_kwargs["safe_mode"] = True
     if bare_mode:
         workspace_kwargs["bare_mode"] = True
+    if disable_slash_commands:
+        workspace_kwargs["disable_slash_commands"] = True
     if setting_sources != ("user", "project", "local"):
         workspace_kwargs["setting_sources"] = setting_sources
     if settings_override_json is not None:

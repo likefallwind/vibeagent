@@ -93,6 +93,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--json-schema requires a one-shot coding task with --print."
     if args.brief and (args.chat or has_local_flag(args)):
         return "--brief is available for coding sessions only."
+    if args.disable_slash_commands and (args.chat or has_local_flag(args)):
+        return "--disable-slash-commands is available for coding sessions only."
     if args.prompt_suggestions and (
         not args.print_mode or not args.task or has_local_flag(args) or args.chat
     ):

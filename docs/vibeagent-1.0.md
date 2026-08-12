@@ -57,6 +57,9 @@ local changes when asked, and resume from recorded session context.
   user/project customization suppression, explicit dynamic-agent, MCP,
   settings-hook, and invocation-plugin retention, private session evidence,
   normal stdout isolation, and resume/background propagation.
+- `tests.test_disable_slash_commands` covers built-in and custom command
+  rejection, command and skill discovery suppression, model tool visibility
+  and direct-call enforcement, session evidence, and background propagation.
 - `tests.test_debug_runtime` and
   `tests.test_cli_background_agents.CliBackgroundAgentTests.test_background_persists_debug_options_for_worker`
   cover Claude-compatible equals-form category filtering, separator and task-text

@@ -37,6 +37,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Enable SendUserMessage so the coding agent can send non-blocking progress updates.",
     )
     parser.add_argument(
+        "--disable-slash-commands",
+        action="store_true",
+        help="Disable slash commands and skills for this coding session.",
+    )
+    parser.add_argument(
         "--prompt-suggestions",
         nargs="?",
         const=True,

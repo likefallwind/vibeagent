@@ -484,6 +484,11 @@ The automated suite currently covers these 1.0 surfaces:
   permissions, explicit prompts, and explicit `--settings`, `--agents`,
   `--mcp-config`, and invocation-plugin sources. The boundary propagates
   through interactive, one-shot, resume, fork, ephemeral, and background runs.
+- Slash-command isolation: Claude-compatible `--disable-slash-commands`
+  suppresses built-in and custom slash commands, skill discovery, prompt
+  metadata, and skill tools while retaining hooks, MCP, permissions, agents,
+  instructions, and other project configuration. The boundary propagates
+  through one-shot, interactive, resumed, ephemeral, and background runs.
 - Invocation settings: Claude-compatible `--settings` accepts a bounded inline
   JSON object or file, while `--setting-sources` selects user, project, and local
   files. One immutable override reaches provider environment, permissions,
