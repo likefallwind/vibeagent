@@ -747,6 +747,12 @@ def _append_sandbox_event(workspace: RunWorkspace, sandbox_config: SandboxConfig
             "available": sandbox_config.available,
             "network_disabled": sandbox_config.network_disabled,
             "network_available": sandbox_config.network_available,
+            "allowed_unix_sockets": list(sandbox_config.allowed_unix_sockets),
+            "allow_all_unix_sockets": sandbox_config.allow_all_unix_sockets,
+            "unix_socket_filter_available": (
+                sandbox_config.unix_socket_filter_available
+            ),
+            "unix_socket_filter_active": sandbox_config.unix_socket_filter_active,
             "allowed_domains": list(sandbox_config.allowed_domains),
             "permission_allowed_domains": list(
                 sandbox_config.permission_allowed_domains

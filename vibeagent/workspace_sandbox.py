@@ -11,6 +11,7 @@ from pathlib import Path
 from .sandbox_network_policy import normalize_sandbox_domains
 from .sandbox_permission_domains import sandbox_webfetch_allow_domains
 from .sandbox_permission_paths import SandboxPermissionPaths, sandbox_permission_paths
+from .sandbox_seccomp_filter import unix_socket_filter_available
 from .workspace_core import RunWorkspace
 from .workspace_permissions import read_project_permissions
 from .workspace_sandbox_credentials import (
@@ -38,6 +39,7 @@ from .workspace_settings_sources import (
 SANDBOX_CONFIG_PATH = ".vibeagent/sandbox.json"
 MAX_SANDBOX_CONFIG_BYTES = 128_000
 MAX_SANDBOX_EXCLUDED_COMMANDS = 50
+MAX_SANDBOX_UNIX_SOCKETS = 100
 
 
 @dataclass(frozen=True)
@@ -47,6 +49,10 @@ class SandboxConfig:
     auto_allow_bash_if_sandboxed: bool = True
     allow_unsandboxed_commands: bool = True
     network_disabled: bool = False
+    allow_all_unix_sockets: bool = False
+    allowed_unix_sockets: tuple[str, ...] = ()
+    unix_socket_filter_available: bool = False
+    unix_socket_filter_active: bool = False
     allowed_domains: tuple[str, ...] = ()
     denied_domains: tuple[str, ...] = ()
     permission_allowed_domains: tuple[str, ...] = ()
@@ -87,6 +93,7 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
         "deniedDomains": [],
     }
     allow_read_values: list[tuple[str, bool, bool]] = []
+    allowed_unix_sockets: list[str] = []
     denied_environment_variables: list[str] = []
     credential_entry_count = 0
     managed_domains_only = False
@@ -202,6 +209,23 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
                                 network[key], config.source, f"network.{key}"
                             )
                         )
+                if "allowUnixSockets" in network:
+                    allowed_unix_sockets.extend(
+                        parse_sandbox_string_list(
+                            network["allowUnixSockets"],
+                            config.source,
+                            "network.allowUnixSockets",
+                        )
+                    )
+                if "allowAllUnixSockets" in network:
+                    merged["allowAllUnixSockets"] = (
+                        network["allowAllUnixSockets"],
+                        config.trusted,
+                    )
+                    if config.trusted:
+                        trusted_values["allowAllUnixSockets"] = network[
+                            "allowAllUnixSockets"
+                        ]
                 if "strictAllowlist" in network:
                     strict_allowlist = sandbox_boolean(
                         network["strictAllowlist"],
@@ -216,6 +240,8 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
                     "allowedDomains",
                     "deniedDomains",
                     "strictAllowlist",
+                    "allowUnixSockets",
+                    "allowAllUnixSockets",
                 }
                 if unsupported:
                     names = ", ".join(sorted(str(key) for key in unsupported))
@@ -245,6 +271,15 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             merged_sandbox_value(merged, "networkDisabled", False),
             "sandbox network mode",
         )
+        allow_all_unix_sockets = sandbox_boolean(
+            merged_sandbox_value(merged, "allowAllUnixSockets", False),
+            "sandbox.network.allowAllUnixSockets",
+        )
+        allowed_unix_socket_values = tuple(dict.fromkeys(allowed_unix_sockets))
+        if len(allowed_unix_socket_values) > MAX_SANDBOX_UNIX_SOCKETS:
+            raise ValueError(
+                f"sandbox.network.allowUnixSockets exceeds {MAX_SANDBOX_UNIX_SOCKETS} entries."
+            )
         allowed_entries = domain_values["allowedDomains"]
         if managed_domains_only:
             allowed_entries = [entry for entry in allowed_entries if entry[2]]
@@ -354,6 +389,8 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             raise ValueError("sandbox.excludedCommands requires explicit project configuration trust.")
         bwrap_path = shutil.which("bwrap") if os.name == "posix" else None
         available = bool(enabled and bwrap_path and _probe_bwrap(bwrap_path))
+        socket_filter_available = bool(available and unix_socket_filter_available())
+        socket_filter_active = socket_filter_available and not allow_all_unix_sockets
         network_available = bool(
             available and network_disabled and bwrap_path and _probe_bwrap(bwrap_path, unshare_network=True)
         )
@@ -363,6 +400,10 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             auto_allow_bash_if_sandboxed=auto_allow_bash_if_sandboxed,
             allow_unsandboxed_commands=allow_unsandboxed_commands,
             network_disabled=network_disabled,
+            allow_all_unix_sockets=allow_all_unix_sockets,
+            allowed_unix_sockets=allowed_unix_socket_values,
+            unix_socket_filter_available=socket_filter_available,
+            unix_socket_filter_active=socket_filter_active,
             allowed_domains=allowed_domains,
             denied_domains=denied_domains,
             permission_allowed_domains=permission_allowed_domains,
@@ -399,6 +440,12 @@ def format_workspace_sandbox_for_prompt(workspace: RunWorkspace) -> str:
     else:
         network = "host network available"
     availability = "Bubblewrap available" if config.available else "Bubblewrap unavailable"
+    if config.unix_socket_filter_active:
+        unix_sockets = "Unix domain sockets blocked"
+    elif config.allow_all_unix_sockets:
+        unix_sockets = "Unix domain sockets allowed by trusted policy"
+    else:
+        unix_sockets = "Unix domain socket filtering unavailable"
     escape = (
         "A sandbox-incompatible command may request dangerouslyDisableSandbox, "
         "which requires normal permission approval. "
@@ -406,7 +453,7 @@ def format_workspace_sandbox_for_prompt(workspace: RunWorkspace) -> str:
         else "dangerouslyDisableSandbox is disabled and will be ignored. "
     )
     return (
-        f"Command sandbox enabled ({availability}; {network}; "
+        f"Command sandbox enabled ({availability}; {network}; {unix_sockets}; "
         f"failIfUnavailable={'true' if config.fail_if_unavailable else 'false'}; "
         f"autoAllowBashIfSandboxed={'true' if config.auto_allow_bash_if_sandboxed else 'false'}). "
         f"{escape}"

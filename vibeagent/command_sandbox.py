@@ -9,6 +9,7 @@ import uuid
 from .command_safety import get_blocked_command_reason
 from .plugin_environment import plugin_command_environment
 from .sandbox_read_mounts import append_sandbox_read_mounts
+from .sandbox_seccomp_filter import SECCOMP_FD_TOKEN
 from .types import RunCommandAction, RunCommandsAction, StartCommandAction
 from .workspace_core import RunWorkspace
 from .workspace_permissions import wildcard_matches
@@ -181,6 +182,11 @@ def prepare_command_launch(
         workspace.root.as_posix(),
         workspace.root.as_posix(),
     ]
+    relay_uses_unix_socket = bool(
+        config.network_disabled and config.network_available and config.allowed_domains
+    )
+    if config.unix_socket_filter_active and not relay_uses_unix_socket:
+        sandbox_argv[2:2] = ["--seccomp", SECCOMP_FD_TOKEN]
     mounted_roots = (workspace.root, *workspace.additional_roots)
     if not any(
         workspace.session_dir == root or workspace.session_dir.is_relative_to(root)
@@ -209,6 +215,15 @@ def prepare_command_launch(
         proxy_source_token = f"__VIBEAGENT_PROXY_SOURCE_{uuid.uuid4().hex}__"
         proxy_mount = "/run/vibeagent-network-proxy"
         sandbox_argv.extend(("--bind", proxy_source_token, proxy_mount))
+        if config.unix_socket_filter_active:
+            command_argv = (
+                sys.executable,
+                "-m",
+                "vibeagent.sandbox_seccomp_launcher",
+                "--install",
+                "--",
+                *command_argv,
+            )
         command_argv = (
             sys.executable,
             "-m",
@@ -221,6 +236,14 @@ def prepare_command_launch(
     sandbox_argv.extend(
         ("--setenv", "VIBEAGENT_SANDBOX", "1", "--chdir", cwd.as_posix(), *command_argv)
     )
+    if config.unix_socket_filter_active and not relay_uses_unix_socket:
+        sandbox_argv = [
+            sys.executable,
+            "-m",
+            "vibeagent.sandbox_seccomp_launcher",
+            "--",
+            *sandbox_argv,
+        ]
     if network_isolated and config.allowed_domains:
         policy_json = json.dumps(
             {

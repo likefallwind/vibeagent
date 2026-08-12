@@ -2592,6 +2592,8 @@ disabled by default and can be enabled globally through the `sandbox` object in
     "network": {
       "allowedDomains": ["github.com", "*.npmjs.org"],
       "deniedDomains": ["uploads.github.com"],
+      "allowUnixSockets": ["~/.ssh/agent.sock"],
+      "allowAllUnixSockets": false,
       "strictAllowlist": true
     }
   }
@@ -2607,6 +2609,16 @@ network namespace. Standard `HTTP_PROXY`/`HTTPS_PROXY` variables route clients
 through the proxy; subprocesses that ignore them remain unable to reach the
 host network. The same launcher applies to finite checks, command batches,
 hooks, and background processes without requiring another relay package.
+On supported Linux and WSL2 hosts, a built-in seccomp filter blocks Unix domain
+socket creation for sandboxed commands by default. This prevents direct access
+to host services such as Docker and SSH-agent sockets mounted under otherwise
+readable paths. `allowUnixSockets` is accepted and shown in sandbox status for
+Claude configuration compatibility, but Linux seccomp cannot inspect socket
+paths, so those entries do not create path exceptions. A trusted
+`allowAllUnixSockets: true` setting disables the filter for commands that need
+Unix sockets. Project configuration cannot enable that escape without explicit
+project trust. The strict domain proxy installs the filter on the user command
+and its descendants while retaining its private internal relay socket.
 
 External `allowWrite` paths, `excludedCommands`, filesystem `allowRead`, and network `allowedDomains`
 from user settings are trusted user choices. The same settings from project

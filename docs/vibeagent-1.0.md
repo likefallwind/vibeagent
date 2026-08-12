@@ -59,6 +59,15 @@ allowlist, while the managed-only lock filters them by source and sandbox
 denies remain authoritative. This claim does not include dynamic first-domain
 prompts, TLS termination, or credential masking.
 
+`VA1-SAFETY` blocks Unix domain socket creation for sandboxed commands with a
+built-in seccomp filter on supported Linux and WSL2 hosts. The filter covers
+finite, batched, background, hook, and delegated command paths. Claude-compatible
+`allowUnixSockets` entries are reported but cannot create path exceptions on
+Linux; only trusted `allowAllUnixSockets: true` disables the filter. The domain
+proxy retains its private relay while installing the filter on the user command
+and descendants. Focused and real Bubblewrap tests cover blocked and explicit
+trusted-allow execution.
+
 `VA1-SAFETY` includes specificity-ordered Bubblewrap read rules: trusted
 `allowRead` paths can reopen a narrower path inside a broader `denyRead`, while
 more-specific and exact-tie denies remain authoritative. Endpoint-managed

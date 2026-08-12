@@ -27,6 +27,10 @@ def get_sandbox_report(root: str | Path = ".") -> dict[str, object]:
             "allowedDomains": list(config.allowed_domains),
             "webFetchAllowedDomains": list(config.permission_allowed_domains),
             "deniedDomains": list(config.denied_domains),
+            "allowUnixSockets": list(config.allowed_unix_sockets),
+            "allowAllUnixSockets": config.allow_all_unix_sockets,
+            "unixSocketFilterAvailable": config.unix_socket_filter_available,
+            "unixSocketFilterActive": config.unix_socket_filter_active,
             "allowManagedDomainsOnly": config.managed_domains_only,
             "strictAllowlist": config.network_disabled,
         },
@@ -115,7 +119,24 @@ def format_sandbox_report_text(report: dict[str, object]) -> str:
             "  allowManagedDomainsOnly: "
             f"{'yes' if network.get('allowManagedDomainsOnly') else 'no'}"
         )
-        for field in ("allowedDomains", "webFetchAllowedDomains", "deniedDomains"):
+        lines.append(
+            "  allowAllUnixSockets: "
+            f"{'yes' if network.get('allowAllUnixSockets') else 'no'}"
+        )
+        lines.append(
+            "  unixSocketFilterAvailable: "
+            f"{'yes' if network.get('unixSocketFilterAvailable') else 'no'}"
+        )
+        lines.append(
+            "  unixSocketFilterActive: "
+            f"{'yes' if network.get('unixSocketFilterActive') else 'no'}"
+        )
+        for field in (
+            "allowedDomains",
+            "webFetchAllowedDomains",
+            "deniedDomains",
+            "allowUnixSockets",
+        ):
             values = network.get(field)
             if isinstance(values, list) and values:
                 lines.append(f"  {field}:")

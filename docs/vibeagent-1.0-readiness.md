@@ -540,6 +540,14 @@ The automated suite currently covers these 1.0 surfaces:
   policy filters those rules by source. Local HTTP, CONNECT, denied-host, and
   real Bubblewrap tests cover the execution path. Dynamic first-domain prompts,
   TLS termination, and credential masking remain outside this claim.
+- Unix socket isolation: a built-in seccomp filter blocks Unix domain socket
+  creation for sandboxed commands on supported Linux and WSL2 hosts. Trusted
+  `allowAllUnixSockets: true` disables the filter; untrusted project settings
+  cannot enable that escape. `allowUnixSockets` remains visible for compatible
+  configuration but cannot provide path exceptions on Linux. The strict domain
+  proxy retains its internal relay and filters the user command and descendants.
+  Focused configuration and real Bubblewrap blocked/allowed tests cover the
+  execution path.
 - Sandbox read and credential deny policy: specificity-ordered `allowRead` and
   `denyRead` mounts support narrow read exceptions while exact ties resolve to
   deny. Endpoint-managed `allowManagedReadPathsOnly` filters non-managed

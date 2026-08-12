@@ -67,6 +67,12 @@ def reject_untrusted_sandbox_weakening(
             "Enabling user sandbox.allowUnsandboxedCommands requires explicit "
             "project configuration trust."
         )
+    unix_sockets = merged.get("allowAllUnixSockets")
+    if unix_sockets == (True, False):
+        raise ValueError(
+            "Enabling sandbox.network.allowAllUnixSockets from project configuration "
+            "requires explicit project configuration trust."
+        )
 
 
 def deduplicate_scoped_values(values: ScopedValues) -> ScopedValues:

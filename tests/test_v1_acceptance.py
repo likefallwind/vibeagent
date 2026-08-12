@@ -452,6 +452,14 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("Bash(dangerouslyDisableSandbox:true)", readme)
         self.assertIn("never sandbox-auto-approved", readme)
 
+    def test_readme_documents_unix_socket_isolation(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("seccomp filter blocks Unix domain", readme)
+        self.assertIn("`allowUnixSockets` is accepted", readme)
+        self.assertIn("`allowAllUnixSockets: true`", readme)
+        self.assertIn("cannot enable that escape without explicit", readme)
+
     def test_readme_documents_permission_backed_sandbox_paths(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
