@@ -32,6 +32,8 @@ class RunWorkspace:
     autocompact_tokens: int | None = None
     append_subagent_system_prompt: str | None = None
     safe_mode: bool = False
+    setting_sources: tuple[str, ...] = ("user", "project", "local")
+    settings_override_json: str | None = None
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,8 @@ def create_run_workspace(
     strict_mcp_config: bool = False,
     additional_roots: tuple[Path, ...] = (),
     safe_mode: bool = False,
+    setting_sources: tuple[str, ...] = ("user", "project", "local"),
+    settings_override_json: str | None = None,
 ) -> RunWorkspace:
     # Project mode: work in the caller's directory and store task logs under .vibeagent/sessions/.
     base = Path(base_dir) if base_dir is not None else Path.cwd()
@@ -101,6 +105,8 @@ def create_run_workspace(
         strict_mcp_config=strict_mcp_config,
         additional_roots=normalize_additional_roots(project_root, additional_roots),
         safe_mode=safe_mode,
+        setting_sources=setting_sources,
+        settings_override_json=settings_override_json,
     )
 
 
@@ -111,6 +117,8 @@ def create_local_workspace(
     strict_mcp_config: bool = False,
     additional_roots: tuple[Path, ...] = (),
     safe_mode: bool = False,
+    setting_sources: tuple[str, ...] = ("user", "project", "local"),
+    settings_override_json: str | None = None,
 ) -> RunWorkspace:
     from .project_trust import is_project_permissions_trusted
 
@@ -124,6 +132,8 @@ def create_local_workspace(
         strict_mcp_config=strict_mcp_config,
         additional_roots=normalize_additional_roots(project_root, additional_roots),
         safe_mode=safe_mode,
+        setting_sources=setting_sources,
+        settings_override_json=settings_override_json,
     )
 
 

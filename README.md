@@ -400,6 +400,7 @@ printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent -p 
 printf '{"prompt":"inspect the change"}\n' | python -m vibeagent --input-format json -
 python -m vibeagent --append-system-prompt "Prefer focused tests before broad suites." "inspect the change"
 python -m vibeagent --safe-mode --cwd ../my-project "diagnose startup without project customizations"
+python -m vibeagent --settings ./review-settings.json --setting-sources user,project "inspect the change"
 python -m vibeagent --system-prompt-file ./prompts/reviewer.txt "inspect the change"
 python -m vibeagent --append-system-prompt "Be concise." --append-system-prompt-file ./prompts/project-rules.txt
 python -m vibeagent -p --append-subagent-system-prompt "Cite exact file paths." "delegate the investigation"
@@ -424,6 +425,15 @@ tools, explicit invocation prompts, permissions, and sandbox enforcement.
 Custom agent and MCP CLI flags, plus Setup-hook modes, are rejected when the
 flag is active. The setting propagates through resume, fork, background, goal,
 and subagent execution.
+
+`--settings JSON_OR_PATH` applies one bounded invocation-only settings object
+after the selected files. `--setting-sources user,project,local` selects which
+Claude-compatible settings files participate; an empty value disables all file
+sources. The same immutable snapshot reaches provider environment setup,
+permissions, hooks, sandboxing, agents, plugins, resumed and forked sessions,
+subagents, and background continuation. Inline content is never written to
+normal settings files or session events; interactive background handoff stores
+it in a private mode-`0600` session file.
 
 `--background` / `--bg` detaches one persistent, one-shot coding session and
 returns a project-local agent ID immediately. Management commands and the

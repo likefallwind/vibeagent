@@ -64,6 +64,8 @@ def run_one_shot_code(
     resolved_mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
     safe_mode: bool = False,
+    setting_sources: tuple[str, ...] = ("user", "project", "local"),
+    settings_override_json: str | None = None,
     output_mode: CliOutputMode,
     output_json: bool,
     print_mode: bool,
@@ -174,6 +176,8 @@ def run_one_shot_code(
                 strict_mcp_config=strict_mcp_config,
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
             )
             if prior_context.source == "resume"
             and prior_context.run_id is not None
@@ -188,6 +192,8 @@ def run_one_shot_code(
         strict_mcp_config=strict_mcp_config,
         additional_roots=additional_directories,
         safe_mode=safe_mode,
+        setting_sources=setting_sources,
+        settings_override_json=settings_override_json,
         force_workspace=fork_session or session_name is not None or ephemeral_workspace is not None,
         workspace=resumed_workspace,
         forward_subagent_text=forward_subagent_text,
@@ -211,6 +217,8 @@ def run_one_shot_code(
         mcp_config_paths=resolved_mcp_config_paths,
         strict_mcp_config=strict_mcp_config,
         safe_mode=safe_mode,
+        setting_sources=setting_sources,
+        settings_override_json=settings_override_json,
         machine_output=output_mode.machine,
         stream_json=output_mode.stream_json,
         print_mode=print_mode,
@@ -250,7 +258,13 @@ def run_one_shot_code(
             )
         if prior_messages:
             run_kwargs["prior_messages"] = prior_messages
-        source_workspace = create_local_workspace(project_root, prior_context.run_id, safe_mode=safe_mode)
+        source_workspace = create_local_workspace(
+            project_root,
+            prior_context.run_id,
+            safe_mode=safe_mode,
+            setting_sources=setting_sources,
+            settings_override_json=settings_override_json,
+        )
         if continuing_source_session or ephemeral_workspace is not None:
             deferred_state = read_deferred_tool_state(source_workspace)
             if deferred_state is not None:
@@ -270,6 +284,8 @@ def run_one_shot_code(
             result.run_id,
             additional_roots=additional_directories,
             safe_mode=safe_mode,
+            setting_sources=setting_sources,
+            settings_override_json=settings_override_json,
         )
 
     def end_session() -> None:

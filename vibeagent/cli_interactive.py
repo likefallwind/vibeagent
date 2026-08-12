@@ -150,6 +150,8 @@ def run_interactive_loop(
     initial_model: str | None = None,
     initial_approval: ApprovalPolicy = "ask",
     initial_safe_mode: bool = False,
+    initial_setting_sources: tuple[str, ...] = ("user", "project", "local"),
+    initial_settings_override_json: str | None = None,
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print(f"VibeAgent {__version__}")
@@ -165,12 +167,16 @@ def run_interactive_loop(
     mode = "code"
     approval_policy: ApprovalPolicy = initial_approval
     safe_mode = initial_safe_mode
+    setting_sources = initial_setting_sources
+    settings_override_json = initial_settings_override_json
     approval_handler = build_approval_handler(approval_policy)
     project_runtime = InteractiveProjectRuntime(
         Path.cwd(),
         approval_policy,
         initial_session_id=initial_resume_run_id,
         safe_mode=safe_mode,
+        setting_sources=setting_sources,
+        settings_override_json=settings_override_json,
     )
     chat_history: list[ChatMessage] = []
     conversation_messages: list[ChatMessage] = list(initial_conversation_messages)
@@ -211,6 +217,8 @@ def run_interactive_loop(
             resume_run_id or "pending-directory-hooks",
             additional_roots=additional_directories,
             safe_mode=safe_mode,
+            setting_sources=setting_sources,
+            settings_override_json=settings_override_json,
         )
         if safe_mode:
             turn_append_system_prompt, directory_hook_errors = append_system_prompt, ()
@@ -221,7 +229,14 @@ def run_interactive_loop(
             )
         for error in directory_hook_errors:
             print(f"DirectoryAdded hook warning: {error}")
-        client = client or create_interactive_client(interactive_provider_env(Path.cwd(), model_override))
+        client = client or create_interactive_client(
+            interactive_provider_env(
+                Path.cwd(),
+                model_override,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
+            )
+        )
         panel = SubagentPanel(Path.cwd(), safe_mode=safe_mode)
         panel.authorize_custom(approval_handler, approval_policy)
         initial_panel_error = panel.config_error
@@ -278,6 +293,8 @@ def run_interactive_loop(
                     additional_directories=additional_directories,
                     autocompact_tokens=initial_autocompact_tokens,
                     safe_mode=safe_mode,
+                    setting_sources=setting_sources,
+                    settings_override_json=settings_override_json,
                     **(
                         {"model_stream_handler": stream_renderer.agent_event}
                         if stream_renderer is not None
@@ -318,6 +335,8 @@ def run_interactive_loop(
             result.run_id,
             additional_roots=additional_directories,
             safe_mode=safe_mode,
+            setting_sources=setting_sources,
+            settings_override_json=settings_override_json,
         )
         project_runtime.register_session(result.run_id)
         pending_branch_source_run_id = None
@@ -365,7 +384,12 @@ def run_interactive_loop(
         recap = attempt_automatic_session_recap(
             recap_states[selected_mode],
             history=history,
-            provider_env=interactive_provider_env(Path.cwd(), model_override),
+            provider_env=interactive_provider_env(
+                Path.cwd(),
+                model_override,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
+            ),
             create_chat_client=create_interactive_client,
             run_recap=run_recap_func,
             execution_config=resolve_execution_config(Path.cwd()),
@@ -418,6 +442,8 @@ def run_interactive_loop(
                 resume_run_id,
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
             )
             async_hook_notifications = (
                 []
@@ -455,6 +481,8 @@ def run_interactive_loop(
                 resume_run_id,
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
             )
             due = collect_due_scheduled_tasks(workspace)
             if due:
@@ -494,9 +522,17 @@ def run_interactive_loop(
                 resume_run_id,
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
             )
             if resume_run_id is not None
-            else create_run_workspace(Path.cwd(), additional_roots=additional_directories, safe_mode=safe_mode)
+            else create_run_workspace(
+                Path.cwd(),
+                additional_roots=additional_directories,
+                safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
+            )
         )
         if initial_dynamic_agent_profiles:
             workspace = replace(
@@ -512,7 +548,14 @@ def run_interactive_loop(
         def execute_agent(request, cancel_requested):
             nonlocal client
             with workflow_client_lock:
-                client = client or create_interactive_client(interactive_provider_env(Path.cwd(), model_override))
+                client = client or create_interactive_client(
+                    interactive_provider_env(
+                        Path.cwd(),
+                        model_override,
+                        setting_sources=setting_sources,
+                        settings_override_json=settings_override_json,
+                    )
+                )
             return execute_workflow_agent_request(
                 workspace,
                 request,
@@ -663,6 +706,8 @@ def run_interactive_loop(
                 append_system_prompt=append_system_prompt,
                 additional_directories=additional_directories,
                 safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
                 attached_agent_id=initial_attached_background_agent_id,
             )
         if command and command.type in {"model", "effort", "btw", "recap"}:
@@ -680,6 +725,8 @@ def run_interactive_loop(
                 history=conversation_messages if mode == "code" else chat_history,
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
             )
             if update.model_changed or update.effort_changed:
                 with workflow_client_lock:
@@ -864,6 +911,8 @@ def run_interactive_loop(
                         resume_run_id,
                         additional_roots=additional_directories,
                         safe_mode=safe_mode,
+                        setting_sources=setting_sources,
+                        settings_override_json=settings_override_json,
                     )
                 project_runtime.close_workflow()
                 try:
@@ -886,6 +935,8 @@ def run_interactive_loop(
                                 Path.cwd(),
                                 additional_roots=additional_directories,
                                 safe_mode=safe_mode,
+                                setting_sources=setting_sources,
+                                settings_override_json=settings_override_json,
                             )
                         hooks = read_project_hooks(pending_workspace)
                         permissions = read_project_permissions(pending_workspace)
@@ -922,6 +973,8 @@ def run_interactive_loop(
                     target,
                     additional_roots=target_additional_directories,
                     safe_mode=safe_mode,
+                    setting_sources=setting_sources,
+                    settings_override_json=settings_override_json,
                 )
             except (OSError, ValueError) as error:
                 print(f"Cannot change project directory: {format_error(error)}")
@@ -939,6 +992,8 @@ def run_interactive_loop(
                     approval_policy,
                     initial_session_id=source_run_id,
                     safe_mode=safe_mode,
+                    setting_sources=setting_sources,
+                    settings_override_json=settings_override_json,
                 )
                 continue
 
@@ -953,6 +1008,8 @@ def run_interactive_loop(
                 approval_policy,
                 initial_session_id=target_workspace.run_id,
                 safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
             )
             file_changed_runtime = None
             config_change_runtime = None
@@ -1062,6 +1119,8 @@ def run_interactive_loop(
                     selected,
                     additional_roots=next_additional_directories,
                     safe_mode=safe_mode,
+                    setting_sources=setting_sources,
+                    settings_override_json=settings_override_json,
                 )
                 if command.type == "resume" and selected is not None
                 else None
@@ -1089,7 +1148,12 @@ def run_interactive_loop(
                 continue
             project_runtime.close_workflow()
             run_active_session_hook("session_end", "resume")
-            pending_workspace = replace(branch.workspace, safe_mode=safe_mode)
+            pending_workspace = replace(
+                branch.workspace,
+                safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
+            )
             pending_branch_source_run_id = branch.source_run_id
             resume_run_id = branch.workspace.run_id
             resume_context = branch.context
@@ -1128,7 +1192,14 @@ def run_interactive_loop(
         try:
             # Reuse client across turns so auth/model config is loaded once.
             execution_config = resolve_execution_config(Path.cwd())
-            client = client or create_interactive_client(interactive_provider_env(Path.cwd(), model_override))
+            client = client or create_interactive_client(
+                interactive_provider_env(
+                    Path.cwd(),
+                    model_override,
+                    setting_sources=setting_sources,
+                    settings_override_json=settings_override_json,
+                )
+            )
             if request_mode == "chat":
                 with terminal_model_stream_scope(client) as stream_renderer:
                     response = run_chat_func(

@@ -40,7 +40,17 @@ def run_interactive_provider_command(
     history: list[ChatMessage],
     system_prompt: str | None,
     append_system_prompt: str | None,
+    setting_sources: tuple[str, ...] = ("user", "project", "local"),
+    settings_override_json: str | None = None,
 ) -> InteractiveProviderCommandResult:
+    def provider_env() -> dict[str, str | None]:
+        return interactive_provider_env(
+            project_root,
+            current_override,
+            setting_sources=setting_sources,
+            settings_override_json=settings_override_json,
+        )
+
     def create_session_client(provider_env: dict[str, str | None]) -> object:
         return configure_interactive_effort(
             create_chat_client(provider_env),  # type: ignore[arg-type]
@@ -57,6 +67,8 @@ def run_interactive_provider_command(
             current_client=current_client,
             effort_locked=effort_locked,
             create_chat_client=create_chat_client,
+            setting_sources=setting_sources,
+            settings_override_json=settings_override_json,
         )
     if command_type == "effort":
         return run_interactive_effort_command(
@@ -64,14 +76,14 @@ def run_interactive_provider_command(
             current_override=current_effort,
             current_client=current_client,
             locked=effort_locked,
-            provider_env=interactive_provider_env(project_root, current_override),
+            provider_env=provider_env(),
             create_chat_client=create_chat_client,
         )
     if command_type == "recap":
         return run_interactive_recap_command(
             argument,
             current_client=current_client,
-            provider_env=interactive_provider_env(project_root, current_override),
+            provider_env=provider_env(),
             create_chat_client=create_session_client,
             run_recap=run_recap,
             history=history,
@@ -82,7 +94,7 @@ def run_interactive_provider_command(
     return run_interactive_btw_command(
         argument,
         current_client=current_client,
-        provider_env=interactive_provider_env(project_root, current_override),
+        provider_env=provider_env(),
         create_chat_client=create_session_client,
         run_btw=run_btw,
         history=history,
@@ -146,12 +158,16 @@ def run_interactive_model_command(
     current_client: object | None,
     effort_locked: bool = False,
     create_chat_client: Callable[[dict[str, str | None]], object],
+    setting_sources: tuple[str, ...] = ("user", "project", "local"),
+    settings_override_json: str | None = None,
 ) -> InteractiveProviderCommandResult:
     try:
         selection = resolve_interactive_model_selection(
             project_root,
             argument,
             current_override,
+            setting_sources=setting_sources,
+            settings_override_json=settings_override_json,
         )
         client = current_client
         if selection.changed:

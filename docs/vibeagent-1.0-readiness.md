@@ -468,6 +468,11 @@ The automated suite currently covers these 1.0 surfaces:
   Claude-compatible `--safe-mode` diagnostic boundary that suppresses custom
   instructions, agents, skills, commands, plugins, hooks, MCP, LSP, workflows,
   status-line customization, and auto-memory without weakening permissions.
+- Invocation settings: Claude-compatible `--settings` accepts a bounded inline
+  JSON object or file, while `--setting-sources` selects user, project, and local
+  files. One immutable override reaches provider environment, permissions,
+  hooks, sandbox, agents, plugins, resume, fork, background, and subagents
+  without recording setting contents in session events.
 - Recoverable command output: truncated finite Bash and PowerShell streams are
   retained as private current-session artifacts with exact `read_file`
   references and total byte counts. Invalid references, cross-session paths,

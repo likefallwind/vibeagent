@@ -107,6 +107,16 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Disable custom instructions, skills, agents, plugins, hooks, MCP, LSP, workflows, and auto-memory.",
     )
     parser.add_argument(
+        "--settings",
+        metavar="JSON_OR_PATH",
+        help="Load invocation settings from an inline JSON object or JSON file.",
+    )
+    parser.add_argument(
+        "--setting-sources",
+        metavar="SOURCES",
+        help="Comma-separated settings sources: user, project, local.",
+    )
+    parser.add_argument(
         "--maintenance",
         action="store_true",
         help="Run Setup hooks with the maintenance matcher before a print-mode task.",

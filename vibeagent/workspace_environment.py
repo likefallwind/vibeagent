@@ -9,8 +9,11 @@ from typing import Mapping
 
 from .ide_context import strip_ide_context_environment
 from .workspace_core import RunWorkspace, create_local_workspace
-from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
-from .workspace_settings_sources import claude_settings_files
+from .workspace_settings_sources import (
+    claude_settings_files,
+    read_settings_payload,
+    settings_file_exists,
+)
 
 
 MAX_SETTINGS_BYTES = 128_000
@@ -33,9 +36,9 @@ def read_workspace_environment(workspace: RunWorkspace) -> WorkspaceEnvironment:
         for config in claude_settings_files(workspace):
             if not config.trusted and not workspace.project_config_trusted:
                 continue
-            if not config.path.exists():
+            if not settings_file_exists(config):
                 continue
-            payload = _read_settings(config.boundary, config.path, config.source)
+            payload = read_settings_payload(config, max_bytes=MAX_SETTINGS_BYTES)
             environment = payload.get("env")
             if environment is None:
                 continue
@@ -67,21 +70,18 @@ def workspace_process_environment_from_root(
     *,
     trust_project_settings: bool = False,
     host_environment: Mapping[str, str] | None = None,
+    setting_sources: tuple[str, ...] = ("user", "project", "local"),
+    settings_override_json: str | None = None,
 ) -> dict[str, str]:
-    workspace = create_local_workspace(root, "local-settings-environment")
+    workspace = create_local_workspace(
+        root,
+        "local-settings-environment",
+        setting_sources=setting_sources,
+        settings_override_json=settings_override_json,
+    )
     if trust_project_settings and not workspace.project_config_trusted:
         workspace = replace(workspace, project_config_trusted=True)
     return workspace_process_environment(workspace, host_environment)
-
-
-def _read_settings(boundary: Path, path: Path, source: str) -> dict[str, object]:
-    if has_symlink_component(boundary, path):
-        raise ValueError(f"{source} contains a symbolic link.")
-    raw = read_regular_file_bytes(path, max_bytes=MAX_SETTINGS_BYTES, label=source)
-    payload = json.loads(raw.decode("utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"{source} must contain a JSON object.")
-    return payload
 
 
 def _parse_environment(value: object, source: str) -> dict[str, str]:

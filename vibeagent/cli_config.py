@@ -6,6 +6,7 @@ from pathlib import Path
 from .config import load_project_config_env, project_config_path, read_project_config, save_project_config
 from .providers import get_provider_name
 from .workspace_environment import workspace_process_environment_from_root
+from .invocation_settings import parse_invocation_settings, parse_setting_sources
 
 
 def resolve_project_root(value: str | None) -> Path | None:
@@ -24,9 +25,16 @@ def build_provider_env(
     trust_project_settings: bool = False,
 ) -> dict[str, str | None]:
     config_root = project_root or Path.cwd()
+    setting_sources = parse_setting_sources(getattr(args, "setting_sources", None))
+    settings_override_json = parse_invocation_settings(
+        getattr(args, "settings", None),
+        invocation_root=Path.cwd(),
+    )
     env: dict[str, str | None] = workspace_process_environment_from_root(
         config_root,
         trust_project_settings=trust_project_settings,
+        setting_sources=setting_sources,
+        settings_override_json=settings_override_json,
     )
     for key, value in load_project_config_env(config_root).items():
         if not env.get(key):

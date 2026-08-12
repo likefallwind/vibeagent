@@ -19,7 +19,12 @@ from .workspace_core import RunWorkspace
 from .workspace_hook_handlers import parse_hook_handler
 from .workspace_hook_types import HOOK_EVENTS, HookEvent, ProjectHook, ProjectHooks
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
-from .workspace_settings_sources import claude_settings_files, project_config_file
+from .workspace_settings_sources import (
+    claude_settings_files,
+    project_config_file,
+    read_settings_payload,
+    settings_file_exists,
+)
 
 
 HOOK_CONFIG_PATH = ".vibeagent/hooks.json"
@@ -39,10 +44,10 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
             project_config_file(workspace, HOOK_CONFIG_PATH),
         )
         for config in configs:
-            if not config.path.exists():
+            if not settings_file_exists(config):
                 continue
             sources.append(config.source)
-            payload = _read_hook_config(config.boundary, config.path, config.source)
+            payload = read_settings_payload(config, max_bytes=MAX_HOOK_CONFIG_BYTES)
             hook_payload = (
                 payload.get("hooks")
                 if config.source != HOOK_CONFIG_PATH

@@ -119,11 +119,19 @@ def effective_plugin_enabled(
             for scope in ("user", "project", "local")
         ]
     else:
-        from .workspace_settings_sources import claude_settings_files
+        from .workspace_settings_sources import (
+            claude_settings_files,
+            read_settings_payload,
+            settings_file_exists,
+        )
 
         payloads = [
-            (_decode_settings_path(config.boundary, config.path, config.source), config.source)
+            (
+                read_settings_payload(config, max_bytes=MAX_PLUGIN_SCOPE_SETTINGS_BYTES),
+                config.source,
+            )
             for config in claude_settings_files(workspace)
+            if settings_file_exists(config)
         ]
     for payload, scope in payloads:
         configured = payload.get("enabledPlugins", {})

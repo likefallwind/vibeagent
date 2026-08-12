@@ -82,6 +82,8 @@ def prepare_agent_run(
     mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
     safe_mode: bool = False,
+    setting_sources: tuple[str, ...] = ("user", "project", "local"),
+    settings_override_json: str | None = None,
     system_prompt: str | None,
     append_system_prompt: str | None,
     append_subagent_system_prompt: str | None = None,
@@ -97,6 +99,8 @@ def prepare_agent_run(
         mcp_config_paths,
         strict_mcp_config,
         safe_mode,
+        setting_sources,
+        settings_override_json,
         trust_project_permissions,
         additional_directories,
         dynamic_agent_profiles,
@@ -201,6 +205,18 @@ def prepare_agent_run(
                     "agents", "auto_memory", "commands", "hooks", "instructions",
                     "lsp", "mcp", "plugins", "skills", "status_line", "workflows",
                 ],
+            },
+        )
+    if (
+        current_workspace.setting_sources != ("user", "project", "local")
+        or current_workspace.settings_override_json is not None
+    ):
+        append_session_event(
+            current_workspace.session_dir,
+            "invocation_settings_loaded",
+            {
+                "sources": list(current_workspace.setting_sources),
+                "override": current_workspace.settings_override_json is not None,
             },
         )
     _append_task_event(
@@ -342,6 +358,8 @@ def _prepare_workspace(
     mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
     safe_mode: bool,
+    setting_sources: tuple[str, ...],
+    settings_override_json: str | None,
     trust_project_permissions: bool,
     additional_directories: tuple[Path, ...],
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...],
@@ -354,6 +372,8 @@ def _prepare_workspace(
         strict_mcp_config=strict_mcp_config,
         additional_roots=additional_directories,
         safe_mode=safe_mode,
+        setting_sources=setting_sources,
+        settings_override_json=settings_override_json,
     )
     if workspace is not None and additional_directories:
         merged_roots = normalize_additional_roots(
@@ -368,6 +388,10 @@ def _prepare_workspace(
         current_workspace = replace(current_workspace, strict_mcp_config=strict_mcp_config)
     if workspace is not None and safe_mode != current_workspace.safe_mode:
         current_workspace = replace(current_workspace, safe_mode=safe_mode)
+    if workspace is not None and setting_sources != current_workspace.setting_sources:
+        current_workspace = replace(current_workspace, setting_sources=setting_sources)
+    if workspace is not None and settings_override_json != current_workspace.settings_override_json:
+        current_workspace = replace(current_workspace, settings_override_json=settings_override_json)
     if safe_mode:
         current_workspace = replace(
             current_workspace,

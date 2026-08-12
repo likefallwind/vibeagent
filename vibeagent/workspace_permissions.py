@@ -11,8 +11,12 @@ from .action_tool_aliases import tool_name_candidates
 from .redaction import redact_sensitive_text
 from .tool_catalog_core import tool_category
 from .workspace_core import RunWorkspace
-from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
-from .workspace_settings_sources import claude_settings_files, project_config_file
+from .workspace_settings_sources import (
+    claude_settings_files,
+    project_config_file,
+    read_settings_payload,
+    settings_file_exists,
+)
 
 
 PermissionEffect = Literal["deny", "ask", "allow"]
@@ -90,9 +94,9 @@ def read_project_permissions(workspace: RunWorkspace) -> ProjectPermissions:
             project_config_file(workspace, PERMISSION_CONFIG_PATH),
         )
         for config in configs:
-            if not config.path.exists():
+            if not settings_file_exists(config):
                 continue
-            payload = _read_permission_config(config.boundary, config.path, config.source)
+            payload = read_settings_payload(config, max_bytes=MAX_PERMISSION_CONFIG_BYTES)
             permission_payload = (
                 payload.get("permissions")
                 if config.source != PERMISSION_CONFIG_PATH
@@ -308,16 +312,6 @@ def permission_subjects(action: object) -> tuple[str, ...]:
     if isinstance(process_id, str):
         return (process_id,)
     return ()
-
-
-def _read_permission_config(root: Path, path: Path, source: str) -> dict[str, object]:
-    if has_symlink_component(root, path):
-        raise ValueError(f"{source} contains a symbolic link.")
-    raw = read_regular_file_bytes(path, max_bytes=MAX_PERMISSION_CONFIG_BYTES, label=source)
-    payload = json.loads(raw.decode("utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"{source} must contain a JSON object.")
-    return payload
 
 
 def _parse_permission_rules(payload: dict[str, object], source: str) -> list[ProjectPermissionRule]:

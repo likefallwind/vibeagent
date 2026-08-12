@@ -9,7 +9,6 @@ from functools import lru_cache
 from pathlib import Path
 
 from .workspace_core import RunWorkspace
-from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 from .workspace_sandbox_values import (
     MergedSandboxValues,
     ScopedValues,
@@ -20,7 +19,12 @@ from .workspace_sandbox_values import (
     resolve_sandbox_paths,
     sandbox_boolean,
 )
-from .workspace_settings_sources import claude_settings_files, project_config_file
+from .workspace_settings_sources import (
+    claude_settings_files,
+    project_config_file,
+    read_settings_payload,
+    settings_file_exists,
+)
 
 
 SANDBOX_CONFIG_PATH = ".vibeagent/sandbox.json"
@@ -66,9 +70,9 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             project_config_file(workspace, SANDBOX_CONFIG_PATH),
         )
         for config in configs:
-            if not config.path.exists():
+            if not settings_file_exists(config):
                 continue
-            payload = _read_config(config.boundary, config.path, config.source)
+            payload = read_settings_payload(config, max_bytes=MAX_SANDBOX_CONFIG_BYTES)
             sandbox = (
                 payload.get("sandbox")
                 if config.source != SANDBOX_CONFIG_PATH
@@ -196,16 +200,6 @@ def format_workspace_sandbox_for_prompt(workspace: RunWorkspace) -> str:
         f"autoAllowBashIfSandboxed={'true' if config.auto_allow_bash_if_sandboxed else 'false'}). "
         "Sandboxed commands can write the project and isolated /tmp only, plus trusted allowWrite paths."
     )
-
-
-def _read_config(root: Path, path: Path, source: str) -> dict[str, object]:
-    if has_symlink_component(root, path):
-        raise ValueError(f"{source} contains a symbolic link.")
-    raw = read_regular_file_bytes(path, max_bytes=MAX_SANDBOX_CONFIG_BYTES, label=source)
-    payload = json.loads(raw.decode("utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"{source} must contain a JSON object.")
-    return payload
 
 
 @lru_cache(maxsize=4)

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .background_agent_runtime import launch_background_agent
+from .background_agent_store import write_private_text_atomic
 from .background_agent_types import BackgroundAgentView
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .session_names import read_session_name
@@ -40,6 +41,8 @@ def create_interactive_background_request(
     append_system_prompt: str | None,
     additional_directories: tuple[Path, ...],
     safe_mode: bool = False,
+    setting_sources: tuple[str, ...] = ("user", "project", "local"),
+    settings_override_json: str | None = None,
     attached_agent_id: str | None = None,
 ) -> InteractiveBackgroundRequest:
     task = prompt.strip() if prompt and prompt.strip() else DEFAULT_BACKGROUND_PROMPT
@@ -57,6 +60,13 @@ def create_interactive_background_request(
         argv.extend(["--add-dir", path.resolve().as_posix()])
     if safe_mode:
         argv.append("--safe-mode")
+    if setting_sources != ("user", "project", "local"):
+        argv.extend(["--setting-sources", ",".join(setting_sources)])
+    if settings_override_json is not None:
+        settings_path = project_root / ".vibeagent" / "sessions" / run_id / "invocation-settings.json"
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        write_private_text_atomic(settings_path, settings_override_json + "\n")
+        argv.extend(["--settings", settings_path.as_posix()])
     argv.extend(["--", task])
     return InteractiveBackgroundRequest(
         project_root=project_root.resolve(),

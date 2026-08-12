@@ -29,6 +29,8 @@ def build_one_shot_agent_kwargs(
     mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
     safe_mode: bool = False,
+    setting_sources: tuple[str, ...] = ("user", "project", "local"),
+    settings_override_json: str | None = None,
     machine_output: bool,
     stream_json: bool,
     print_mode: bool = False,
@@ -76,6 +78,8 @@ def build_one_shot_agent_kwargs(
         "mcp_config_paths": mcp_config_paths,
         "strict_mcp_config": strict_mcp_config,
         "safe_mode": safe_mode,
+        "setting_sources": setting_sources,
+        "settings_override_json": settings_override_json,
         "user_input_handler": (
             BackgroundUserInputPrompt(background_agent_config)
             if background_agent_config is not None

@@ -22,6 +22,7 @@ from .cli_system_prompt_files import resolve_system_prompt_inputs
 from .context_compaction import resolve_autocompact_tokens
 from .dynamic_agent_profiles import parse_dynamic_agent_profiles
 from .model_effort import resolve_model_effort_setting
+from .invocation_settings import parse_invocation_settings, parse_setting_sources
 from .structured_output import parse_structured_output_schema
 
 
@@ -58,6 +59,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         task_input.system_prompt,
     )
     effort = resolve_model_effort_setting(args.effort, os.environ)
+    invocation_root = Path.cwd()
     return {
         "task": task_input.task,
         "request_mode": "chat" if args.chat else "code",
@@ -100,6 +102,11 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "mcp_config_paths": args.mcp_config,
         "strict_mcp_config": args.strict_mcp_config,
         "safe_mode": args.safe_mode,
+        "setting_sources": parse_setting_sources(args.setting_sources),
+        "settings_override_json": parse_invocation_settings(
+            args.settings,
+            invocation_root=invocation_root,
+        ),
         "system_prompt": system_prompt,
         "append_system_prompt": append_system_prompt,
         "append_subagent_system_prompt": (

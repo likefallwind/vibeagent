@@ -36,15 +36,26 @@ def read_plugin_configured_values(
             (root, root / ".claude/settings.json", ".claude/settings.json"),
             (root, root / ".claude/settings.local.json", ".claude/settings.local.json"),
         ]
-    else:
-        from .workspace_settings_sources import claude_settings_files
-
-        settings_locations = [
-            (config.boundary, config.path, config.source)
-            for config in claude_settings_files(workspace)
+        settings_payloads = [
+            (_read_settings_path(settings_root, path, label=label), label)
+            for settings_root, path, label in settings_locations
         ]
-    for settings_root, path, label in settings_locations:
-        payload = _read_settings_path(settings_root, path, label=label)
+    else:
+        from .workspace_settings_sources import (
+            claude_settings_files,
+            read_settings_payload,
+            settings_file_exists,
+        )
+
+        settings_payloads = [
+            (
+                read_settings_payload(config, max_bytes=MAX_PLUGIN_USER_SETTINGS_BYTES),
+                config.source,
+            )
+            for config in claude_settings_files(workspace)
+            if settings_file_exists(config)
+        ]
+    for payload, label in settings_payloads:
         for alias in aliases:
             for key, value in _plugin_options(payload, alias, label).items():
                 configured[key] = value

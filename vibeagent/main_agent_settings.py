@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
-from pathlib import Path
 
 from .plugin_store import enabled_plugin_manifests
 from .workspace_agent_profile_parser import AGENT_REFERENCE_PATTERN
 from .workspace_core import RunWorkspace
-from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
-from .workspace_settings_sources import claude_settings_files
+from .workspace_settings_sources import (
+    claude_settings_files,
+    read_settings_payload,
+    settings_file_exists,
+)
 
 
 MAX_AGENT_SETTINGS_BYTES = 128_000
@@ -37,33 +38,17 @@ def resolve_main_agent_selection(
             source="explicit",
         )
 
-    settings = {item.source: item for item in claude_settings_files(workspace)}
-    for relative in PROJECT_AGENT_SETTINGS_PATHS:
-        config = settings[relative]
-        if not config.path.exists() and not config.path.is_symlink():
+    for config in reversed(claude_settings_files(workspace)):
+        if not settings_file_exists(config):
             continue
-        payload = _read_agent_settings(config.boundary, config.path, relative)
-        if "agent" not in payload:
-            continue
-        return MainAgentSelection(
-            name=_validate_reference(payload["agent"], f"{relative} agent"),
-            source=relative,
-        )
-
-    user_config = settings[USER_AGENT_SETTINGS_PATH]
-    if user_config.path.exists() or user_config.path.is_symlink():
-        payload = _read_agent_settings(
-            user_config.boundary,
-            user_config.path,
-            USER_AGENT_SETTINGS_PATH,
-        )
+        payload = read_settings_payload(config, max_bytes=MAX_AGENT_SETTINGS_BYTES)
         if "agent" in payload:
             return MainAgentSelection(
                 name=_validate_reference(
                     payload["agent"],
-                    f"{USER_AGENT_SETTINGS_PATH} agent",
+                    f"{config.source} agent",
                 ),
-                source=USER_AGENT_SETTINGS_PATH,
+                source=config.source,
             )
 
     defaults = [
@@ -84,27 +69,6 @@ def resolve_main_agent_selection(
             source=f"plugin:{plugin}:{source or 'settings'}",
         )
     return MainAgentSelection()
-
-
-def _read_agent_settings(
-    root: Path,
-    path: Path,
-    relative: str,
-) -> dict[str, object]:
-    if has_symlink_component(root, path) or not path.is_file():
-        raise ValueError(f"{relative} must be a regular non-symlink file.")
-    raw = read_regular_file_bytes(
-        path,
-        max_bytes=MAX_AGENT_SETTINGS_BYTES,
-        label=relative,
-    )
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise ValueError(f"Could not parse {relative}: {error}") from error
-    if not isinstance(payload, dict):
-        raise ValueError(f"{relative} must contain a JSON object.")
-    return payload
 
 
 def _validate_reference(value: object, source: str) -> str:

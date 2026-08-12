@@ -68,6 +68,8 @@ def run_one_shot(
     mcp_config_paths: list[str] | tuple[str, ...] | None = None,
     strict_mcp_config: bool = False,
     safe_mode: bool = False,
+    setting_sources: tuple[str, ...] = ("user", "project", "local"),
+    settings_override_json: str | None = None,
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
     append_subagent_system_prompt: str | None = None,
@@ -172,6 +174,8 @@ def run_one_shot(
                 strict_mcp_config=strict_mcp_config,
                 additional_roots=additional_directories,
                 safe_mode=safe_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
             )
         )
         with session_scope as ephemeral:

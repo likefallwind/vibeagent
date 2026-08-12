@@ -17,6 +17,7 @@ from .commands import get_compact_context, get_resume_context
 from .context_compaction import resolve_autocompact_tokens
 from .dynamic_agent_profiles import DynamicAgentProfile, parse_dynamic_agent_profiles
 from .model_effort import resolve_model_effort_setting
+from .invocation_settings import parse_invocation_settings, parse_setting_sources
 from .session_additional_directories import (
     merge_additional_directories,
     restore_session_additional_directories,
@@ -49,6 +50,8 @@ class InteractiveStartupContext:
     model: str | None = None
     approval: ApprovalPolicy = "ask"
     safe_mode: bool = False
+    setting_sources: tuple[str, ...] = ("user", "project", "local")
+    settings_override_json: str | None = None
 
 
 def resolve_interactive_startup_context(
@@ -82,6 +85,11 @@ def resolve_interactive_startup_context(
         "model": model_override_from_args(args),
         "approval": getattr(args, "approval", "ask"),
         "safe_mode": getattr(args, "safe_mode", False),
+        "setting_sources": parse_setting_sources(getattr(args, "setting_sources", None)),
+        "settings_override_json": parse_invocation_settings(
+            getattr(args, "settings", None),
+            invocation_root=Path.cwd(),
+        ),
     }
     session_resume = args.resume if args.resume is not None else args.session_id
     if session_resume is None and args.compact is None:
@@ -155,6 +163,8 @@ def _with_resumed_workspace(
             context.run_id,
             additional_roots=context.additional_directories,
             safe_mode=context.safe_mode,
+            setting_sources=context.setting_sources,
+            settings_override_json=context.settings_override_json,
         ),
     )
 
@@ -201,7 +211,12 @@ def _with_forked_session(
         context,
         run_id=branch.workspace.run_id,
         message="\n".join(message_parts),
-        pending_workspace=replace(branch.workspace, safe_mode=context.safe_mode),
+        pending_workspace=replace(
+            branch.workspace,
+            safe_mode=context.safe_mode,
+            setting_sources=context.setting_sources,
+            settings_override_json=context.settings_override_json,
+        ),
         branch_source_run_id=branch.source_run_id,
     )
 
@@ -223,6 +238,8 @@ def _with_requested_name(
                 project_root,
                 additional_roots=context.additional_directories,
                 safe_mode=context.safe_mode,
+                setting_sources=context.setting_sources,
+                settings_override_json=context.settings_override_json,
             )
             run_id = workspace.run_id
         name_session(project_root, run_id, normalized)

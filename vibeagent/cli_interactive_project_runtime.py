@@ -20,6 +20,8 @@ class InteractiveProjectRuntime:
         *,
         initial_session_id: str | None = None,
         safe_mode: bool = False,
+        setting_sources: tuple[str, ...] = ("user", "project", "local"),
+        settings_override_json: str | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
         self.peer: PeerSessionRuntime | None = create_peer_runtime(
@@ -27,6 +29,8 @@ class InteractiveProjectRuntime:
             approval_policy,
         )
         self.safe_mode = safe_mode
+        self.setting_sources = setting_sources
+        self.settings_override_json = settings_override_json
         self.plugin_updates = PluginAutoUpdateRuntime(self.project_root)
         if not safe_mode:
             self.plugin_updates.start()
@@ -80,6 +84,8 @@ class InteractiveProjectRuntime:
                     session_id,
                     additional_roots=additional_roots,
                     safe_mode=self.safe_mode,
+                    setting_sources=self.setting_sources,
+                    settings_override_json=self.settings_override_json,
                 )
             )
         self._owned_session_ids.clear()
