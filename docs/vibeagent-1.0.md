@@ -40,6 +40,14 @@ controls remain effective through safe/bare sessions, profiles, subagents, and
 PermissionRequest updates. Unsafe files fail closed. This claim does not include
 server, plist, registry, policy-helper, or WSL Windows-policy delivery.
 
+`VA1-SAFETY` also includes strict Bubblewrap network egress. A private built-in
+HTTP/CONNECT proxy and namespace relay enforce IDNA-normalized exact or leading
+`*.` `allowedDomains`, precedence-ordered `deniedDomains`, project-trust gates,
+and endpoint-managed `allowManagedDomainsOnly`. Clients that ignore proxy
+variables remain unable to use direct host networking. This claim does not
+include dynamic first-domain prompts, WebFetch-rule merging, TLS termination,
+or credential masking.
+
 `VA1-IDE` also includes Claude-compatible `--ide`: the extension publishes one
 short-lived owner-only descriptor per workspace, and an external CLI invocation
 connects only when exactly one fresh authenticated descriptor matches `--cwd`.

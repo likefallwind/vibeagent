@@ -440,6 +440,8 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("permission `WebFetch(domain:...)` rules", readme)
         self.assertIn("WebFetch(domain:...)", readme)
         self.assertIn("WebFetch(domain:*.python.org)", readme)
+        self.assertIn("private host-side HTTP/CONNECT proxy", readme)
+        self.assertNotIn("domain allowlists require a proxy and are not yet implemented", readme)
 
     def test_acceptance_plan_links_to_readiness_audit(self) -> None:
         plan = PLAN_PATH.read_text(encoding="utf-8")

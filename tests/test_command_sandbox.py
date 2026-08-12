@@ -167,7 +167,14 @@ class SandboxConfigTests(unittest.TestCase):
         cases = [
             ({"enabled": "yes"}, "must be a boolean"),
             ({"enabled": True, "autoAllowBashIfSandboxed": "yes"}, "must be a boolean"),
-            ({"enabled": True, "network": {"allowedDomains": ["example.com"]}}, "domain proxy"),
+            (
+                {"enabled": True, "network": {"allowedDomains": ["https://example.com"]}},
+                "invalid domain",
+            ),
+            (
+                {"enabled": True, "network": {"strictAllowlist": False}},
+                "subprocess network prompts are unavailable",
+            ),
             ({"enabled": True, "filesystem": {"allowRead": ["."]}}, "allowRead is not supported"),
             ({"enabled": True, "filesystem": {"denyRead": ["**/.env"]}}, "does not support glob"),
         ]
@@ -177,6 +184,35 @@ class SandboxConfigTests(unittest.TestCase):
                 _write_sandbox(root, payload)
                 config = read_workspace_sandbox(create_run_workspace(root))
             self.assertIn(expected, config.error or "")
+
+    def test_domain_allowlist_requires_trust_and_denies_override_wildcards(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-") as base:
+            root = Path(base)
+            _write_sandbox(
+                root,
+                {
+                    "enabled": True,
+                    "network": {
+                        "allowedDomains": ["*.example.com", "api.example.com"],
+                        "deniedDomains": ["private.example.com"],
+                        "strictAllowlist": True,
+                    },
+                },
+            )
+            workspace = create_run_workspace(root)
+            untrusted = read_workspace_sandbox(workspace)
+            trusted = read_workspace_sandbox(
+                replace(workspace, project_config_trusted=True)
+            )
+
+        self.assertIn("requires explicit project configuration trust", untrusted.error or "")
+        self.assertIsNone(trusted.error)
+        self.assertEqual(
+            trusted.allowed_domains,
+            ("*.example.com", "api.example.com"),
+        )
+        self.assertEqual(trusted.denied_domains, ("private.example.com",))
+        self.assertTrue(trusted.network_disabled)
 
     def test_symlinked_config_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-") as base:
@@ -391,6 +427,115 @@ class SandboxExecutionTests(unittest.TestCase):
         self.assertTrue(start.sandboxed)
         self.assertTrue(wait.ok)
         self.assertFalse(outside_exists)
+
+    def test_allowed_domain_proxy_reaches_host_and_blocks_other_hosts(self) -> None:
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from threading import Thread
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                body = b"sandbox-network-ok"
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, _format: str, *_args: object) -> None:
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = server.server_address[1]
+            with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-") as base:
+                root = Path(base)
+                _write_sandbox(
+                    root,
+                    {
+                        "enabled": True,
+                        "failIfUnavailable": True,
+                        "network": {"allowedDomains": ["127.0.0.1"]},
+                    },
+                )
+                workspace = replace(
+                    create_run_workspace(root), project_config_trusted=True
+                )
+                allowed = execute_action(
+                    workspace,
+                    RunCommandAction(
+                        type="run_command",
+                        command=(
+                            "python3 -c \"import urllib.request; "
+                            f"print(urllib.request.urlopen('http://127.0.0.1:{port}/').read().decode())\""
+                        ),
+                    ),
+                )
+                background = execute_action(
+                    workspace,
+                    StartCommandAction(
+                        type="start_command",
+                        command=(
+                            "python3 -c \"import urllib.request; "
+                            f"print(urllib.request.urlopen('http://127.0.0.1:{port}/').read().decode())\""
+                        ),
+                    ),
+                )
+                try:
+                    execute_action(
+                        workspace,
+                        WaitProcessAction(
+                            type="wait_process",
+                            process_id=background.process_id,
+                            timeout_ms=5_000,
+                        ),
+                    )
+                    background_output = execute_action(
+                        workspace,
+                        ReadProcessAction(
+                            type="read_process",
+                            process_id=background.process_id,
+                        ),
+                    )
+                finally:
+                    if background.process_id:
+                        execute_action(
+                            workspace,
+                            StopProcessAction(
+                                type="stop_process",
+                                process_id=background.process_id,
+                            ),
+                        )
+                _write_sandbox(
+                    root,
+                    {
+                        "enabled": True,
+                        "failIfUnavailable": True,
+                        "network": {"allowedDomains": ["example.com"]},
+                    },
+                )
+                blocked = execute_action(
+                    workspace,
+                    RunCommandAction(
+                        type="run_command",
+                        command=(
+                            "python3 -c \"import urllib.request; "
+                            f"urllib.request.urlopen('http://127.0.0.1:{port}/')\""
+                        ),
+                    ),
+                )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        self.assertEqual(allowed.result.exit_code, 0)
+        self.assertEqual(allowed.result.stdout.strip(), "sandbox-network-ok")
+        self.assertTrue(background.ok)
+        self.assertTrue(background.sandboxed)
+        self.assertIn("sandbox-network-ok", background_output.stdout)
+        self.assertNotEqual(blocked.result.exit_code, 0)
+        self.assertIn("403", blocked.result.stderr)
 
 
 class SandboxUnavailableTests(unittest.TestCase):

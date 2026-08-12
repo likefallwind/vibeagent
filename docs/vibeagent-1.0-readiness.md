@@ -523,6 +523,13 @@ The automated suite currently covers these 1.0 surfaces:
   Claude-compatible `--safe-mode` diagnostic boundary that suppresses custom
   instructions, agents, skills, commands, plugins, hooks, MCP, LSP, workflows,
   status-line customization, and auto-memory without weakening permissions.
+- Strict sandbox network policy: a built-in host HTTP/CONNECT proxy and
+  namespace-local relay enforce exact or leading-wildcard `allowedDomains`,
+  precedence-ordered `deniedDomains`, project-trust gates, and endpoint-managed
+  `allowManagedDomainsOnly` without granting direct egress to clients that
+  ignore proxy variables. Local HTTP, CONNECT, denied-host, and real Bubblewrap
+  tests cover the execution path. Dynamic first-domain prompts, WebFetch-rule
+  merging, TLS termination, and credential masking remain outside this claim.
 - Reproducible scripting: Claude-compatible `--bare` skips automatic
   instructions, agents, commands, skills, hooks, installed plugins, MCP
   servers, auto-memory, and settings files while retaining built-in tools,

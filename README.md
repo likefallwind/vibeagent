@@ -2573,7 +2573,9 @@ disabled by default and can be enabled globally through the `sandbox` object in
       "denyRead": ["~/.aws/credentials"]
     },
     "network": {
-      "allowedDomains": []
+      "allowedDomains": ["github.com", "*.npmjs.org"],
+      "deniedDomains": ["uploads.github.com"],
+      "strictAllowlist": true
     }
   }
 }
@@ -2582,21 +2584,31 @@ disabled by default and can be enabled globally through the `sandbox` object in
 When active, the host filesystem is mounted read-only, the project and explicit
 `allowWrite` paths are writable, `/tmp` and `/run` are isolated, `/dev` is
 minimal, and PID/IPC/UTS namespaces are separated. An empty `allowedDomains`
-list requests a fully isolated network namespace. The same launcher applies to
-finite checks, command batches, hooks, and background processes.
+list requests a fully disconnected network namespace. A non-empty list starts
+a private host-side HTTP/CONNECT proxy and a loopback relay inside the isolated
+network namespace. Standard `HTTP_PROXY`/`HTTPS_PROXY` variables route clients
+through the proxy; subprocesses that ignore them remain unable to reach the
+host network. The same launcher applies to finite checks, command batches,
+hooks, and background processes without requiring another relay package.
 
-External `allowWrite` paths and `excludedCommands` from user settings are
-trusted user choices. The same settings from project files require explicit
-project configuration trust. An untrusted project also cannot disable a
-user-enabled sandbox, `failIfUnavailable`, or user-requested network isolation.
+External `allowWrite` paths, `excludedCommands`, and network `allowedDomains`
+from user settings are trusted user choices. The same settings from project
+files require explicit project configuration trust. An untrusted project also
+cannot disable a user-enabled sandbox, `failIfUnavailable`, or user-requested
+network isolation.
 `denyWrite` and `denyRead` mounts override the writable project mount. Sandbox
-paths must be exact; glob paths, `allowRead`, non-empty
-sandbox network domain allowlists, and unsupported network options fail closed
-rather than claiming partial enforcement. Sandbox network domain allowlists
-require a proxy and are not yet implemented; this is separate from project
-permission `WebFetch(domain:...)` rules, which match WebFetch request hosts
-before approval. If Bubblewrap or network namespaces are unavailable,
-`failIfUnavailable: true` blocks execution; otherwise VibeAgent records a
+paths must be exact; glob paths and `allowRead` remain unsupported. Network
+domains are normalized through IDNA, support exact hosts and leading `*.`
+wildcards, and `deniedDomains` takes precedence. Endpoint-managed
+`allowManagedDomainsOnly` discards non-managed allows while retaining denies
+from every source. VibeAgent currently enforces a strict allowlist: explicit
+`strictAllowlist: false` fails closed because an isolated subprocess cannot yet
+surface Claude-compatible first-domain approval prompts. These sandbox network domain allowlists
+remain separate from project permission `WebFetch(domain:...)` rules; those
+rules are not merged into the command proxy. The proxy does not
+terminate TLS, so its hostname decision has the same domain-fronting limitation
+as other non-terminating sandbox proxies. If Bubblewrap or network namespaces
+are unavailable, `failIfUnavailable: true` blocks execution; otherwise VibeAgent records a
 warning and falls back to unsandboxed execution or filesystem-only isolation.
 Permission deny/ask rules and command hard blocks still apply; commands that do
 not meet strict auto-approval qualification use the normal approval flow.

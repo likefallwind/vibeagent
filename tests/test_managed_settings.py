@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
 import tempfile
@@ -199,6 +200,88 @@ class ManagedSettingsIntegrationTests(unittest.TestCase):
         self.assertTrue(permissions.auto_mode_disabled)
         self.assertTrue(sandbox.enabled)
         self.assertTrue(sandbox.fail_if_unavailable)
+
+    def test_managed_domain_lock_filters_project_allows_but_keeps_denies(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-managed-") as managed_base:
+            with tempfile.TemporaryDirectory(prefix="vibeagent-project-") as project_base:
+                managed = Path(managed_base)
+                project = Path(project_base)
+                (managed / "managed-settings.json").write_text(
+                    json.dumps(
+                        {
+                            "allowManagedDomainsOnly": True,
+                            "sandbox": {
+                                "enabled": True,
+                                "network": {
+                                    "allowedDomains": ["api.example.com"],
+                                },
+                            },
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                (project / ".vibeagent").mkdir()
+                (project / ".vibeagent/sandbox.json").write_text(
+                    json.dumps(
+                        {
+                            "network": {
+                                "allowedDomains": ["upload.example.com"],
+                                "deniedDomains": ["private.example.com"],
+                            }
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                workspace = replace(
+                    create_local_workspace(project, "managed-domain-lock"),
+                    project_config_trusted=True,
+                )
+                with patch(
+                    "vibeagent.workspace_settings_sources.read_file_managed_settings",
+                    _managed_reader(managed),
+                ):
+                    sandbox = read_workspace_sandbox(workspace)
+
+        self.assertIsNone(sandbox.error)
+        self.assertTrue(sandbox.managed_domains_only)
+        self.assertEqual(sandbox.allowed_domains, ("api.example.com",))
+        self.assertEqual(sandbox.denied_domains, ("private.example.com",))
+
+    def test_managed_domain_lock_applies_without_a_managed_sandbox_block(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-managed-") as managed_base:
+            with tempfile.TemporaryDirectory(prefix="vibeagent-project-") as project_base:
+                managed = Path(managed_base)
+                project = Path(project_base)
+                (managed / "managed-settings.json").write_text(
+                    json.dumps({"allowManagedDomainsOnly": True}),
+                    encoding="utf-8",
+                )
+                (project / ".vibeagent").mkdir()
+                (project / ".vibeagent/sandbox.json").write_text(
+                    json.dumps(
+                        {
+                            "enabled": True,
+                            "network": True,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                workspace = replace(
+                    create_local_workspace(project, "managed-lock-only"),
+                    project_config_trusted=True,
+                )
+                with patch(
+                    "vibeagent.workspace_settings_sources.read_file_managed_settings",
+                    _managed_reader(managed),
+                ):
+                    sandbox = read_workspace_sandbox(workspace)
+
+        self.assertIsNone(sandbox.error)
+        self.assertTrue(sandbox.managed_domains_only)
+        self.assertEqual(sandbox.allowed_domains, ())
+        self.assertEqual(sandbox.denied_domains, ())
+        self.assertTrue(sandbox.network_disabled)
+        self.assertTrue(any(source.startswith("managed settings:") for source in sandbox.sources))
 
     def test_managed_only_permissions_filter_cli_and_project_rules(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-managed-") as managed_base:

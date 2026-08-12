@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+from .sandbox_network_policy import normalize_sandbox_domains
 from .workspace_core import RunWorkspace
 from .workspace_sandbox_values import (
     MergedSandboxValues,
@@ -20,7 +21,6 @@ from .workspace_sandbox_values import (
     sandbox_boolean,
 )
 from .workspace_settings_sources import (
-    claude_settings_files,
     project_config_file,
     read_settings_payload,
     settings_file_exists,
@@ -39,6 +39,9 @@ class SandboxConfig:
     fail_if_unavailable: bool = False
     auto_allow_bash_if_sandboxed: bool = True
     network_disabled: bool = False
+    allowed_domains: tuple[str, ...] = ()
+    denied_domains: tuple[str, ...] = ()
+    managed_domains_only: bool = False
     allow_write: tuple[Path, ...] = ()
     deny_write: tuple[Path, ...] = ()
     deny_read: tuple[Path, ...] = ()
@@ -64,6 +67,11 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
         "denyRead": [],
         "excludedCommands": [],
     }
+    domain_values: dict[str, list[tuple[str, bool, bool]]] = {
+        "allowedDomains": [],
+        "deniedDomains": [],
+    }
+    managed_domains_only = False
     sources: list[str] = []
     try:
         configs = settings_files_with_project_config(
@@ -74,12 +82,23 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             if not settings_file_exists(config):
                 continue
             payload = read_settings_payload(config, max_bytes=MAX_SANDBOX_CONFIG_BYTES)
+            managed_domain_lock_loaded = False
+            if config.managed and "allowManagedDomainsOnly" in payload:
+                managed_domains_value = payload["allowManagedDomainsOnly"]
+                if not isinstance(managed_domains_value, bool):
+                    raise ValueError(
+                        f"{config.source} allowManagedDomainsOnly must be a boolean."
+                    )
+                managed_domains_only = managed_domains_value
+                managed_domain_lock_loaded = True
             sandbox = (
                 payload.get("sandbox")
                 if config.source != SANDBOX_CONFIG_PATH
                 else payload.get("sandbox", payload)
             )
             if sandbox is None:
+                if managed_domain_lock_loaded:
+                    sources.append(config.source)
                 continue
             if not isinstance(sandbox, dict):
                 raise ValueError(f"{config.source} sandbox must be an object.")
@@ -117,21 +136,39 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             elif network is not None:
                 if not isinstance(network, dict):
                     raise ValueError(f"{config.source} sandbox.network must be an object or boolean.")
-                allowed_domains = network.get("allowedDomains")
-                if allowed_domains is not None:
-                    domains = parse_sandbox_string_list(
-                        allowed_domains, config.source, "network.allowedDomains"
+                merged["networkDisabled"] = (True, config.trusted)
+                if config.trusted:
+                    trusted_values["networkDisabled"] = True
+                for key in ("allowedDomains", "deniedDomains"):
+                    if key in network:
+                        domain_values[key].extend(
+                            (value, config.trusted, config.managed)
+                            for value in parse_sandbox_string_list(
+                                network[key], config.source, f"network.{key}"
+                            )
+                        )
+                if "strictAllowlist" in network:
+                    strict_allowlist = sandbox_boolean(
+                        network["strictAllowlist"],
+                        f"{config.source} sandbox.network.strictAllowlist",
                     )
-                    if domains:
-                        raise ValueError("sandbox.network.allowedDomains requires a domain proxy and is not supported yet.")
-                    merged["networkDisabled"] = (True, config.trusted)
-                    if config.trusted:
-                        trusted_values["networkDisabled"] = True
-                unsupported = set(network) - {"allowedDomains"}
+                    if not strict_allowlist:
+                        raise ValueError(
+                            "sandbox.network.strictAllowlist=false is not supported because "
+                            "subprocess network prompts are unavailable; use a strict allowlist."
+                        )
+                unsupported = set(network) - {
+                    "allowedDomains",
+                    "deniedDomains",
+                    "strictAllowlist",
+                }
                 if unsupported:
                     names = ", ".join(sorted(str(key) for key in unsupported))
                     raise ValueError(f"Unsupported sandbox.network setting(s): {names}.")
 
+        if managed_domains_only:
+            merged["networkDisabled"] = (True, True)
+            trusted_values["networkDisabled"] = True
         reject_untrusted_sandbox_weakening(workspace, merged, trusted_values)
         enabled = sandbox_boolean(
             merged_sandbox_value(merged, "enabled", False),
@@ -149,6 +186,25 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             merged_sandbox_value(merged, "networkDisabled", False),
             "sandbox network mode",
         )
+        allowed_entries = domain_values["allowedDomains"]
+        if managed_domains_only:
+            allowed_entries = [entry for entry in allowed_entries if entry[2]]
+        allowed_domains = normalize_sandbox_domains(
+            [value for value, _trusted, _managed in allowed_entries],
+            field="allowedDomains",
+        )
+        denied_domains = normalize_sandbox_domains(
+            [value for value, _trusted, _managed in domain_values["deniedDomains"]],
+            field="deniedDomains",
+        )
+        if (
+            any(not trusted for _value, trusted, _managed in allowed_entries)
+            and not workspace.project_config_trusted
+        ):
+            raise ValueError(
+                "sandbox.network.allowedDomains from project configuration requires "
+                "explicit project configuration trust."
+            )
         allow_write = resolve_sandbox_paths(
             workspace,
             array_values["allowWrite"],
@@ -174,6 +230,9 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             fail_if_unavailable=fail_if_unavailable,
             auto_allow_bash_if_sandboxed=auto_allow_bash_if_sandboxed,
             network_disabled=network_disabled,
+            allowed_domains=allowed_domains,
+            denied_domains=denied_domains,
+            managed_domains_only=managed_domains_only,
             allow_write=allow_write,
             deny_write=deny_write,
             deny_read=deny_read,
@@ -193,7 +252,12 @@ def format_workspace_sandbox_for_prompt(workspace: RunWorkspace) -> str:
         return f"Command sandbox configuration is invalid; shell commands will be blocked: {config.error}"
     if not config.enabled:
         return ""
-    network = "network namespace disabled" if config.network_disabled else "host network available"
+    if config.allowed_domains:
+        network = f"strict network proxy with {len(config.allowed_domains)} allowed domain(s)"
+    elif config.network_disabled:
+        network = "network namespace disconnected"
+    else:
+        network = "host network available"
     availability = "Bubblewrap available" if config.available else "Bubblewrap unavailable"
     return (
         f"Command sandbox enabled ({availability}; {network}; "

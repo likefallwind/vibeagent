@@ -23,6 +23,12 @@ def get_sandbox_report(root: str | Path = ".") -> dict[str, object]:
         "available": config.available,
         "networkDisabled": config.network_disabled,
         "networkIsolationAvailable": config.network_available,
+        "network": {
+            "allowedDomains": list(config.allowed_domains),
+            "deniedDomains": list(config.denied_domains),
+            "allowManagedDomainsOnly": config.managed_domains_only,
+            "strictAllowlist": config.network_disabled,
+        },
         "failIfUnavailable": config.fail_if_unavailable,
         "autoAllowBashIfSandboxed": config.auto_allow_bash_if_sandboxed,
         "autoApprovalReady": (
@@ -65,6 +71,17 @@ def format_sandbox_report_text(report: dict[str, object]) -> str:
     if isinstance(filesystem, dict):
         for field in ("allowWrite", "denyWrite", "denyRead"):
             values = filesystem.get(field)
+            if isinstance(values, list) and values:
+                lines.append(f"  {field}:")
+                lines.extend(f"    - {value}" for value in values)
+    network = report.get("network")
+    if isinstance(network, dict):
+        lines.append(
+            "  allowManagedDomainsOnly: "
+            f"{'yes' if network.get('allowManagedDomainsOnly') else 'no'}"
+        )
+        for field in ("allowedDomains", "deniedDomains"):
+            values = network.get(field)
             if isinstance(values, list) and values:
                 lines.append(f"  {field}:")
                 lines.extend(f"    - {value}" for value in values)

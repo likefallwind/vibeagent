@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
+import sys
+import uuid
 
 from .command_safety import get_blocked_command_reason
 from .plugin_environment import plugin_command_environment
@@ -161,9 +164,42 @@ def prepare_command_launch(
             sandbox_argv.extend(("--tmpfs", path.as_posix()))
         else:
             sandbox_argv.extend(("--ro-bind", "/dev/null", path.as_posix()))
-    if config.network_disabled and config.network_available:
+    network_isolated = config.network_disabled and config.network_available
+    if network_isolated:
         sandbox_argv.append("--unshare-net")
+    if network_isolated and config.allowed_domains:
+        proxy_source_token = f"__VIBEAGENT_PROXY_SOURCE_{uuid.uuid4().hex}__"
+        proxy_mount = "/run/vibeagent-network-proxy"
+        sandbox_argv.extend(("--bind", proxy_source_token, proxy_mount))
+        command_argv = (
+            sys.executable,
+            "-m",
+            "vibeagent.sandbox_network_relay",
+            "--socket",
+            f"{proxy_mount}/proxy.sock",
+            "--",
+            *command_argv,
+        )
     sandbox_argv.extend(
         ("--setenv", "VIBEAGENT_SANDBOX", "1", "--chdir", cwd.as_posix(), *command_argv)
     )
+    if network_isolated and config.allowed_domains:
+        policy_json = json.dumps(
+            {
+                "allowedDomains": list(config.allowed_domains),
+                "deniedDomains": list(config.denied_domains),
+            },
+            separators=(",", ":"),
+        )
+        sandbox_argv = [
+            sys.executable,
+            "-m",
+            "vibeagent.sandbox_network_launcher",
+            "--policy-json",
+            policy_json,
+            "--proxy-source-token",
+            proxy_source_token,
+            "--",
+            *sandbox_argv,
+        ]
     return CommandLaunch(tuple(sandbox_argv), True, config, environment, warning=network_warning)
