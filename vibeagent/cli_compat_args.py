@@ -95,6 +95,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Emit incremental model SSE events with stream-json output in print mode.",
     )
     parser.add_argument(
+        "--include-hook-events",
+        action="store_true",
+        help="Emit hook started, progress, and response lifecycle records with stream-json output.",
+    )
+    parser.add_argument(
         "--replay-user-messages",
         action="store_true",
         help="Replay normalized stream-json user input records on stdout before agent events.",

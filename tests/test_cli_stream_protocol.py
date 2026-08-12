@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+from uuid import UUID
 
 from vibeagent.cli_stream_output import JsonEventStream
 from vibeagent.cli_stream_protocol import StreamSessionObserver
@@ -116,6 +117,77 @@ class CliStreamProtocolTests(unittest.TestCase):
         self.assertIn("[REDACTED]", self.output.getvalue())
         self.assertNotIn("server-secret", self.output.getvalue())
         self.assertNotIn("plugin-secret", self.output.getvalue())
+
+    def test_explicit_hook_events_emit_sdk_lifecycle_before_raw_events(self) -> None:
+        observer = StreamSessionObserver(
+            self.stream,
+            self.workspace,
+            {},
+            include_hook_events=True,
+        )
+        events = (
+            {
+                "type": "hook_started",
+                "hook_id": "hook-1",
+                "hook_name": "command:settings.json#1",
+                "event": "PreToolUse",
+            },
+            {
+                "type": "hook_progress",
+                "hook_id": "hook-1",
+                "hook_name": "command:settings.json#1",
+                "event": "PreToolUse",
+                "stdout": "working\n",
+                "stderr": "",
+                "output": "working\n",
+            },
+            {
+                "type": "hook_response",
+                "hook_id": "hook-1",
+                "hook_name": "command:settings.json#1",
+                "event": "PreToolUse",
+                "stdout": "done\n",
+                "stderr": "",
+                "output": "done\n",
+                "exit_code": 0,
+                "outcome": "success",
+            },
+        )
+
+        for event in events:
+            observer(self.session_dir, event)
+
+        records = self.records()
+        system = records[::2]
+        self.assertEqual(
+            [record["subtype"] for record in system],
+            ["hook_started", "hook_progress", "hook_response"],
+        )
+        self.assertTrue(all(record["hook_id"] == "hook-1" for record in system))
+        self.assertTrue(all(record["hook_event"] == "PreToolUse" for record in system))
+        self.assertEqual(system[-1]["outcome"], "success")
+        self.assertEqual(system[-1]["exit_code"], 0)
+        for record in system:
+            UUID(record["uuid"])
+        self.assertEqual([record["type"] for record in records[1::2]], ["event"] * 3)
+
+    def test_setup_and_session_start_hook_events_are_visible_without_opt_in(self) -> None:
+        observer = StreamSessionObserver(self.stream, self.workspace, {})
+
+        for hook_event in ("PreToolUse", "Setup", "SessionStart"):
+            observer(
+                self.session_dir,
+                {
+                    "type": "hook_started",
+                    "hook_id": f"hook-{hook_event}",
+                    "hook_name": "command:settings.json#1",
+                    "event": hook_event,
+                },
+            )
+
+        records = self.records()
+        visible = [record for record in records if record["type"] == "system"]
+        self.assertEqual([record["hook_event"] for record in visible], ["Setup", "SessionStart"])
 
 
 if __name__ == "__main__":

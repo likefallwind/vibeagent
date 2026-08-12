@@ -404,6 +404,15 @@ class CliOneShotInputTests(unittest.TestCase):
 
         self.assertEqual(kwargs["append_subagent_system_prompt"], "Cite exact file paths.")
 
+    def test_build_one_shot_kwargs_includes_hook_event_streaming(self) -> None:
+        args = cli_module.parse_args(
+            ["-p", "--output-format", "stream-json", "--include-hook-events", "inspect"]
+        )
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertTrue(kwargs["include_hook_events"])
+
     def test_build_one_shot_kwargs_parses_json_schema_before_provider_setup(self) -> None:
         args = cli_module.parse_args(
             [

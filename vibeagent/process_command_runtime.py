@@ -3,10 +3,12 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+from threading import Thread
 import time
 from pathlib import Path
 
 from .command_output_artifacts import persist_truncated_command_outputs
+from .command_output_observers import CommandOutputObserver, current_command_output_observer
 from .process_lifecycle import signal_name as _signal_name
 from .process_lifecycle import terminate_process as _terminate_process
 from .types import CommandResult
@@ -40,12 +42,20 @@ def run_command(
         env=environment,
     )
 
-    try:
-        stdout, stderr = process.communicate(timeout=timeout_ms / 1000)
-    except subprocess.TimeoutExpired:
-        timed_out = True
-        _terminate_process(process)
-        stdout, stderr = process.communicate()
+    output_observer = current_command_output_observer()
+    if output_observer is None:
+        try:
+            stdout, stderr = process.communicate(timeout=timeout_ms / 1000)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            _terminate_process(process)
+            stdout, stderr = process.communicate()
+    else:
+        stdout, stderr, timed_out = _communicate_with_observer(
+            process,
+            timeout_ms,
+            output_observer,
+        )
     duration_ms = max(0, round((time.monotonic() - started) * 1000))
 
     stdout_value, stdout_truncated = truncate_command_output(stdout or "", max_output_chars)
@@ -85,6 +95,42 @@ def run_command(
         stderr_total_bytes=len(stderr_text.encode("utf-8")),
         output_artifact_error=artifact_error,
     )
+
+
+def _communicate_with_observer(
+    process: subprocess.Popen[str],
+    timeout_ms: int,
+    observer: CommandOutputObserver,
+) -> tuple[str, str, bool]:
+    stdout_chunks: list[str] = []
+    stderr_chunks: list[str] = []
+
+    def read_stream(stream, chunks: list[str], *, is_stdout: bool) -> None:
+        if stream is None:
+            return
+        try:
+            for chunk in iter(stream.readline, ""):
+                chunks.append(chunk)
+                observer(chunk if is_stdout else "", "" if is_stdout else chunk)
+        finally:
+            stream.close()
+
+    readers = (
+        Thread(target=read_stream, args=(process.stdout, stdout_chunks), kwargs={"is_stdout": True}, daemon=True),
+        Thread(target=read_stream, args=(process.stderr, stderr_chunks), kwargs={"is_stdout": False}, daemon=True),
+    )
+    for reader in readers:
+        reader.start()
+    timed_out = False
+    try:
+        process.wait(timeout=timeout_ms / 1000)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        _terminate_process(process)
+        process.wait()
+    for reader in readers:
+        reader.join()
+    return "".join(stdout_chunks), "".join(stderr_chunks), timed_out
 
 
 def wrap_background_command(command: str, exit_code_path: Path) -> str:

@@ -77,6 +77,7 @@ def run_one_shot_code(
     max_budget_usd: Decimal | None = None,
     fallback_model: str | None = None,
     include_partial_messages: bool = False,
+    include_hook_events: bool = False,
     forward_subagent_text: bool = False,
     replay_user_messages: bool = False,
     input_user_messages: tuple[str, ...] = (),
@@ -213,6 +214,7 @@ def run_one_shot_code(
             or debug_runtime.enabled
         ),
         workspace=resumed_workspace,
+        include_hook_events=include_hook_events,
         forward_subagent_text=forward_subagent_text,
         event_observer=(debug_runtime.observe_event if debug_runtime.enabled else None),
         provider_env=provider_env,

@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from vibeagent import process_command_runtime, process_runtime
+from vibeagent.command_output_observers import observe_command_output
 
 
 class ProcessCommandRuntimeModuleTests(unittest.TestCase):
@@ -34,6 +35,23 @@ class ProcessCommandRuntimeModuleTests(unittest.TestCase):
         self.assertIn("[truncated to 80 chars: showing head and tail]", longer)
         self.assertTrue(longer.endswith("6789"))
         self.assertTrue(longer_truncated)
+
+    def test_run_command_streams_stdout_and_stderr_to_scoped_observer(self) -> None:
+        observed: list[tuple[str, str]] = []
+
+        with tempfile.TemporaryDirectory() as temp, observe_command_output(
+            lambda stdout, stderr: observed.append((stdout, stderr))
+        ):
+            result = process_command_runtime.run_command(
+                temp,
+                "printf 'out\\n'; printf 'err\\n' >&2",
+            )
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.stdout, "out\n")
+        self.assertEqual(result.stderr, "err\n")
+        self.assertIn(("out\n", ""), observed)
+        self.assertIn(("", "err\n"), observed)
 
 
 if __name__ == "__main__":

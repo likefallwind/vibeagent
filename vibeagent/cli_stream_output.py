@@ -64,6 +64,23 @@ class JsonEventStream:
             }
         )
 
+    def hook_lifecycle(
+        self,
+        session_dir: Path,
+        subtype: str,
+        payload: dict[str, object],
+    ) -> None:
+        self.emit(
+            {
+                "type": "system",
+                "subtype": subtype,
+                "runId": session_dir.name,
+                "sessionId": session_dir.name,
+                "session_id": session_dir.name,
+                **payload,
+            }
+        )
+
     def user_message(self, session_dir: Path, text: str) -> None:
         self.emit(
             {

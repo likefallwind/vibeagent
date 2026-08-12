@@ -14,6 +14,8 @@ from .agent_hook_http import run_project_http_hook
 from .agent_hook_mcp import run_project_mcp_hook
 from .agent_hook_prompt import HookModelRuntime, run_project_prompt_hook
 from .async_hook_runtime import start_async_hook
+from .command_output_observers import observe_command_output
+from .hook_lifecycle import HookLifecycleReporter
 from .agent_observation_utils import summarize
 from .agent_permissions import authorize_tool_action
 from .agent_runtime_utils import append_session_event
@@ -53,6 +55,61 @@ def run_project_hook(
     execute_action_safely_func: ExecuteActionSafely,
     permissions: ProjectPermissions,
     hook_model_runtime: HookModelRuntime | None = None,
+) -> HookRunResult:
+    reporter = HookLifecycleReporter(
+        workspace.session_dir,
+        hook,
+        iteration,
+        hook_index,
+        target,
+    )
+    reporter.started()
+    try:
+        with observe_command_output(reporter.command_output):
+            result = _run_project_hook_handler(
+                workspace,
+                hook,
+                target=target,
+                hook_input=hook_input,
+                cwd=cwd,
+                environment=environment,
+                iteration=iteration,
+                hook_index=hook_index,
+                command_timeout_ms=command_timeout_ms,
+                logger=logger,
+                approval_handler=approval_handler,
+                approval_policy=approval_policy,
+                execute_action_safely_func=execute_action_safely_func,
+                permissions=permissions,
+                hook_model_runtime=hook_model_runtime,
+                lifecycle_reporter=reporter,
+            )
+    except BaseException as error:
+        reporter.failed(error)
+        raise
+    if not result.async_started:
+        reporter.response(result)
+    return result
+
+
+def _run_project_hook_handler(
+    workspace: RunWorkspace,
+    hook: ProjectHook,
+    *,
+    target: str,
+    hook_input: dict[str, object],
+    cwd: str | None,
+    environment: dict[str, str] | None,
+    iteration: int,
+    hook_index: int,
+    command_timeout_ms: int,
+    logger: AgentLogger | None,
+    approval_handler: ApprovalHandler | None,
+    approval_policy: ApprovalPolicy,
+    execute_action_safely_func: ExecuteActionSafely,
+    permissions: ProjectPermissions,
+    hook_model_runtime: HookModelRuntime | None,
+    lifecycle_reporter: HookLifecycleReporter,
 ) -> HookRunResult:
     if hook.handler_type == "http":
         return run_project_http_hook(
@@ -119,6 +176,7 @@ def run_project_hook(
         approval_policy=approval_policy,
         execute_action_safely_func=execute_action_safely_func,
         permissions=permissions,
+        lifecycle_reporter=lifecycle_reporter,
     )
 
 
@@ -138,6 +196,7 @@ def _run_project_command_hook(
     approval_policy: ApprovalPolicy,
     execute_action_safely_func: ExecuteActionSafely,
     permissions: ProjectPermissions,
+    lifecycle_reporter: HookLifecycleReporter,
 ) -> HookRunResult:
     event_payload = {
         "iteration": iteration,
@@ -259,6 +318,8 @@ def _run_project_command_hook(
                 input_path=input_path,
                 environment_path=environment_path,
                 cwd=cwd,
+                hook_id=lifecycle_reporter.hook_id,
+                hook_name=lifecycle_reporter.hook_name,
             )
             preserve_private_files = process_id is not None
             result = HookRunResult(

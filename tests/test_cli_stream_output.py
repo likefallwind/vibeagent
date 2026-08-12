@@ -86,6 +86,16 @@ class CliOutputFormatTests(unittest.TestCase):
             with self.subTest(args=args), redirect_stdout(io.StringIO()):
                 self.assertEqual(main(args), 2)
 
+    def test_hook_events_require_print_stream_json_coding_mode(self) -> None:
+        cases = (
+            ["--include-hook-events", "inspect"],
+            ["-p", "--include-hook-events", "inspect"],
+            ["-p", "--chat", "--output-format", "stream-json", "--include-hook-events", "hello"],
+        )
+        for args in cases:
+            with self.subTest(args=args), redirect_stdout(io.StringIO()):
+                self.assertEqual(main(args), 2)
+
     def test_replay_user_messages_requires_print_stream_input_and_output(self) -> None:
         cases = (
             ["--input-format", "stream-json", "--output-format", "stream-json", "--replay-user-messages", "-"],
@@ -555,6 +565,80 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(retry["max_retries"], 1)
         self.assertEqual(retry["retry_delay_ms"], 0)
         self.assertEqual(retry["error"], "rate_limit")
+        self.assertEqual(records[-1]["status"], "completed")
+
+    def test_real_agent_streams_slow_hook_lifecycle_with_redacted_output(self) -> None:
+        hook_command = (
+            "python3 -c \"import time; "
+            "print('starting', flush=True); "
+            "time.sleep(1.05); "
+            "print('api_key=hook-secret', flush=True)\""
+        )
+        client = SequenceClient(
+            [
+                [{"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "sample.txt"}}],
+                [{"type": "text", "text": "Read sample.txt."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-stream-hooks-") as base:
+            root = Path(base)
+            root.joinpath("sample.txt").write_text("sample\n", encoding="utf-8")
+            settings = root / ".claude" / "settings.json"
+            settings.parent.mkdir()
+            settings.write_text(
+                json.dumps(
+                    {
+                        "hooks": {
+                            "PreToolUse": [
+                                {
+                                    "matcher": "Read",
+                                    "hooks": [
+                                        {
+                                            "type": "command",
+                                            "command": hook_command,
+                                            "timeout": 5,
+                                        }
+                                    ],
+                                }
+                            ]
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "-p",
+                        "--output-format", "stream-json",
+                        "--include-hook-events",
+                        "--permission-mode", "bypassPermissions",
+                        "--cwd", base,
+                        "read", "sample.txt",
+                    ]
+                )
+
+        records = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        lifecycle = [
+            record for record in records
+            if record["type"] == "system" and str(record.get("subtype", "")).startswith("hook_")
+        ]
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            [record["subtype"] for record in lifecycle],
+            ["hook_started", "hook_progress", "hook_response"],
+        )
+        self.assertEqual(len({record["hook_id"] for record in lifecycle}), 1)
+        self.assertTrue(all(record["hook_event"] == "PreToolUse" for record in lifecycle))
+        self.assertEqual(lifecycle[-1]["outcome"], "success")
+        self.assertEqual(lifecycle[-1]["exit_code"], 0)
+        self.assertIn("[REDACTED]", lifecycle[-1]["output"])
+        self.assertNotIn("hook-secret", stdout.getvalue())
         self.assertEqual(records[-1]["status"], "completed")
 
     def test_stream_json_disables_interactive_handlers_by_default(self) -> None:

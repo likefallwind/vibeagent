@@ -13,6 +13,7 @@ from unittest.mock import Mock, patch
 from vibeagent.agent import run_agent
 from vibeagent.async_hook_runtime import (
     async_hook_notifications_prompt,
+    close_session_async_hooks,
     collect_async_hook_notifications,
     start_async_hook,
 )
@@ -171,6 +172,39 @@ class AsyncHookConfigTests(unittest.TestCase):
 
 
 class AsyncHookRuntimeTests(unittest.TestCase):
+    def test_running_async_hook_reports_new_output_progress_after_one_second(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-async-hook-") as base:
+            root = Path(base)
+            workspace, process_id = _start_direct_hook(
+                root,
+                script_body="printf 'working\\n'; sleep 5",
+                rewake=False,
+            )
+            record = read_persistent_process_record(root, process_id)
+            assert record is not None
+            for _ in range(100):
+                if record.stdout_path.exists() and record.stdout_path.read_text(encoding="utf-8"):
+                    break
+                time.sleep(0.01)
+
+            notifications = collect_async_hook_notifications(
+                workspace,
+                now=time.time() + 1.1,
+            )
+            events = [
+                json.loads(line)
+                for line in (workspace.session_dir / "events.jsonl").read_text(encoding="utf-8").splitlines()
+            ]
+            state = json.loads(next((workspace.session_dir / "async-hooks").glob("*.json")).read_text(encoding="utf-8"))
+            close_session_async_hooks(workspace)
+
+        progress = [event for event in events if event["type"] == "hook_progress"]
+        self.assertEqual(notifications, [])
+        self.assertEqual(len(progress), 1)
+        self.assertEqual(progress[0]["hook_id"], state["hook_id"])
+        self.assertIn("working", progress[0]["output"])
+        self.assertGreater(state["progress_bytes"], 0)
+
     def test_agent_continues_and_injects_completed_context_once(self) -> None:
         command = (
             "python3 -c 'import json,time; time.sleep(0.05); "
@@ -257,6 +291,10 @@ class AsyncHookRuntimeTests(unittest.TestCase):
         self.assertFalse(launch_files_remain)
         self.assertEqual(sum(event["type"] == "async_hook_started" for event in events), 1)
         self.assertEqual(sum(event["type"] == "async_hook_completed" for event in events), 1)
+        lifecycle = [event for event in events if event["type"] in {"hook_started", "hook_response"}]
+        self.assertEqual([event["type"] for event in lifecycle], ["hook_started", "hook_response"])
+        self.assertEqual(len({event["hook_id"] for event in lifecycle}), 1)
+        self.assertEqual(lifecycle[-1]["outcome"], "success")
         self.assertEqual(
             sum(event["type"] == "async_hook_notifications_delivered" for event in events),
             1,
@@ -496,6 +534,10 @@ class AsyncHookRuntimeTests(unittest.TestCase):
                 for event in events
             )
         )
+        lifecycle = [event for event in events if event["type"] in {"hook_started", "hook_response"}]
+        self.assertEqual([event["type"] for event in lifecycle], ["hook_started", "hook_response"])
+        self.assertEqual(len({event["hook_id"] for event in lifecycle}), 1)
+        self.assertEqual(lifecycle[-1]["outcome"], "cancelled")
 
     def test_interactive_exit_cancels_session_async_hooks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-async-hook-") as base:

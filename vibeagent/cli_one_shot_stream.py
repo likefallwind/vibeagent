@@ -34,6 +34,7 @@ def build_one_shot_stream_scope(
     invocation_plugin_dirs: tuple[Path, ...] = (),
     force_workspace: bool = False,
     workspace: RunWorkspace | None = None,
+    include_hook_events: bool = False,
     forward_subagent_text: bool = False,
     event_observer: SessionEventObserver | None = None,
     provider_env: dict[str, str | None] | None = None,
@@ -63,7 +64,12 @@ def build_one_shot_stream_scope(
     stream_observer = None
     if stream is not None:
         base_observer: SessionEventObserver = (
-            StreamSessionObserver(stream, workspace, provider_env)
+            StreamSessionObserver(
+                stream,
+                workspace,
+                provider_env,
+                include_hook_events=include_hook_events,
+            )
             if provider_env is not None
             else stream.session_event
         )

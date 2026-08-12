@@ -108,6 +108,14 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         not args.print_mode or args.output_format != "stream-json" or not args.task or has_local_flag(args)
     ):
         return "--include-partial-messages requires --print with --output-format stream-json."
+    if args.include_hook_events and (
+        not args.print_mode
+        or args.output_format != "stream-json"
+        or not args.task
+        or args.chat
+        or has_local_flag(args)
+    ):
+        return "--include-hook-events requires a one-shot coding task with --print and --output-format stream-json."
     if args.replay_user_messages and (
         not args.print_mode
         or args.input_format != "stream-json"

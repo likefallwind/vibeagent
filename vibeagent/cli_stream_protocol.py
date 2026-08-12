@@ -19,6 +19,7 @@ MAX_STREAM_INIT_ITEMS = 100
 MAX_STREAM_INIT_ERROR_CHARS = 1_000
 STREAM_CAPABILITIES = (
     "api_retry_v1",
+    "hook_events_v1",
     "session_events_v1",
     "system_init_v1",
 )
@@ -29,6 +30,7 @@ class StreamSessionObserver:
     stream: JsonEventStream
     workspace: RunWorkspace
     provider_env: Mapping[str, str | None]
+    include_hook_events: bool = False
     init_emitted: bool = False
     _lock: Lock = field(default_factory=Lock, init=False, repr=False)
 
@@ -43,6 +45,13 @@ class StreamSessionObserver:
                 )
             if event_type == "model_error" and event.get("will_retry") is True:
                 self.stream.api_retry(session_dir, build_api_retry_payload(event))
+            hook_payload = build_hook_lifecycle_payload(
+                event,
+                include_hook_events=self.include_hook_events,
+            )
+            if hook_payload is not None:
+                subtype, payload = hook_payload
+                self.stream.hook_lifecycle(session_dir, subtype, payload)
             self.stream.session_event(session_dir, event)
 
 
@@ -121,6 +130,42 @@ def build_api_retry_payload(event: Mapping[str, Any]) -> dict[str, object]:
     return payload
 
 
+def build_hook_lifecycle_payload(
+    event: Mapping[str, Any],
+    *,
+    include_hook_events: bool,
+) -> tuple[str, dict[str, object]] | None:
+    event_type = str(event.get("type") or "")
+    if event_type not in {"hook_started", "hook_progress", "hook_response"}:
+        return None
+    hook_event = _bounded_text(event.get("event") or "unknown", limit=100)
+    if not include_hook_events and hook_event not in {"SessionStart", "Setup"}:
+        return None
+    payload: dict[str, object] = {
+        "hook_id": _bounded_text(event.get("hook_id") or "unknown", limit=100),
+        "hook_name": _bounded_text(event.get("hook_name") or "unknown", limit=300),
+        "hook_event": hook_event,
+        "uuid": str(uuid4()),
+    }
+    if event_type in {"hook_progress", "hook_response"}:
+        stdout = _bounded_text(event.get("stdout") or "", limit=10_000)
+        stderr = _bounded_text(event.get("stderr") or "", limit=10_000)
+        payload.update(
+            {
+                "stdout": stdout,
+                "stderr": stderr,
+                "output": _bounded_text(event.get("output") or "", limit=10_000),
+            }
+        )
+    if event_type == "hook_response":
+        outcome = str(event.get("outcome") or "error")
+        payload["outcome"] = outcome if outcome in {"success", "error", "cancelled"} else "error"
+        exit_code = event.get("exit_code")
+        if isinstance(exit_code, int):
+            payload["exit_code"] = exit_code
+    return event_type, payload
+
+
 def _bounded_strings(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -178,5 +223,6 @@ __all__ = [
     "STREAM_CAPABILITIES",
     "StreamSessionObserver",
     "build_api_retry_payload",
+    "build_hook_lifecycle_payload",
     "build_stream_init_payload",
 ]

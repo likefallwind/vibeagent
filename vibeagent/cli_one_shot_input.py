@@ -138,6 +138,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "max_budget_usd": args.max_budget_usd,
         "fallback_model": args.fallback_model,
         "include_partial_messages": args.include_partial_messages,
+        "include_hook_events": args.include_hook_events,
         "forward_subagent_text": args.forward_subagent_text or (
             args.print_mode
             and args.output_format == "stream-json"

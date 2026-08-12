@@ -379,6 +379,7 @@ python -m vibeagent -p --no-session-persistence --output-format json --cwd ../my
 python -m vibeagent -p --output-format json --fallback-model backup-model --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format json --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
+python -m vibeagent -p --output-format stream-json --include-hook-events --cwd ../my-project "audit hook execution"
 python -m vibeagent -p --output-format stream-json --include-partial-messages --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format stream-json --forward-subagent-text --cwd ../my-project "delegate the investigation"
 python -m vibeagent --bg --approval auto --cwd ../my-project "run the tests and fix failures"
@@ -822,6 +823,13 @@ MCP-server, enabled-plugin, and protocol-capability metadata without credentials
 Retryable model failures emit `type: "system", subtype: "api_retry"` before
 their durable raw `model_error` event, with the attempt, configured retry limit,
 delay, normalized error category, optional HTTP status, reason, and event UUID.
+Explicit `-p --include-hook-events` additionally emits Claude SDK-compatible
+top-level `type: "system"` records with subtypes `hook_started`,
+`hook_progress`, and `hook_response` before their corresponding durable raw
+hook events. `Setup` and `SessionStart` lifecycle records are always included;
+other hook events require the flag. Hook IDs remain stable across one execution,
+slow command hooks report bounded redacted stdout/stderr progress, and async
+hooks emit their response only when they finish or are cancelled.
 Metadata discovery failures are reported as bounded redacted init errors and do
 not stop the coding run. Existing `type: "event"` records remain unchanged for
 consumers that use the lower-level session-event protocol.

@@ -5,6 +5,7 @@ import os
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
+from uuid import uuid4
 
 from .agent_runtime_utils import append_session_event
 from .process_registry import (
@@ -36,6 +37,9 @@ class AsyncHookState:
     rewake: bool
     input_file: str
     environment_file: str
+    hook_id: str
+    hook_name: str
+    progress_bytes: int = 0
     delivered: bool = False
 
 
@@ -60,6 +64,8 @@ def start_async_hook(
     input_path: Path,
     environment_path: Path,
     cwd: str | None,
+    hook_id: str | None = None,
+    hook_name: str | None = None,
 ) -> tuple[str | None, str]:
     started = start_background_command(
         workspace,
@@ -80,6 +86,8 @@ def start_async_hook(
         rewake=hook.async_rewake,
         input_file=input_path.name,
         environment_file=environment_path.name,
+        hook_id=hook_id or str(uuid4()),
+        hook_name=hook_name or f"command:{Path(hook.source).name or 'configured'}#1",
     )
     try:
         _write_state(workspace, state)
@@ -144,6 +152,7 @@ def collect_async_hook_notifications(
             terminate_persistent_process(record)
             running = False
         if running:
+            _report_async_progress(workspace, state, record.stdout_path, record.stderr_path, current_time)
             continue
         release_background_process_handle(state.process_id)
         _cleanup_state_files(workspace, state)
@@ -235,6 +244,16 @@ def close_session_async_hooks(workspace: RunWorkspace) -> int:
                     "outcome": "cancelled" if running else "discarded_at_teardown",
                 },
             )
+            stdout = _read_output(record.stdout_path, tail=False) if record is not None else ""
+            stderr = _read_output(record.stderr_path, tail=True) if record is not None else ""
+            _append_async_hook_response(
+                workspace,
+                state,
+                stdout=stdout,
+                stderr=stderr,
+                exit_code=None,
+                outcome="cancelled",
+            )
         except (OSError, ValueError):
             continue
         closed += 1
@@ -266,6 +285,17 @@ def _finish_state(
             "context_delivered": bool(additional_context),
             "system_message": system_message,
         },
+    )
+    record = read_persistent_process_record(workspace.root, state.process_id)
+    stdout = _read_output(record.stdout_path, tail=False) if record is not None else ""
+    stderr = _read_output(record.stderr_path, tail=True) if record is not None else ""
+    _append_async_hook_response(
+        workspace,
+        state,
+        stdout=stdout,
+        stderr=stderr,
+        exit_code=exit_code,
+        outcome="error" if timed_out or exit_code != 0 else "success",
     )
     return AsyncHookNotification(
         process_id=state.process_id,
@@ -330,6 +360,72 @@ def _completion_output(
     )
 
 
+def _report_async_progress(
+    workspace: RunWorkspace,
+    state: AsyncHookState,
+    stdout_path: Path,
+    stderr_path: Path,
+    now: float,
+) -> None:
+    if now < state.started_at + 1.0:
+        return
+    stdout = _read_output(stdout_path, tail=False)
+    stderr = _read_output(stderr_path, tail=True)
+    total_bytes = len(stdout.encode("utf-8")) + len(stderr.encode("utf-8"))
+    if total_bytes <= state.progress_bytes:
+        return
+    append_session_event(
+        workspace.session_dir,
+        "hook_progress",
+        {
+            **_async_hook_payload(state),
+            "stdout": stdout[:MAX_ASYNC_HOOK_CONTEXT_CHARS],
+            "stderr": stderr[:MAX_ASYNC_HOOK_CONTEXT_CHARS],
+            "output": _combined_output(stdout, stderr),
+        },
+    )
+    _write_state(workspace, replace(state, progress_bytes=total_bytes))
+
+
+def _append_async_hook_response(
+    workspace: RunWorkspace,
+    state: AsyncHookState,
+    *,
+    stdout: str,
+    stderr: str,
+    exit_code: int | None,
+    outcome: str,
+) -> None:
+    payload: dict[str, object] = {
+        **_async_hook_payload(state),
+        "stdout": stdout[:MAX_ASYNC_HOOK_CONTEXT_CHARS],
+        "stderr": stderr[:MAX_ASYNC_HOOK_CONTEXT_CHARS],
+        "output": _combined_output(stdout, stderr),
+        "outcome": outcome,
+        "status": "passed" if outcome == "success" else outcome,
+    }
+    if exit_code is not None:
+        payload["exit_code"] = exit_code
+    append_session_event(workspace.session_dir, "hook_response", payload)
+
+
+def _async_hook_payload(state: AsyncHookState) -> dict[str, object]:
+    return {
+        "hook_id": state.hook_id,
+        "hook_name": state.hook_name,
+        "event": state.event,
+        "tool": state.target,
+        "source": state.source,
+        "handler_type": "command",
+    }
+
+
+def _combined_output(stdout: str, stderr: str) -> str:
+    return redact_sensitive_text(
+        "\n".join(value for value in (stdout, stderr) if value)
+    )[:MAX_ASYNC_HOOK_CONTEXT_CHARS]
+
+
 def _read_output(path: Path, *, tail: bool) -> str:
     try:
         with path.open("rb") as stream:
@@ -367,6 +463,9 @@ def _write_state(workspace: RunWorkspace, state: AsyncHookState) -> None:
         "rewake": state.rewake,
         "input_file": state.input_file,
         "environment_file": state.environment_file,
+        "hook_id": state.hook_id,
+        "hook_name": state.hook_name,
+        "progress_bytes": state.progress_bytes,
         "delivered": state.delivered,
     }
     encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
@@ -415,6 +514,9 @@ def _parse_state(payload: object) -> AsyncHookState | None:
     delivered = payload.get("delivered")
     input_file = payload.get("input_file")
     environment_file = payload.get("environment_file")
+    hook_id = payload.get("hook_id", process_id)
+    hook_name = payload.get("hook_name", "command:configured#1")
+    progress_bytes = payload.get("progress_bytes", 0)
     if (
         not isinstance(process_id, str)
         or not process_id
@@ -429,6 +531,15 @@ def _parse_state(payload: object) -> AsyncHookState | None:
         or not isinstance(delivered, bool)
         or not _private_filename(input_file, ".hook-input-")
         or not _private_filename(environment_file, ".hook-launch-")
+        or not isinstance(hook_id, str)
+        or not hook_id
+        or len(hook_id) > 100
+        or not isinstance(hook_name, str)
+        or not hook_name
+        or len(hook_name) > 300
+        or not isinstance(progress_bytes, int)
+        or isinstance(progress_bytes, bool)
+        or progress_bytes < 0
     ):
         return None
     return AsyncHookState(
@@ -441,6 +552,9 @@ def _parse_state(payload: object) -> AsyncHookState | None:
         rewake=rewake,
         input_file=input_file,
         environment_file=environment_file,
+        hook_id=hook_id,
+        hook_name=hook_name,
+        progress_bytes=progress_bytes,
         delivered=delivered,
     )
 
