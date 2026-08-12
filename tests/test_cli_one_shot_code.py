@@ -17,9 +17,73 @@ from vibeagent.types import ChatMessage
 from vibeagent.structured_output import StructuredOutputResult
 from vibeagent.workspace_core import create_local_workspace
 from vibeagent.deferred_tool_state import DeferredToolState, write_deferred_tool_state
+from vibeagent.permission_prompt_mcp import PermissionPromptTool
 
 
 class CliOneShotCodeTests(unittest.TestCase):
+    def test_permission_prompt_tool_forces_reserved_workspace_and_delegated_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-permission-tool-") as base:
+            root = Path(base)
+            calls: list[dict[str, object]] = []
+            delegated = object()
+
+            def run_agent(_task, **kwargs):
+                calls.append(kwargs)
+                workspace = kwargs["workspace"]
+                return AgentResult(True, "done", root, workspace.run_id, 1, [], [])
+
+            with (
+                patch("vibeagent.cli_one_shot_code.emit_one_shot_code_payload"),
+                patch("vibeagent.cli_one_shot_code.run_session_end_hooks"),
+                patch(
+                    "vibeagent.cli_one_shot_code.resolve_permission_prompt_tool",
+                    return_value=PermissionPromptTool("policy", "authorize"),
+                ) as resolve,
+                patch(
+                    "vibeagent.cli_one_shot_agent_kwargs.build_mcp_permission_prompt_handler",
+                    return_value=delegated,
+                ) as build,
+            ):
+                exit_code, _ = run_one_shot_code(
+                    "inspect",
+                    project_root=root,
+                    execution_config=ExecutionConfig(command_timeout_ms=4321),
+                    provider_env={},
+                    approval_policy="ask",
+                    trust_project_permissions=False,
+                    permission_overrides=None,
+                    resolved_mcp_config_paths=(),
+                    strict_mcp_config=False,
+                    output_mode=CliOutputMode(format="text", machine=False, stream_json=False),
+                    output_json=False,
+                    print_mode=True,
+                    elapsed_ms=1,
+                    stream=None,
+                    input_prior_context=None,
+                    system_prompt=None,
+                    append_system_prompt=None,
+                    task_metadata=None,
+                    resume_arg=None,
+                    compact_arg=None,
+                    auto_compact=False,
+                    permission_prompt_tool="mcp__policy__authorize",
+                    create_chat_client_func=lambda _env: object(),
+                    run_agent_func=run_agent,
+                    get_resume_context_func=lambda *args, **kwargs: (None, None, "unused"),
+                    get_compact_context_func=lambda *args, **kwargs: (None, None, "unused"),
+                )
+
+        self.assertEqual(exit_code, 0)
+        workspace = calls[0]["workspace"]
+        self.assertEqual(workspace.permission_prompt_tool, "mcp__policy__authorize")
+        self.assertIs(calls[0]["approval_handler"], delegated)
+        resolve.assert_called_once()
+        build.assert_called_once_with(
+            workspace,
+            PermissionPromptTool("policy", "authorize"),
+            timeout_ms=4321,
+        )
+
     def test_resume_passes_persisted_deferred_tool_state_to_agent(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-deferred-") as base:
             root = Path(base)

@@ -24,6 +24,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--safe-mode cannot be combined with --agent or --agents."
     if args.safe_mode and (args.mcp_config or args.strict_mcp_config):
         return "--safe-mode cannot be combined with --mcp-config or --strict-mcp-config."
+    if args.safe_mode and args.permission_prompt_tool is not None:
+        return "--safe-mode cannot be combined with --permission-prompt-tool."
     if args.safe_mode and (args.plugin_dir or args.plugin_url):
         return "--safe-mode cannot be combined with --plugin-dir or --plugin-url."
     if (args.plugin_dir or args.plugin_url) and (has_local_flag(args) or args.chat):
@@ -38,6 +40,17 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--background requires session persistence."
     if args.background and args.api_key is not None:
         return "--background does not persist --api-key; configure the provider key in the environment."
+    if args.permission_prompt_tool is not None and (
+        (not args.print_mode and not args.background)
+        or not args.task
+        or has_local_flag(args)
+        or args.chat
+    ):
+        return "--permission-prompt-tool requires a non-interactive coding task with --print or --background."
+    if args.permission_prompt_tool is not None and not args.permission_prompt_tool.strip():
+        return "--permission-prompt-tool cannot be empty."
+    if args.permission_prompt_tool is not None and args.approval not in {"ask", "auto"}:
+        return "--permission-prompt-tool requires --approval ask or auto."
     if args.agent_view:
         if args.task:
             return "agents/--agent-view cannot be combined with a task."

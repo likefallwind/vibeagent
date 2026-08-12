@@ -13,9 +13,44 @@ from vibeagent.background_agent_config import create_background_agent_config
 from vibeagent.session_approval import SessionApprovalHandler
 from vibeagent.types import ApprovalRequest
 from vibeagent.workspace_permissions import ProjectPermissions
+from vibeagent.permission_prompt_mcp import PermissionPromptTool
+from vibeagent.workspace_core import create_local_workspace
 
 
 class CliOneShotAgentKwargsTests(unittest.TestCase):
+    def test_permission_prompt_tool_overrides_noninteractive_and_background_prompts(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-kwargs-") as base:
+            root = Path(base).resolve()
+            workspace = create_local_workspace(root, "run-1")
+            tool = PermissionPromptTool("policy", "authorize")
+            delegated = object()
+
+            with patch(
+                "vibeagent.cli_one_shot_agent_kwargs.build_mcp_permission_prompt_handler",
+                return_value=delegated,
+            ) as build:
+                kwargs = build_one_shot_agent_kwargs(
+                    client=object(),
+                    project_root=root,
+                    execution_config=ExecutionConfig(command_timeout_ms=4321),
+                    approval_policy="ask",
+                    trust_project_permissions=False,
+                    permission_overrides=None,
+                    mcp_config_paths=(),
+                    strict_mcp_config=False,
+                    machine_output=True,
+                    stream_json=True,
+                    prior_context=None,
+                    system_prompt=None,
+                    append_system_prompt=None,
+                    task_metadata=None,
+                    workspace=workspace,
+                    permission_prompt_tool=tool,
+                )
+
+        self.assertIs(kwargs["approval_handler"], delegated)
+        build.assert_called_once_with(workspace, tool, timeout_ms=4321)
+
     def test_authenticated_background_worker_uses_ipc_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-kwargs-") as base:
             root = Path(base).resolve()

@@ -56,6 +56,14 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Claude-compatible alias for --approval allow on one-shot coding tasks.",
     )
     parser.add_argument(
+        "--permission-prompt-tool",
+        metavar="MCP_TOOL",
+        help=(
+            "Delegate unresolved non-interactive approval prompts to an advertised MCP tool; "
+            "accepts mcp__SERVER__TOOL, SERVER/TOOL, or a unique tool name."
+        ),
+    )
+    parser.add_argument(
         "--max-turns",
         type=positive_int,
         help="Claude-compatible alias for --max-iterations.",

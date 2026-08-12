@@ -612,6 +612,20 @@ local inspection commands, resume, continue, or compact modes.
 `bypassPermissions` -> `allow`). `dontAsk` never opens an approval prompt: read-only
 actions and trusted explicit allow rules can run, while every other action that
 requires approval is denied. `--max-turns` maps to `--max-iterations`.
+For unattended policy decisions, `-p --permission-prompt-tool MCP_TOOL` delegates
+only unresolved `ask` or `auto` prompts to an advertised MCP tool. References may
+use `mcp__SERVER__TOOL`, `SERVER/TOOL`, or a bare name that is unique across all
+configured servers. The tool receives `{"tool_name": ACTION_TYPE, "input":
+{"target": ..., "risk": ..., "preview": ...}}` and must return one JSON text or
+`structuredContent` object containing either `{"behavior":"allow"}` or
+`{"behavior":"deny","message":"..."}`. An unchanged `updatedInput` is accepted
+for Claude compatibility, but policy tools cannot rewrite VibeAgent actions.
+Resolution, transport errors, malformed or ambiguous decisions, and MCP
+`isError` results fail closed. The selected policy tool is reserved from ordinary
+model MCP calls, while project permission rules, hard command blocks, approval
+events, background runs, and resumed turns retain their normal boundaries. Use
+`--strict-mcp-config --mcp-config PATH` when automation must trust only an
+explicit MCP configuration.
 `-p --max-budget-usd AMOUNT` stops a one-shot coding task when the shared
 provider-cost estimate reaches the positive USD limit. Configure at least
 `VIBEAGENT_INPUT_USD_PER_MILLION` and

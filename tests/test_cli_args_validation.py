@@ -8,6 +8,30 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_permission_prompt_tool_requires_noninteractive_ask_or_auto_coding_mode(self) -> None:
+        valid = cli_module.parse_args(
+            ["-p", "--permission-prompt-tool", "mcp__policy__authorize", "inspect"]
+        )
+        background = cli_module.parse_args(
+            ["--background", "--permission-prompt-tool", "policy/authorize", "inspect"]
+        )
+        invalid = (
+            cli_module.parse_args(["--permission-prompt-tool", "policy/authorize", "inspect"]),
+            cli_module.parse_args(["-p", "--chat", "--permission-prompt-tool", "policy/authorize", "hello"]),
+            cli_module.parse_args(["-p", "--safe-mode", "--permission-prompt-tool", "policy/authorize", "inspect"]),
+            cli_module.parse_args(["-p", "--approval", "allow", "--permission-prompt-tool", "policy/authorize", "inspect"]),
+        )
+
+        self.assertIsNone(cli_module.validate_cli_args(valid))
+        self.assertIsNone(cli_module.validate_cli_args(background))
+        self.assertEqual(
+            cli_module.build_one_shot_kwargs_from_args(valid)["permission_prompt_tool"],
+            "mcp__policy__authorize",
+        )
+        for args in invalid:
+            with self.subTest(args=args):
+                self.assertIsNotNone(cli_module.validate_cli_args(args))
+
     def test_background_requires_persistent_non_stdin_one_shot_code(self) -> None:
         valid = cli_module.parse_args(["--bg", "inspect"])
         no_task = cli_module.parse_args(["--background"])

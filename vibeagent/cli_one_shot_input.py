@@ -146,6 +146,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "setup_trigger": args.setup_trigger,
         "tool_names": parse_cli_tool_names(args.tools),
         "permission_overrides": build_permission_overrides(args),
+        "permission_prompt_tool": args.permission_prompt_tool,
         "provider_args": args,
         "background_agent_config": background_agent_worker_config(args),
     }

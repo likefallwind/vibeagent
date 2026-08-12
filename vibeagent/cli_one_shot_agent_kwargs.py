@@ -5,7 +5,7 @@ from pathlib import Path
 from .cli_output import build_approval_handler, prompt_user_input
 from .config import ExecutionConfig
 from .project_trust import is_project_permissions_trusted
-from .types import ApprovalPolicy
+from .types import ApprovalHandler, ApprovalPolicy
 from .workspace_core import RunWorkspace
 from .workspace_permissions import ProjectPermissions
 from .peer_runtime import PeerSessionRuntime
@@ -14,6 +14,10 @@ from .model_streaming import AgentModelStreamHandler
 from .background_agent_approval import background_agent_approval_handler
 from .background_agent_config import BackgroundAgentConfig
 from .background_agent_input import BackgroundUserInputPrompt
+from .permission_prompt_mcp import (
+    PermissionPromptTool,
+    build_mcp_permission_prompt_handler,
+)
 
 
 def build_one_shot_agent_kwargs(
@@ -48,10 +52,15 @@ def build_one_shot_agent_kwargs(
     peer_runtime: PeerSessionRuntime | None = None,
     model_stream_handler: AgentModelStreamHandler | None = None,
     background_agent_config: BackgroundAgentConfig | None = None,
+    permission_prompt_tool: PermissionPromptTool | None = None,
 ) -> dict[str, object]:
-    background_approval = background_agent_approval_handler(
-        background_agent_config,
-        approval_policy,
+    approval_handler = _build_one_shot_approval_handler(
+        approval_policy=approval_policy,
+        workspace=workspace,
+        permission_prompt_tool=permission_prompt_tool,
+        background_agent_config=background_agent_config,
+        command_timeout_ms=execution_config.command_timeout_ms,
+        stream_json=stream_json,
     )
     kwargs: dict[str, object] = {
         "client": client,
@@ -62,15 +71,7 @@ def build_one_shot_agent_kwargs(
         "model_retries": execution_config.model_retries,
         "model_retry_delay_ms": execution_config.model_retry_delay_ms,
         "model_timeout_ms": execution_config.model_timeout_ms,
-        "approval_handler": (
-            background_approval
-            if background_approval is not None
-            else (
-                None
-                if stream_json and approval_policy == "ask"
-                else build_approval_handler(approval_policy)
-            )
-        ),
+        "approval_handler": approval_handler,
         "approval_policy": approval_policy,
         "agent": agent,
         "tool_names": tool_names,
@@ -108,3 +109,31 @@ def build_one_shot_agent_kwargs(
     if model_stream_handler is not None:
         kwargs["model_stream_handler"] = model_stream_handler
     return kwargs
+
+
+def _build_one_shot_approval_handler(
+    *,
+    approval_policy: ApprovalPolicy,
+    workspace: RunWorkspace | None,
+    permission_prompt_tool: PermissionPromptTool | None,
+    background_agent_config: BackgroundAgentConfig | None,
+    command_timeout_ms: int,
+    stream_json: bool,
+) -> ApprovalHandler | None:
+    if permission_prompt_tool is not None:
+        if workspace is None:
+            raise ValueError("Permission prompt MCP delegation requires a session workspace.")
+        return build_mcp_permission_prompt_handler(
+            workspace,
+            permission_prompt_tool,
+            timeout_ms=command_timeout_ms,
+        )
+    background_approval = background_agent_approval_handler(
+        background_agent_config,
+        approval_policy,
+    )
+    if background_approval is not None:
+        return background_approval
+    if stream_json and approval_policy == "ask":
+        return None
+    return build_approval_handler(approval_policy)

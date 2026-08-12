@@ -192,13 +192,30 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
             )
 
     if isinstance(action, McpCallAction):
+        qualified_name = f"mcp__{action.server}__{action.name}"
+        if workspace.permission_prompt_tool == qualified_name:
+            return McpCallObservation(
+                kind="mcp_call",
+                ok=False,
+                server=action.server,
+                name=action.name,
+                output="",
+                is_error=True,
+                truncated=False,
+                max_output_chars=action.max_output_chars,
+                timeout_ms=action.timeout_ms,
+                error="The configured permission prompt tool is reserved for runtime approval decisions.",
+                message=f"Could not call reserved permission prompt tool {action.server}/{action.name}.",
+                arguments=_redacted_arguments(action.arguments),
+            )
         try:
-            config = _safe_server_config(workspace, action.server)
-            with _mcp_client(workspace, config, action.timeout_ms) as client:
-                tools, _, _ = client.list_tools(500)
-                if action.name not in {str(tool.get("name")) for tool in tools}:
-                    raise ValueError(f"MCP tool {action.name!r} was not advertised by server {action.server!r}.")
-                result = client.call_tool(action.name, action.arguments)
+            result = call_advertised_mcp_tool(
+                workspace,
+                action.server,
+                action.name,
+                action.arguments,
+                timeout_ms=action.timeout_ms,
+            )
             output = redact_sensitive_text(_mcp_result_text(result))
             text_output = redact_sensitive_text(_mcp_text_output(result))
             truncated = len(output) > action.max_output_chars
@@ -228,6 +245,48 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
                 arguments=_redacted_arguments(action.arguments),
             )
     return None
+
+
+def list_advertised_mcp_tool_names(
+    workspace: RunWorkspace,
+    server: str,
+    *,
+    timeout_ms: int,
+) -> frozenset[str]:
+    config = _safe_server_config(workspace, server)
+    with _mcp_client(workspace, config, timeout_ms) as client:
+        tools, total, truncated = client.list_tools(500)
+    if truncated or total > len(tools):
+        raise ValueError(
+            f"MCP server {server!r} advertises more than the 500-tool safety limit."
+        )
+    return frozenset(
+        str(tool.get("name"))
+        for tool in tools
+        if isinstance(tool, dict) and isinstance(tool.get("name"), str)
+    )
+
+
+def call_advertised_mcp_tool(
+    workspace: RunWorkspace,
+    server: str,
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    timeout_ms: int,
+) -> dict[str, Any]:
+    config = _safe_server_config(workspace, server)
+    with _mcp_client(workspace, config, timeout_ms) as client:
+        tools, total, truncated = client.list_tools(500)
+        if truncated or total > len(tools):
+            raise ValueError(
+                f"MCP server {server!r} advertises more than the 500-tool safety limit."
+            )
+        if name not in {str(tool.get("name")) for tool in tools}:
+            raise ValueError(
+                f"MCP tool {name!r} was not advertised by server {server!r}."
+            )
+        return client.call_tool(name, arguments)
 
 
 def _safe_server_config(workspace: RunWorkspace, name: str) -> McpServerConfig:

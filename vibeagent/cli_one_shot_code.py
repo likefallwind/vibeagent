@@ -47,6 +47,7 @@ from .session_lifecycle_hooks import run_session_end_hooks
 from .agent_runtime_utils import append_session_event, format_exception
 from .model_effort import ModelEffortSetting, configure_model_effort
 from .background_agent_config import BackgroundAgentConfig
+from .permission_prompt_mcp import resolve_permission_prompt_tool
 
 
 def run_one_shot_code(
@@ -111,6 +112,7 @@ def run_one_shot_code(
     create_chat_client_func: Callable[[dict[str, str | None]], object],
     run_agent_func: Callable[..., AgentResult],
     background_agent_config: BackgroundAgentConfig | None = None,
+    permission_prompt_tool: str | None = None,
     get_resume_context_func: SessionContextGetter,
     get_compact_context_func: SessionContextGetter,
     generate_structured_output_func: Callable[..., StructuredOutputResult] = generate_structured_output,
@@ -197,10 +199,35 @@ def run_one_shot_code(
         setting_sources=setting_sources,
         settings_override_json=settings_override_json,
         invocation_plugin_dirs=invocation_plugin_dirs,
-        force_workspace=fork_session or session_name is not None or ephemeral_workspace is not None,
+        force_workspace=(
+            fork_session
+            or session_name is not None
+            or ephemeral_workspace is not None
+            or permission_prompt_tool is not None
+        ),
         workspace=resumed_workspace,
         forward_subagent_text=forward_subagent_text,
     )
+    resolved_permission_prompt_tool = None
+    if permission_prompt_tool is not None:
+        if stream_scope.workspace is None:
+            raise ValueError("Permission prompt MCP delegation requires a session workspace.")
+        resolved_permission_prompt_tool = resolve_permission_prompt_tool(
+            stream_scope.workspace,
+            permission_prompt_tool,
+        )
+        stream_scope = replace(
+            stream_scope,
+            workspace=replace(
+                stream_scope.workspace,
+                permission_prompt_tool=resolved_permission_prompt_tool.qualified_name,
+            ),
+        )
+        append_session_event(
+            stream_scope.workspace.session_dir,
+            "permission_prompt_tool_configured",
+            {"tool": resolved_permission_prompt_tool.qualified_name},
+        )
     if replay_user_messages:
         if stream is None or stream_scope.workspace is None:
             raise ValueError("User message replay requires a persistent stream-json coding session.")
@@ -242,6 +269,7 @@ def run_one_shot_code(
             else None
         ),
         background_agent_config=background_agent_config,
+        permission_prompt_tool=resolved_permission_prompt_tool,
     )
     continuing_source_session = (
         ephemeral_workspace is None

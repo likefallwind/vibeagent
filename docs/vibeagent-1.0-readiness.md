@@ -489,6 +489,11 @@ The automated suite currently covers these 1.0 surfaces:
   overflow, malformed archives, and cross-source name conflicts fail before
   provider creation; resolved local roots continue through worktree, resume,
   background, and subagent paths without persisting raw URLs.
+- Non-interactive permission delegation: Claude-compatible
+  `--permission-prompt-tool` resolves one advertised MCP tool, sends bounded
+  redacted approval context, accepts strict allow/deny JSON, rejects action
+  rewriting, fails closed, reserves the policy tool from model calls, and
+  remains available in print, resumed, and background coding turns.
 - Recoverable command output: truncated finite Bash and PowerShell streams are
   retained as private current-session artifacts with exact `read_file`
   references and total byte counts. Invalid references, cross-session paths,
