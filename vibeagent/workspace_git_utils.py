@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-import os
 from pathlib import Path
 import re
 import subprocess
 
-from .process_command_capture import capture_command_output
-from .process_lifecycle import terminate_process
+from .bounded_subprocess import run_bounded_subprocess
 from .workspace_core import GitCommandResult
 from .workspace_paths import is_sensitive_project_path, path_matches_gitignore
 
@@ -179,43 +177,27 @@ def _run_bounded_readonly_git(
     if max_output_chars < 1:
         raise ValueError("Git output character limit must be positive.")
     try:
-        process = subprocess.Popen(
+        result = run_bounded_subprocess(
             ["git", *args],
             cwd=Path(root),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            start_new_session=os.name != "nt",
+            timeout_ms=READONLY_GIT_TIMEOUT_MS,
+            max_output_chars=max_output_chars,
+            observer=observer,
         )
     except FileNotFoundError:
         return GitCommandResult(ok=False, stdout="", stderr="git executable was not found.", exit_code=None)
-
-    capture = capture_command_output(
-        process,
-        timeout_ms=READONLY_GIT_TIMEOUT_MS,
-        max_output_chars=max_output_chars,
-        observer=observer,
-        preserve_complete=False,
-        terminate=lambda: terminate_process(process),
+    except subprocess.TimeoutExpired:
+        return GitCommandResult(ok=False, stdout="", stderr="git command timed out.", exit_code=None)
+    return GitCommandResult(
+        ok=result.returncode == 0,
+        stdout=result.stdout,
+        stderr=result.stderr,
+        exit_code=result.returncode,
+        stdout_truncated=result.stdout_truncated,
+        stderr_truncated=result.stderr_truncated,
+        stdout_total_chars=result.stdout_total_chars,
+        stderr_total_chars=result.stderr_total_chars,
     )
-    try:
-        if capture.timed_out:
-            return GitCommandResult(ok=False, stdout="", stderr="git command timed out.", exit_code=None)
-        stdout, stdout_truncated = capture.stdout.render()
-        stderr, stderr_truncated = capture.stderr.render()
-        return GitCommandResult(
-            ok=process.returncode == 0,
-            stdout=stdout,
-            stderr=stderr,
-            exit_code=process.returncode,
-            stdout_truncated=stdout_truncated,
-            stderr_truncated=stderr_truncated,
-            stdout_total_chars=capture.stdout.total_chars,
-            stderr_total_chars=capture.stderr.total_chars,
-        )
-    finally:
-        capture.close()
 
 
 def run_git_mutation(root: str | Path, args: list[str]) -> GitCommandResult:

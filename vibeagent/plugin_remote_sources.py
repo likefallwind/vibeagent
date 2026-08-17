@@ -12,6 +12,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlsplit, urlunsplit
 
+from .bounded_subprocess import run_bounded_subprocess
 from .network_url_safety import UrlSafetyError, open_scoped_url, validate_scoped_url
 from .plugin_installation import remove_plugin_tree
 
@@ -246,13 +247,11 @@ def _run_git(args: list[str], *, ssh: bool = False) -> None:
         )
         environment["GIT_SSH_VARIANT"] = "ssh"
     try:
-        result = subprocess.run(
+        result = run_bounded_subprocess(
             ["git", *args],
-            capture_output=True,
-            check=False,
             env=environment,
-            text=True,
-            timeout=remote_git_timeout_ms() / 1000,
+            timeout_ms=remote_git_timeout_ms(),
+            max_output_chars=4_000,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise ValueError(f"Remote Git operation failed: {error}") from error

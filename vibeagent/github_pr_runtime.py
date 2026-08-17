@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from typing import Any
 
+from .bounded_subprocess import run_bounded_subprocess
 from .workspace_core import RunWorkspace
 from .workspace_git_info import parse_ahead_behind_counts
 from .workspace_git_remote_ops import read_git_upstream_parts
@@ -16,6 +17,7 @@ _GITHUB_REMOTE_PATTERNS = (
     re.compile(r"^(?:ssh://)?git@github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$", re.IGNORECASE),
 )
 _PR_URL_PATTERN = re.compile(r"https://github\.com/[^\s/]+/[^\s/]+/pull/\d+")
+MAX_GITHUB_CLI_OUTPUT_CHARS = 4_000
 
 
 def parse_github_repository(remote_url: str) -> tuple[str, str] | None:
@@ -147,7 +149,12 @@ def create_github_pr(workspace: RunWorkspace, **options: Any) -> dict[str, Any]:
     if options.get("draft", False):
         command.append("--draft")
     try:
-        completed = subprocess.run(command, cwd=workspace.root, text=True, capture_output=True, timeout=60, check=False)
+        completed = run_bounded_subprocess(
+            command,
+            cwd=workspace.root,
+            timeout_ms=60_000,
+            max_output_chars=MAX_GITHUB_CLI_OUTPUT_CHARS,
+        )
     except (OSError, subprocess.TimeoutExpired) as error:
         return {**preview, "ok": False, "url": "", "message": f"GitHub CLI failed: {redact_git_text(str(error))}"}
     output = (completed.stdout + "\n" + completed.stderr).strip()

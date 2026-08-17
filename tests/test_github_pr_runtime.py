@@ -76,6 +76,25 @@ class GitHubPrRuntimeTests(unittest.TestCase):
             self.assertEqual(result["ahead"], 1)
             self.assertIn("fetch and push first", result["message"])
 
+    def test_create_finds_url_after_large_cli_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project, gh, _ = self._project_with_pushed_feature(Path(temp_dir))
+            gh.write_text(
+                "#!/usr/bin/env python3\n"
+                "import sys\n"
+                "sys.stdout.write('noise' * 400_000)\n"
+                "sys.stdout.write('\\nhttps://github.com/acme/widgets/pull/42\\n')\n",
+                encoding="utf-8",
+            )
+            gh.chmod(0o755)
+            workspace = create_run_workspace(project, run_id="large-gh-output")
+
+            with patch("vibeagent.github_pr_runtime.shutil.which", return_value=str(gh)):
+                result = create_github_pr(workspace, title="Feature")
+
+        self.assertTrue(result["ok"], result["message"])
+        self.assertEqual(result["url"], "https://github.com/acme/widgets/pull/42")
+
     def test_preflight_rejects_non_github_remote(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             project, gh, _ = self._project_with_pushed_feature(Path(temp_dir))

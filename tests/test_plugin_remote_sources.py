@@ -115,6 +115,8 @@ class RemoteSourceSafetyTests(IsolatedUserHomeTestCase):
             calls: list[tuple[list[str], dict[str, str]]] = []
 
             def run(command, **kwargs):  # type: ignore[no-untyped-def]
+                self.assertEqual(kwargs["max_output_chars"], 4_000)
+                self.assertGreaterEqual(kwargs["timeout_ms"], 1_000)
                 calls.append((list(command), dict(kwargs["env"])))
                 if command[1:3] == ["init", "--quiet"]:
                     Path(command[-1]).mkdir()
@@ -126,7 +128,7 @@ class RemoteSourceSafetyTests(IsolatedUserHomeTestCase):
                     "vibeagent.plugin_remote_sources.shutil.which",
                     side_effect=lambda name: f"/usr/bin/{name}",
                 ),
-                patch("vibeagent.plugin_remote_sources.subprocess.run", side_effect=run),
+                patch("vibeagent.plugin_remote_sources.run_bounded_subprocess", side_effect=run),
                 patch.dict(
                     "vibeagent.plugin_remote_sources.os.environ",
                     {
@@ -161,7 +163,7 @@ class RemoteSourceSafetyTests(IsolatedUserHomeTestCase):
                     "vibeagent.plugin_remote_sources.validate_scoped_url",
                     side_effect=UrlSafetyError("private address"),
                 ),
-                patch("vibeagent.plugin_remote_sources.subprocess.run") as run,
+                patch("vibeagent.plugin_remote_sources.run_bounded_subprocess") as run,
             ):
                 with self.assertRaisesRegex(UrlSafetyError, "private address"):
                     clone_public_git(
@@ -176,6 +178,8 @@ class RemoteSourceSafetyTests(IsolatedUserHomeTestCase):
             calls: list[tuple[list[str], dict[str, str]]] = []
 
             def run(command, **kwargs):  # type: ignore[no-untyped-def]
+                self.assertEqual(kwargs["max_output_chars"], 4_000)
+                self.assertGreaterEqual(kwargs["timeout_ms"], 1_000)
                 calls.append((list(command), dict(kwargs["env"])))
                 if command[1:3] == ["init", "--quiet"]:
                     Path(command[-1]).mkdir()
@@ -187,7 +191,7 @@ class RemoteSourceSafetyTests(IsolatedUserHomeTestCase):
                     "vibeagent.plugin_remote_sources.shutil.which",
                     side_effect=lambda name: f"/usr/bin/{name}",
                 ),
-                patch("vibeagent.plugin_remote_sources.subprocess.run", side_effect=run),
+                patch("vibeagent.plugin_remote_sources.run_bounded_subprocess", side_effect=run),
                 patch.dict(
                     "vibeagent.plugin_remote_sources.os.environ",
                     {
@@ -229,7 +233,7 @@ class RemoteSourceSafetyTests(IsolatedUserHomeTestCase):
                     "vibeagent.plugin_remote_sources.validate_scoped_url",
                     side_effect=UrlSafetyError("private address"),
                 ),
-                patch("vibeagent.plugin_remote_sources.subprocess.run") as run,
+                patch("vibeagent.plugin_remote_sources.run_bounded_subprocess") as run,
             ):
                 with self.assertRaisesRegex(UrlSafetyError, "private address"):
                     clone_remote_git(
@@ -263,7 +267,7 @@ class RemoteSourceSafetyTests(IsolatedUserHomeTestCase):
                     "vibeagent.plugin_remote_sources.shutil.which",
                     side_effect=lambda name: f"/usr/bin/{name}",
                 ),
-                patch("vibeagent.plugin_remote_sources.subprocess.run", side_effect=run),
+                patch("vibeagent.plugin_remote_sources.run_bounded_subprocess", side_effect=run),
             ):
                 with self.assertRaisesRegex(ValueError, "Host key verification failed"):
                     clone_remote_git(
