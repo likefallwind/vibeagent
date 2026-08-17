@@ -3076,6 +3076,10 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
 - `vibeagent/cli_interactive_local_dispatch.py`: routes stateless local command
   handlers in precedence order while the main interactive loop retains mutable
   session, provider, and conversation state.
+- `vibeagent/cli_interactive_code_turn.py`: owns one interactive coding turn's
+  workspace preparation, status panel, streaming output, agent invocation, and
+  permission/conversation/resume result boundary. The REPL applies that explicit
+  result instead of mutating the same state throughout the agent call.
 - `vibeagent/background_agent_types.py`,
   `vibeagent/background_agent_store.py`, and
   `vibeagent/background_agent_config.py`: define detached coding-session

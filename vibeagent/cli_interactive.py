@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from contextlib import nullcontext
 from dataclasses import replace
 import os
 from pathlib import Path
-import sys
 from threading import Lock
 from typing import Any, Literal, cast
 
 from . import __version__
 from .agent import run_agent as default_run_agent
+from .agent_result import AgentResult
 from .btw import run_btw as default_run_btw
 from .builtin_model_workflows import resolve_builtin_model_workflow
 from .chat import run_chat as default_run_chat
@@ -57,11 +56,15 @@ from .cli_interactive_local_dispatch import (
     InteractiveLocalCommandContext,
     dispatch_interactive_local_command,
 )
+from .cli_interactive_code_turn import (
+    InteractiveCodeTurnRequest,
+    InteractiveCodeTurnServices,
+    run_interactive_code_turn,
+)
 from .context_compaction import format_autocompact_setting
 from .cli_interactive_provider_commands import run_interactive_provider_command
 from .cli_interactive_rewind import run_interactive_rewind_command
 from .cli_interactive_session_management import interactive_session_prompt, run_interactive_session_management
-from .cli_subagent_panel import SubagentPanel
 from .commands import get_resume_context as default_get_resume_context, parse_local_command
 from .config import resolve_execution_config
 from .cli_goal import evaluate_and_store_goal
@@ -87,7 +90,6 @@ from .types import ApprovalPolicy, ChatClient, ChatMessage
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .scheduled_task_store import scheduled_tasks_enabled
 from .session_usage import summarize_run_usage
-from .session_names import transfer_session_name
 from .peer_commands import get_peer_sessions_text
 from .peer_inbox_commands import handle_peer_inbox_command
 from .plugin_commands import handle_plugin_command, reload_plugins_text
@@ -98,11 +100,6 @@ from .dynamic_workflow_runtime import DynamicWorkflowManager
 from .workspace_core import BrowserMode, create_local_workspace, create_run_workspace, normalize_additional_roots
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import ProjectPermissions, read_project_permissions
-from .workspace_view_mode import resolve_verbose_mode
-from .workspace_teammate_mode import resolve_teammate_mode
-from .cli_verbose_output import VerboseTranscriptRenderer
-from .model_streaming import supports_model_streaming
-from .session_event_observers import observe_session_events
 from .workspace_agents import format_project_agent_catalog
 from .workspace_prompt_commands import format_project_prompt_commands
 from .workspace_skills import format_project_skill_catalog
@@ -120,7 +117,7 @@ from .session_lifecycle_hooks import (
 )
 from .workspace_core import RunWorkspace
 from .anthropic_betas import normalize_anthropic_betas
-from .debug_runtime import DebugOptions, DebugRuntime, combine_agent_loggers
+from .debug_runtime import DebugOptions, DebugRuntime
 
 
 def run_interactive_loop(
@@ -130,7 +127,7 @@ def run_interactive_loop(
     run_chat_func: Callable[..., str] = default_run_chat,
     run_btw_func: Callable[..., str] = default_run_btw,
     run_recap_func: Callable[..., str] = default_run_session_recap,
-    run_agent_func: Callable[..., object] = default_run_agent,
+    run_agent_func: Callable[..., AgentResult] = default_run_agent,
     get_resume_context_func: Callable[..., tuple[str | None, str | None, str]] = default_get_resume_context,
     initial_resume_run_id: str | None = None,
     initial_resume_context: str | None = None,
@@ -259,202 +256,68 @@ def run_interactive_loop(
         )
 
     def run_code_task(task: str, task_metadata: dict[str, object] | None = None) -> tuple[object, str | None]:
-        nonlocal client, resume_run_id, resume_context, pending_workspace, pending_branch_source_run_id
-        nonlocal conversation_messages, approval_policy, approval_handler
-        nonlocal permission_state, permission_overrides
-        execution_config = resolve_execution_config(Path.cwd())
-        active_workspace = pending_workspace
-        settings_workspace = active_workspace or create_local_workspace(
-            Path.cwd(),
-            resume_run_id or "view-mode",
-            additional_roots=additional_directories,
-            safe_mode=safe_mode,
-            bare_mode=bare_mode,
-            disable_slash_commands=disable_slash_commands,
-            setting_sources=setting_sources,
-            settings_override_json=settings_override_json,
-            invocation_plugin_dirs=invocation_plugin_dirs,
-        )
-        verbose_mode = resolve_verbose_mode(settings_workspace, explicit=verbose)
-        teammate_mode = resolve_teammate_mode(
-            settings_workspace,
-            explicit=initial_teammate_mode,
-        )
-        if active_workspace is None and (debug_runtime.enabled or verbose_mode):
-            active_workspace = create_run_workspace(
-                Path.cwd(),
-                additional_roots=additional_directories,
+        nonlocal client, resume_run_id, resume_context, pending_workspace
+        nonlocal pending_branch_source_run_id, conversation_messages
+        nonlocal approval_policy, approval_handler, permission_state, permission_overrides
+        turn = run_interactive_code_turn(
+            InteractiveCodeTurnRequest(
+                project_root=Path.cwd(),
+                task=task,
+                task_metadata=task_metadata,
+                client=client,
+                resume_run_id=resume_run_id,
+                resume_context=resume_context,
+                pending_workspace=pending_workspace,
+                pending_branch_source_run_id=pending_branch_source_run_id,
+                conversation_messages=tuple(conversation_messages),
+                approval_policy=approval_policy,
+                approval_handler=approval_handler,
+                permission_state=permission_state,
+                permission_overrides=permission_overrides,
+                project_permissions_trusted=project_permissions_trusted,
+                project_runtime=project_runtime,
+                additional_directories=additional_directories,
+                system_prompt=system_prompt,
+                append_system_prompt=append_system_prompt,
+                agent=initial_agent,
+                dynamic_agent_profiles=initial_dynamic_agent_profiles,
+                teammate_mode=initial_teammate_mode,
+                autocompact_tokens=autocompact_setting.tokens,
                 safe_mode=safe_mode,
                 bare_mode=bare_mode,
+                brief=brief,
                 disable_slash_commands=disable_slash_commands,
+                verbose=verbose,
+                screen_reader=ax_screen_reader,
+                browser_mode=browser_mode,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
-            )
-        notification_workspace = active_workspace or settings_workspace
-        if safe_mode:
-            turn_append_system_prompt, directory_hook_errors = append_system_prompt, ()
-        else:
-            turn_append_system_prompt, directory_hook_errors = collect_directory_added_turn_context(
-                notification_workspace,
-                append_system_prompt,
-            )
-        for error in directory_hook_errors:
-            print(f"DirectoryAdded hook warning: {error}")
-        client = client or create_interactive_client(current_provider_env())
-        panel = SubagentPanel(
-            Path.cwd(),
-            safe_mode=safe_mode,
-            workspace=notification_workspace,
-            brief=brief,
-            teammate_mode=teammate_mode,
-            screen_reader=ax_screen_reader,
-        )
-        panel.authorize_custom(approval_handler, approval_policy)
-        initial_panel_error = panel.config_error
-        if panel.config_error:
-            print(f"Plugin subagentStatusLine warning: {panel.config_error}")
-        panel_kwargs: dict[str, object] = {}
-        selected_approval_handler = approval_handler
-        selected_user_input_handler = prompt_user_input
-        if panel.enabled or brief:
-            panel_kwargs = {
-                "logger": combine_agent_loggers(panel.log, debug_runtime.logger),
-                "workspace_observer": panel.bind,
-            }
-            selected_approval_handler = panel.wrap_approval_handler(approval_handler)
-            selected_user_input_handler = panel.wrap_user_input_handler(prompt_user_input)
-        elif debug_runtime.logger is not None:
-            panel_kwargs = {"logger": debug_runtime.logger}
-        source_run_id = resume_run_id
-        verbose_renderer = (
-            VerboseTranscriptRenderer(
-                sys.stdout,
-                show_model_text=not supports_model_streaming(client),
-                on_display_start=panel.pause,
-                on_display_end=panel.resume,
-            )
-            if verbose_mode
-            else None
-        )
-        verbose_scope = (
-            observe_session_events(active_workspace.session_dir, verbose_renderer.observe)
-            if active_workspace is not None and verbose_renderer is not None
-            else nullcontext()
-        )
-        try:
-            with (
-                debug_runtime.event_scope(active_workspace),
-                verbose_scope,
-                terminal_model_stream_scope(
-                    client,
-                    on_display_start=panel.pause,
-                    on_display_end=panel.resume,
-                ) as stream_renderer,
-            ):
-                result = run_agent_func(
-                    task,
-                    client=client,
-                    max_iterations=execution_config.max_iterations,
-                    command_timeout_ms=execution_config.command_timeout_ms,
-                    max_output_tokens=execution_config.max_output_tokens,
-                    model_retries=execution_config.model_retries,
-                    model_retry_delay_ms=execution_config.model_retry_delay_ms,
-                    model_timeout_ms=execution_config.model_timeout_ms,
-                    approval_handler=selected_approval_handler,
-                    approval_policy=approval_policy,
-                    permission_overrides=permission_overrides,
-                    bypass_permissions_available=permission_state.bypass_available,
-                    trust_project_permissions=project_permissions_trusted,
-                    user_input_handler=selected_user_input_handler,
-                    prior_context=resume_context,
-                    prior_messages=conversation_messages or None,
-                    system_prompt=system_prompt,
-                    append_system_prompt=turn_append_system_prompt,
-                    task_metadata=task_metadata,
-                    task_source_run_id=(
-                        pending_branch_source_run_id
-                        or (
-                            resume_run_id
-                            if active_workspace is None and resume_context is not None
-                            else None
-                        )
-                    ),
-                    workspace=active_workspace,
-                    peer_runtime=project_runtime.peer,
-                    agent=initial_agent,
-                    dynamic_agent_profiles=initial_dynamic_agent_profiles,
-                    additional_directories=additional_directories,
-                    autocompact_tokens=autocompact_setting.tokens,
-                    safe_mode=safe_mode,
-                    bare_mode=bare_mode,
-                    brief=brief,
-                    disable_slash_commands=disable_slash_commands,
-                    browser_mode=browser_mode,
-                    setting_sources=setting_sources,
-                    settings_override_json=settings_override_json,
-                    invocation_plugin_dirs=invocation_plugin_dirs,
-                    **(
-                        {"model_stream_handler": stream_renderer.agent_event}
-                        if stream_renderer is not None
-                        else {}
-                    ),
-                    **panel_kwargs,
-                )
-        finally:
-            panel.close()
-        if panel.config_error and panel.config_error != initial_panel_error:
-            print(f"Plugin subagentStatusLine warning: {panel.config_error}")
-        print_agent_result(
-            result,
-            message_already_displayed=(
-                stream_renderer.matches_final_message(result.displayed_message)
-                if stream_renderer is not None
-                else False
+                debug_runtime=debug_runtime,
+            ),
+            InteractiveCodeTurnServices(
+                create_client=lambda: create_interactive_client(current_provider_env()),
+                run_agent=run_agent_func,
+                get_resume_context=get_resume_context_func,
+                resolve_execution_config=resolve_execution_config,
+                collect_directory_context=collect_directory_added_turn_context,
+                print_agent_result=print_agent_result,
+                prompt_user_input=prompt_user_input,
             ),
         )
-        result_approval_policy = getattr(result, "approval_policy", None)
-        if (
-            result_approval_policy in {"ask", "allow", "auto", "deny", "dontAsk", "plan"}
-            and result_approval_policy != approval_policy
-        ):
-            approval_policy = result_approval_policy
-            permission_state = initial_interactive_permission_state(
-                permission_mode=None,
-                approval_policy=approval_policy,
-                permission_overrides=permission_overrides,
-                allow_bypass=(
-                    permission_state.bypass_available or approval_policy == "allow"
-                ),
-            )
-            permission_overrides = permission_state.permission_overrides
-            approval_handler = build_approval_handler(approval_policy)
-            project_runtime.update_approval_policy(approval_policy)
-        conversation_messages = list(getattr(result, "conversation", []))
-        if getattr(result, "success", False):
-            recap_states["code"].record_turn()
-        if active_workspace is None:
-            try:
-                transfer_session_name(Path.cwd(), source_run_id, result.run_id)
-            except (OSError, ValueError) as error:
-                print(f"Session name persistence warning: {format_error(error)}")
-        pending_workspace = create_local_workspace(
-            Path.cwd(),
-            result.run_id,
-            additional_roots=additional_directories,
-            safe_mode=safe_mode,
-            bare_mode=bare_mode,
-            setting_sources=setting_sources,
-            settings_override_json=settings_override_json,
-            invocation_plugin_dirs=invocation_plugin_dirs,
-        )
-        project_runtime.register_session(result.run_id)
+        client = turn.client
+        resume_run_id = turn.resume_run_id
+        resume_context = turn.resume_context
+        pending_workspace = turn.pending_workspace
         pending_branch_source_run_id = None
-        selected, next_context, _ = get_resume_context_func(result.run_id)
-        if next_context:
-            resume_run_id = selected
-            resume_context = next_context
-        return result, next_context
+        conversation_messages = list(turn.conversation_messages)
+        approval_policy = turn.approval_policy
+        approval_handler = turn.approval_handler
+        permission_state = turn.permission_state
+        permission_overrides = turn.permission_overrides
+        if getattr(turn.agent_result, "success", False):
+            recap_states["code"].record_turn()
+        return turn.agent_result, turn.next_context
 
     def run_goal(steering_task: str | None = None) -> None:
         nonlocal goal_state
