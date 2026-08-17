@@ -700,6 +700,10 @@ The automated suite currently covers these 1.0 surfaces:
   is drained instead of materializing the patch. They retain exact total-hunk
   counts while bounding shown hunks, lines per hunk, individual line length,
   and aggregate retained line text; timeout and Git errors remain explicit.
+- Dynamic JavaScript workflow protocol lines are assembled from fixed reads and
+  rejected before exceeding 1.1 MiB. Bridge stderr is continuously drained into
+  a 20,000-character head/tail capture, and cancellation watchers exit when the
+  Node process finishes instead of accumulating one thread per workflow run.
 - Opt-in command memory cgroups: `CLAUDE_CODE_TOOL_MEMORY_LIMIT` accepts bounded
   byte or binary-unit values on Linux and WSL and places finite, batch,
   PowerShell, interactive, and persistent background command trees into a

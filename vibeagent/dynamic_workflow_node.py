@@ -9,14 +9,17 @@ import subprocess
 from threading import Event, Lock, Thread
 from typing import Any, Callable, TextIO
 
+from .bounded_text_lines import TextLineTooLongError, iter_bounded_text_lines
 from .dynamic_workflow_protocol import parse_workflow_agent_request, request_to_dict
 from .dynamic_workflow_script import NODE_WORKFLOW_BRIDGE
 from .dynamic_workflow_types import WorkflowAgentExecutor, WorkflowAgentRequest
+from .process_command_capture import BoundedTextCapture, OUTPUT_READ_CHUNK_CHARS
 
 
 MAX_WORKFLOW_CALLS = 1_000
 MAX_WORKFLOW_CONCURRENCY = 16
 MAX_PROTOCOL_LINE_BYTES = 1_100_000
+MAX_WORKFLOW_STDERR_CHARS = 20_000
 MIN_NODE_MAJOR_VERSION = 22
 
 
@@ -62,8 +65,8 @@ def run_node_workflow(
     if process.stdin is None or process.stdout is None or process.stderr is None:  # pragma: no cover
         process.kill()
         raise RuntimeError("Failed to create workflow bridge pipes.")
-    stderr_parts: list[str] = []
-    stderr_thread = Thread(target=_read_stderr, args=(process.stderr, stderr_parts), daemon=True)
+    stderr_capture = BoundedTextCapture(MAX_WORKFLOW_STDERR_CHARS)
+    stderr_thread = Thread(target=_read_stderr, args=(process.stderr, stderr_capture), daemon=True)
     stderr_thread.start()
     cancel_thread = Thread(target=_terminate_when_cancelled, args=(cancel_event, process), daemon=True)
     cancel_thread.start()
@@ -82,16 +85,10 @@ def run_node_workflow(
     write_message({"type": "init", "source": source, "filename": filename})
     try:
         with ThreadPoolExecutor(max_workers=MAX_WORKFLOW_CONCURRENCY, thread_name_prefix="vibeagent-workflow") as pool:
-            while True:
+            for line in iter_bounded_text_lines(process.stdout, max_line_bytes=MAX_PROTOCOL_LINE_BYTES):
                 if cancel_event.is_set():
                     process.terminate()
                     raise InterruptedError("Workflow stopped.")
-                line = process.stdout.readline()
-                if not line:
-                    break
-                if len(line.encode("utf-8")) > MAX_PROTOCOL_LINE_BYTES:
-                    process.kill()
-                    raise RuntimeError("Workflow bridge emitted an oversized protocol message.")
                 try:
                     message = json.loads(line)
                 except json.JSONDecodeError as error:
@@ -134,6 +131,9 @@ def run_node_workflow(
                 )
             for future in futures:
                 future.result()
+    except TextLineTooLongError as error:
+        process.kill()
+        raise RuntimeError("Workflow bridge emitted an oversized protocol message.") from error
     finally:
         if process.poll() is None:
             process.terminate()
@@ -143,6 +143,7 @@ def run_node_workflow(
             process.kill()
             process.wait(timeout=2)
         stderr_thread.join(timeout=1)
+        cancel_thread.join(timeout=1)
         process.stdin.close()
         process.stdout.close()
         process.stderr.close()
@@ -150,7 +151,7 @@ def run_node_workflow(
     if cancel_event.is_set():
         raise InterruptedError("Workflow stopped.")
     if done_message is None:
-        detail = "".join(stderr_parts).strip()
+        detail = stderr_capture.render()[0].strip()
         raise RuntimeError(f"Workflow bridge exited before completion{': ' + detail if detail else '.'}")
     if not bool(done_message.get("ok")):
         raise RuntimeError(str(done_message.get("error") or "Workflow script failed."))
@@ -178,16 +179,19 @@ def _error_response(call_id: str, error: str) -> dict[str, object]:
     return {"type": "response", "call_id": call_id, "ok": False, "error": error}
 
 
-def _read_stderr(stream: TextIO, parts: list[str]) -> None:
-    for line in stream:
-        if sum(len(part) for part in parts) < 20_000:
-            parts.append(line)
+def _read_stderr(stream: TextIO, capture: BoundedTextCapture) -> None:
+    while True:
+        chunk = stream.read(OUTPUT_READ_CHUNK_CHARS)
+        if not chunk:
+            return
+        capture.append(chunk)
 
 
 def _terminate_when_cancelled(cancel_event: Event, process: subprocess.Popen[str]) -> None:
-    cancel_event.wait()
-    if process.poll() is None:
-        process.terminate()
+    while process.poll() is None:
+        if cancel_event.wait(timeout=0.1):
+            process.terminate()
+            return
 
 
 def _workflow_process_env() -> dict[str, str]:
