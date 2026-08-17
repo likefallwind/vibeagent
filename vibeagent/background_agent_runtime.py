@@ -38,6 +38,7 @@ from .background_agent_store import (
     write_private_text_atomic,
 )
 from .background_agent_types import (
+    ACTIVE_BACKGROUND_AGENT_STATUSES,
     DEFAULT_BACKGROUND_AGENT_LOG_CHARS,
     MAX_BACKGROUND_AGENT_LOG_CHARS,
     BackgroundAgentBatchRespawn,
@@ -159,14 +160,14 @@ def respawn_background_agent(
         return _respawn_existing_background_agent_locked(root, view), "respawned"
 
 
-def respawn_inactive_background_agents(
+def respawn_running_background_agents(
     project_root: Path,
 ) -> BackgroundAgentBatchRespawn:
     root = project_root.resolve()
     candidate_ids = tuple(
         view.record.id
         for view in list_background_agents(root)
-        if view.status in {"stopped", "completed", "failed", "lost"}
+        if view.status in ACTIVE_BACKGROUND_AGENT_STATUSES
     )
     respawned: list[BackgroundAgentView] = []
     failures: list[tuple[str, str]] = []
@@ -177,7 +178,7 @@ def respawn_inactive_background_agents(
                 if view is None:
                     failures.append((agent_id, "Background agent no longer exists."))
                     continue
-                if view.status not in {"stopped", "completed", "failed", "lost"}:
+                if view.status not in ACTIVE_BACKGROUND_AGENT_STATUSES:
                     failures.append(
                         (agent_id, f"Background agent is now {view.status}; it was not restarted.")
                     )
@@ -198,7 +199,7 @@ def _respawn_existing_background_agent_locked(
 ) -> BackgroundAgentView:
     agent_id = view.record.id
     _reject_attached_background_agent(view)
-    if view.status in {"running", "needs-input", "approval-error", "input-error"}:
+    if view.status in ACTIVE_BACKGROUND_AGENT_STATUSES:
         terminate_persistent_process(as_process_record(view.record))
         remove_background_approval(root, agent_id)
         remove_background_user_input(root, agent_id)
@@ -218,7 +219,7 @@ def stop_background_agent(project_root: Path, agent_id: str) -> BackgroundAgentV
         if view is None:
             return None
         _reject_attached_background_agent(view)
-        if view.status in {"running", "needs-input", "approval-error", "input-error"}:
+        if view.status in ACTIVE_BACKGROUND_AGENT_STATUSES:
             terminate_persistent_process(as_process_record(view.record))
             remove_background_approval(root, agent_id)
             remove_background_user_input(root, agent_id)
@@ -233,7 +234,7 @@ def remove_background_agent(project_root: Path, agent_id: str) -> tuple[bool, st
         if view is None:
             return False, f"Background agent not found: {agent_id}"
         _reject_attached_background_agent(view)
-        if view.status in {"running", "needs-input", "approval-error", "input-error"}:
+        if view.status in ACTIVE_BACKGROUND_AGENT_STATUSES:
             return False, f"Background agent is still running: {agent_id}"
         record_path = background_agent_record_path(root, agent_id)
         _remove_background_agent_metadata(root, agent_id)
@@ -411,7 +412,7 @@ __all__ = [
     "read_background_agent_logs",
     "remove_background_agent",
     "respawn_background_agent",
-    "respawn_inactive_background_agents",
+    "respawn_running_background_agents",
     "send_background_agent_message",
     "stop_background_agent",
 ]

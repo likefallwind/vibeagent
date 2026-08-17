@@ -44,9 +44,11 @@ commands, compatibility flags, and interactive slash commands list sessions,
 read bounded logs, stop a running agent, queue follow-up turns, respawn a worker
 under the same agent ID, and remove its private supervisor files without deleting
 the resumable transcript. `logs ID`, `stop ID` / `kill ID`, `respawn ID`, and
-`rm ID` are available before provider initialization. `respawn --all` restarts
-inactive project-local sessions after rechecking each one under its transition
-lock and reports per-agent failures without discarding successful restarts.
+`rm ID` are available before provider initialization. `agents --json` lists
+active project-local sessions without a provider, while `--all` includes
+completed history. `respawn --all` restarts active project-local sessions after
+rechecking each one under its transition lock and reports per-agent failures
+without discarding successful restarts.
 `agents` opens a dependency-free full-screen project
 dashboard with grouped auto-refresh, stable keyboard selection, bounded log
 peek, option-safe dispatch, reply, stop, respawn, confirmed removal, and attach

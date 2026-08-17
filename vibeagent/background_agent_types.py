@@ -9,6 +9,9 @@ BACKGROUND_AGENT_SCHEMA_VERSION = 1
 BACKGROUND_AGENT_ID_PATTERN = re.compile(r"^[0-9a-f]{12}$")
 DEFAULT_BACKGROUND_AGENT_LOG_CHARS = 20_000
 MAX_BACKGROUND_AGENT_LOG_CHARS = 100_000
+ACTIVE_BACKGROUND_AGENT_STATUSES = frozenset(
+    {"running", "needs-input", "approval-error", "input-error"}
+)
 
 
 @dataclass(frozen=True)
@@ -42,6 +45,7 @@ class BackgroundAgentBatchRespawn:
 
 
 __all__ = [
+    "ACTIVE_BACKGROUND_AGENT_STATUSES",
     "BACKGROUND_AGENT_ID_PATTERN",
     "BACKGROUND_AGENT_SCHEMA_VERSION",
     "DEFAULT_BACKGROUND_AGENT_LOG_CHARS",

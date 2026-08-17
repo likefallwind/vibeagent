@@ -24,6 +24,11 @@ AGENT_ID = "0123456789ab"
 
 class CliBackgroundAgentCommandTests(unittest.TestCase):
     def test_parser_maps_lifecycle_commands_and_global_options(self) -> None:
+        active_agents = parse_args(["agents", "--json", "--cwd", "/tmp"])
+        all_agents = parse_args(["--json", "agents", "--all", "--cwd", "/tmp"])
+        formatted_agents = parse_args(
+            ["agents", "--all", "--output-format", "json", "--cwd", "/tmp"]
+        )
         logs = parse_args(
             ["logs", AGENT_ID, "--max-chars", "5000", "--cwd", "/tmp", "--json"]
         )
@@ -32,6 +37,11 @@ class CliBackgroundAgentCommandTests(unittest.TestCase):
         remove = parse_args(["rm", AGENT_ID, "--output-format", "json"])
         ordinary = parse_args(["fix", "stop", "integration"])
 
+        self.assertTrue(active_agents.active_background_agents)
+        self.assertFalse(active_agents.background_agents)
+        self.assertTrue(all_agents.background_agents)
+        self.assertFalse(all_agents.active_background_agents)
+        self.assertTrue(formatted_agents.background_agents)
         self.assertEqual(logs.background_agent_log, AGENT_ID)
         self.assertEqual(logs.background_agent_log_max_chars, 5000)
         self.assertEqual(logs.cwd, "/tmp")
@@ -78,6 +88,36 @@ class CliBackgroundAgentCommandTests(unittest.TestCase):
         self.assertEqual(payload["backgroundAgentRespawnAll"]["respawned"], [])
         create_chat_client.assert_not_called()
 
+    def test_agents_json_filters_inactive_agents_unless_all_is_requested(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-list-") as base:
+            root = Path(base)
+            running = _view(root, AGENT_ID, "running")
+            stopped = _view(root, "abcdef012345", "stopped")
+
+            outputs: list[dict[str, object]] = []
+            with patch(
+                "vibeagent.cli_background_agent_local_flags.list_background_agents",
+                return_value=(running, stopped),
+            ):
+                for command in (
+                    ["agents", "--json", "--cwd", base],
+                    ["agents", "--json", "--all", "--cwd", base],
+                ):
+                    stdout = io.StringIO()
+                    with (
+                        patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                        redirect_stdout(stdout),
+                    ):
+                        self.assertEqual(main(command), 0)
+                    outputs.append(json.loads(stdout.getvalue()))
+                    create_chat_client.assert_not_called()
+
+        self.assertEqual(
+            [agent["id"] for agent in outputs[0]["backgroundAgents"]],  # type: ignore[index]
+            [AGENT_ID],
+        )
+        self.assertEqual(len(outputs[1]["backgroundAgents"]), 2)  # type: ignore[arg-type]
+
     def test_respawn_all_failure_count_sets_failed_exit_code(self) -> None:
         args = parse_args(["respawn", "--all"])
 
@@ -90,17 +130,21 @@ class CliBackgroundAgentCommandTests(unittest.TestCase):
 
     def test_batch_respawn_rechecks_each_candidate_under_transition_lock(self) -> None:
         root = Path("/tmp/project")
-        stopped = _view(root, "0123456789ab", "stopped")
-        changed = _view(root, "abcdef012345", "failed")
-        now_running = _view(root, changed.record.id, "running")
-        respawned = _view(root, stopped.record.id, "running")
+        running = _view(root, "0123456789ab", "running")
+        changed = _view(root, "abcdef012345", "needs-input")
+        now_stopped = _view(root, changed.record.id, "stopped")
+        respawned = _view(root, running.record.id, "running")
         current = {
-            stopped.record.id: stopped,
-            changed.record.id: now_running,
+            running.record.id: running,
+            changed.record.id: now_stopped,
         }
 
         with (
-            patch.object(runtime, "list_background_agents", return_value=(stopped, changed)),
+            patch.object(
+                runtime,
+                "list_background_agents",
+                return_value=(running, changed, _view(root, "fedcba987654", "completed")),
+            ),
             patch.object(
                 runtime,
                 "background_agent_transition_lock",
@@ -117,13 +161,13 @@ class CliBackgroundAgentCommandTests(unittest.TestCase):
                 return_value=respawned,
             ) as restart,
         ):
-            result = runtime.respawn_inactive_background_agents(root)
+            result = runtime.respawn_running_background_agents(root)
 
         self.assertEqual(result.eligible_count, 2)
         self.assertEqual(result.respawned, (respawned,))
         self.assertEqual(result.failures[0][0], changed.record.id)
-        self.assertIn("now running", result.failures[0][1])
-        restart.assert_called_once_with(root, stopped)
+        self.assertIn("now stopped", result.failures[0][1])
+        restart.assert_called_once_with(root, running)
 
     def test_local_batch_payload_preserves_partial_failures(self) -> None:
         root = Path("/tmp/project")
@@ -136,7 +180,7 @@ class CliBackgroundAgentCommandTests(unittest.TestCase):
         args = parse_args(["respawn", "--all"])
 
         with patch(
-            "vibeagent.cli_background_agent_local_flags.respawn_inactive_background_agents",
+            "vibeagent.cli_background_agent_local_flags.respawn_running_background_agents",
             return_value=result,
         ):
             from vibeagent.cli_background_agent_local_flags import (

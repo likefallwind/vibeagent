@@ -368,7 +368,7 @@ class AgentViewTests(unittest.TestCase):
     def test_agent_view_rejects_task_and_machine_output(self) -> None:
         with patch("builtins.print"):
             task_exit = main(["--agent-view", "task"])
-            json_exit = main(["agents", "--json"])
+            json_exit = main(["--agent-view", "--json"])
         self.assertEqual(task_exit, 2)
         self.assertEqual(json_exit, 2)
 

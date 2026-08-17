@@ -23,6 +23,11 @@ def add_background_agent_local_arguments(
         help="List project-local background coding agents and exit.",
     )
     local.add_argument(
+        "--active-background-agents",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    local.add_argument(
         "--agent-view",
         action="store_true",
         help="Open the interactive full-screen background agent dashboard.",
@@ -64,7 +69,7 @@ def add_background_agent_local_arguments(
     local.add_argument(
         "--respawn-all-background-agents",
         action="store_true",
-        help="Restart every non-running project-local background coding agent.",
+        help="Restart every running project-local background coding agent.",
     )
     local.add_argument(
         "--remove-background-agent",
@@ -128,6 +133,10 @@ def normalize_background_agent_command_arguments(argv: Sequence[str]) -> list[st
     command_args, trailing_globals = extract_trailing_global_options(values[index + 1 :])
     prefix = [*values[:index], *trailing_globals]
     if command == "agents":
+        if _requests_json_output(prefix):
+            if command_args == ["--all"]:
+                return [*prefix, "--background-agents"]
+            return [*prefix, "--active-background-agents", *command_args]
         return [*prefix, "--agent-view", *command_args]
     if command == "remote-control":
         return [*prefix, "--remote-control", *command_args]
@@ -151,6 +160,15 @@ def _normalize_logs_arguments(values: list[str]) -> list[str]:
     if len(values) == 3 and values[1] == "--max-chars":
         return [values[0], "--background-agent-log-max-chars", values[2]]
     return values
+
+
+def _requests_json_output(values: list[str]) -> bool:
+    if "--json" in values:
+        return True
+    return any(
+        value == "--output-format" and index + 1 < len(values) and values[index + 1] == "json"
+        for index, value in enumerate(values)
+    )
 
 
 __all__ = [

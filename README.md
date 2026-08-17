@@ -465,6 +465,8 @@ python -m vibeagent -p --output-format stream-json --include-partial-messages --
 python -m vibeagent -p --output-format stream-json --forward-subagent-text --cwd ../my-project "delegate the investigation"
 python -m vibeagent --bg --approval auto --cwd ../my-project "run the tests and fix failures"
 python -m vibeagent agents --cwd ../my-project
+python -m vibeagent agents --json --cwd ../my-project
+python -m vibeagent agents --json --all --cwd ../my-project
 python -m vibeagent agents --ax-screen-reader --cwd ../my-project
 python -m vibeagent --background-agents --cwd ../my-project
 python -m vibeagent logs <agent-id> --max-chars 5000 --cwd ../my-project

@@ -6,13 +6,14 @@ import shlex
 from typing import Any
 
 from .background_agent_inbox import pending_background_agent_message_count
+from .background_agent_types import ACTIVE_BACKGROUND_AGENT_STATUSES
 from .background_agent_runtime import (
     background_agent_view_payload,
     list_background_agents,
     read_background_agent_logs,
     remove_background_agent,
     respawn_background_agent,
-    respawn_inactive_background_agents,
+    respawn_running_background_agents,
     send_background_agent_message,
     stop_background_agent,
 )
@@ -24,8 +25,10 @@ def run_background_agent_local_flag(
     _command_namespace: dict[str, Any],
 ) -> tuple[str, dict[str, object]] | None:
     root = project_root or Path.cwd()
-    if args.background_agents:
+    if args.background_agents or getattr(args, "active_background_agents", False):
         views = list_background_agents(root)
+        if getattr(args, "active_background_agents", False):
+            views = tuple(view for view in views if view.status in ACTIVE_BACKGROUND_AGENT_STATUSES)
         return _format_background_agents(views), {
             "backgroundAgents": [background_agent_view_payload(view) for view in views]
         }
@@ -72,7 +75,7 @@ def run_background_agent_local_flag(
             "backgroundAgentRespawn": {"status": disposition},
         }
     if getattr(args, "respawn_all_background_agents", False):
-        result = respawn_inactive_background_agents(root)
+        result = respawn_running_background_agents(root)
         lines = [
             "Background agent batch respawn:",
             f"  eligible: {result.eligible_count}",
