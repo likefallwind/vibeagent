@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tests.user_home_test_case import IsolatedUserHomeTestCase
 from vibeagent.agent import run_agent
@@ -151,29 +152,185 @@ class AgentProfileModelTests(IsolatedUserHomeTestCase):
             _write_agent(root, "tuned", model="review-model", effort="high")
             workspace = create_run_workspace(root, "run-1")
 
-            result = execute_delegate_task_action(
-                workspace,
-                DelegateTaskAction(
-                    type="delegate_task",
-                    task="Review",
-                    agent="tuned",
-                ),
-                client,
-                parent_iteration=1,
-                subagent_id="delegate-1-1",
-                max_output_tokens=1024,
-                model_retries=0,
-                model_retry_delay_ms=0,
-                model_timeout_ms=10_000,
-                command_timeout_ms=10_000,
-                logger=None,
-            )
+            with patch.dict(
+                "os.environ",
+                {
+                    "VIBEAGENT_SUBAGENT_MODEL": "",
+                    "CLAUDE_CODE_SUBAGENT_MODEL": "environment-model",
+                },
+            ):
+                result = execute_delegate_task_action(
+                    workspace,
+                    DelegateTaskAction(
+                        type="delegate_task",
+                        task="Review",
+                        agent="tuned",
+                    ),
+                    client,
+                    parent_iteration=1,
+                    subagent_id="delegate-1-1",
+                    max_output_tokens=1024,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                )
 
         self.assertTrue(result.ok)
         self.assertEqual(client.configurations, [("review-model", "high")])
         self.assertEqual(client.completions, [("review-model", "high")])
         self.assertIsNone(client.model)
         self.assertIsNone(client.effort)
+
+    def test_environment_model_configures_unprofiled_subagent_and_audit_event(self) -> None:
+        client = ConfigurableClient([[{"type": "text", "text": "Reviewed."}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-profile-model-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root, "run-env")
+            with patch.dict(
+                "os.environ",
+                {
+                    "VIBEAGENT_SUBAGENT_MODEL": "",
+                    "CLAUDE_CODE_SUBAGENT_MODEL": "fast-review-model",
+                },
+            ):
+                result = execute_delegate_task_action(
+                    workspace,
+                    DelegateTaskAction(type="delegate_task", task="Review"),
+                    client,
+                    parent_iteration=1,
+                    subagent_id="delegate-env",
+                    max_output_tokens=1024,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                )
+            events = [
+                json.loads(line)
+                for line in (workspace.session_dir / "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        self.assertTrue(result.ok)
+        self.assertEqual(client.configurations, [("fast-review-model", None)])
+        self.assertEqual(client.completions, [("fast-review-model", None)])
+        started = next(event for event in events if event["type"] == "subagent_started")
+        self.assertEqual(started["model"], "fast-review-model")
+        self.assertEqual(started["model_source"], "CLAUDE_CODE_SUBAGENT_MODEL")
+
+    def test_invocation_settings_environment_configures_subagent_model(self) -> None:
+        client = ConfigurableClient([[{"type": "text", "text": "Reviewed."}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-profile-model-") as base:
+            workspace = create_run_workspace(
+                Path(base),
+                "run-settings-env",
+                setting_sources=(),
+                settings_override_json=(
+                    '{"env":{"CLAUDE_CODE_SUBAGENT_MODEL":"settings-model"}}'
+                ),
+            )
+            with patch.dict("os.environ", {}, clear=True):
+                result = execute_delegate_task_action(
+                    workspace,
+                    DelegateTaskAction(type="delegate_task", task="Review"),
+                    client,
+                    parent_iteration=1,
+                    subagent_id="delegate-settings-env",
+                    max_output_tokens=1024,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(client.configurations, [("settings-model", None)])
+        self.assertEqual(client.completions, [("settings-model", None)])
+
+    def test_profile_inherit_overrides_environment_model(self) -> None:
+        client = ConfigurableClient(
+            [[{"type": "text", "text": "Inherited."}]],
+            model="parent-model",
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-profile-model-") as base:
+            root = Path(base)
+            _write_agent(root, "inherited", model="inherit")
+            with patch.dict(
+                "os.environ",
+                {
+                    "VIBEAGENT_SUBAGENT_MODEL": "",
+                    "CLAUDE_CODE_SUBAGENT_MODEL": "environment-model",
+                },
+            ):
+                result = execute_delegate_task_action(
+                    create_run_workspace(root, "run-inherit"),
+                    DelegateTaskAction(
+                        type="delegate_task",
+                        task="Review",
+                        agent="inherited",
+                    ),
+                    client,
+                    parent_iteration=1,
+                    subagent_id="delegate-inherit",
+                    max_output_tokens=1024,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(client.configurations, [])
+        self.assertEqual(client.completions, [("parent-model", None)])
+
+    def test_environment_model_applies_to_named_teammate(self) -> None:
+        client = ConfigurableClient([[{"type": "text", "text": "Teammate done."}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-profile-model-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root, "run-teammate")
+            with patch.dict(
+                "os.environ",
+                {
+                    "VIBEAGENT_EXPERIMENTAL_AGENT_TEAMS": "1",
+                    "VIBEAGENT_SUBAGENT_MODEL": "",
+                    "CLAUDE_CODE_SUBAGENT_MODEL": "teammate-model",
+                },
+            ):
+                result = execute_delegate_task_action(
+                    workspace,
+                    DelegateTaskAction(
+                        type="delegate_task",
+                        task="Review",
+                        teammate_name="reviewer",
+                    ),
+                    client,
+                    parent_iteration=1,
+                    subagent_id="reviewer",
+                    max_output_tokens=1024,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                )
+            events = [
+                json.loads(line)
+                for line in (workspace.session_dir / "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        self.assertTrue(result.ok)
+        self.assertEqual(client.completions, [("teammate-model", None)])
+        spawned = next(event for event in events if event["type"] == "teammate_spawned")
+        self.assertEqual(spawned["model"], "teammate-model")
+        self.assertEqual(spawned["model_source"], "CLAUDE_CODE_SUBAGENT_MODEL")
 
     def test_unsupported_profile_override_fails_before_model_request(self) -> None:
         client = BasicClient()
@@ -199,6 +356,34 @@ class AgentProfileModelTests(IsolatedUserHomeTestCase):
 
         self.assertFalse(result.ok)
         self.assertIn("does not support", result.message)
+        self.assertEqual(client.calls, 0)
+
+    def test_invalid_environment_model_fails_before_subagent_model_request(self) -> None:
+        client = BasicClient()
+        with tempfile.TemporaryDirectory(prefix="vibeagent-profile-model-") as base:
+            with patch.dict(
+                "os.environ",
+                {
+                    "VIBEAGENT_SUBAGENT_MODEL": "",
+                    "CLAUDE_CODE_SUBAGENT_MODEL": "bad model",
+                },
+            ):
+                result = execute_delegate_task_action(
+                    create_run_workspace(Path(base), "run-invalid-env"),
+                    DelegateTaskAction(type="delegate_task", task="Review"),
+                    client,
+                    parent_iteration=1,
+                    subagent_id="delegate-invalid-env",
+                    max_output_tokens=1024,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                )
+
+        self.assertFalse(result.ok)
+        self.assertIn("must be a valid model ID", result.message)
         self.assertEqual(client.calls, 0)
 
 

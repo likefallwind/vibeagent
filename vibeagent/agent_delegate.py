@@ -44,6 +44,7 @@ from .subagent_transcripts import (
     create_subagent_transcript,
     resume_subagent_transcript,
 )
+from .subagent_model import SubagentModelSelection, resolve_subagent_model
 from .subagent_worktrees import (
     SubagentWorktreeError,
     SubagentWorktreeOutcome,
@@ -68,6 +69,7 @@ from .tool_definition_browser import BROWSER_TOOL_NAMES
 from .workspace_hooks import ProjectHooks
 from .workspace_hooks import merge_project_hooks, subagent_project_hooks
 from .workspace_permissions import ProjectPermissions
+from .workspace_environment import workspace_process_environment
 
 
 def execute_delegate_task_action(
@@ -101,11 +103,16 @@ def execute_delegate_task_action(
 ) -> DelegateTaskObservation:
     profile = load_delegate_profile_runtime(workspace, action)
     profile_error = profile.error
+    model_selection = SubagentModelSelection(model=None, source="parent")
     if profile_error is None:
         try:
+            model_selection = resolve_subagent_model(
+                profile.model,
+                workspace_process_environment(profile.workspace or workspace),
+            )
             client = configure_agent_profile_client(
                 client,
-                model=profile.model,
+                model=model_selection.model,
                 effort=profile.effort,
             )
         except ValueError as error:
@@ -161,6 +168,7 @@ def execute_delegate_task_action(
         subagent_id,
         approval_policy,
         profile,
+        model_selection,
         logger,
         depth,
         parent_subagent_id,
@@ -504,6 +512,7 @@ def _record_delegate_start(
     subagent_id: str,
     approval_policy: ApprovalPolicy,
     profile: DelegateProfileRuntime,
+    model_selection: SubagentModelSelection,
     logger: AgentLogger | None,
     depth: int,
     parent_subagent_id: str | None,
@@ -522,6 +531,8 @@ def _record_delegate_start(
             "agent": action.agent,
             "profile_skills": list(profile.skills),
             "profile_model": profile.model,
+            "model": model_selection.model,
+            "model_source": model_selection.source,
             "profile_effort": profile.effort,
             "profile_disallowed_tools": sorted(profile.disallowed_tool_names),
             "profile_memory_scope": profile.memory_scope,
@@ -542,6 +553,8 @@ def _record_delegate_start(
                 "subagent_id": subagent_id,
                 "agent": action.agent,
                 "mode": action.mode,
+                "model": model_selection.model,
+                "model_source": model_selection.source,
             },
         )
     if logger:
