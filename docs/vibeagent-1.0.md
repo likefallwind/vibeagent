@@ -213,9 +213,12 @@ backfill when that project is visited.
   one-shot, and background-worker propagation.
 - `tests.test_command_output_artifacts.CommandOutputArtifactTests` runs real
   finite commands with oversized stdout and stderr, verifies private complete
-  artifacts and exact-path `read_file` recovery, covers ephemeral sessions and
-  model/local report references, and rejects unrelated protected files,
-  artifact symlinks, symlinked session roots, and storage-path failures.
+  artifacts and exact-path `read_file` recovery, covers the 64 MiB per-stream
+  complete-artifact ceiling, ephemeral sessions, model/local report references,
+  and rejects unrelated protected files, artifact symlinks, symlinked session
+  roots, and storage-path failures. `tests.test_process_command_capture` covers
+  fixed-chunk dual-stream draining, bounded head/tail parity, exact UTF-8 byte
+  accounting, observer failure, and pipe-holding descendant timeout cleanup.
 - `tests.test_background_agent_runtime.BackgroundAgentRuntimeTests`,
   `tests.test_background_agent_attachment.BackgroundAgentAttachmentTests`, and
   `tests.test_background_agent_followup.BackgroundAgentFollowupTests` plus

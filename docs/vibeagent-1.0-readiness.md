@@ -683,10 +683,13 @@ The automated suite currently covers these 1.0 surfaces:
   rewriting, fails closed, reserves the policy tool from model calls, and
   remains available in print, resumed, and background coding turns.
 - Recoverable command output: truncated finite Bash and PowerShell streams are
-  retained as private current-session artifacts with exact `read_file`
-  references and total byte counts. Invalid references, cross-session paths,
-  symbolic links, and unrelated protected runtime files fail closed, while
-  artifact write errors preserve the actual command result.
+  drained in fixed chunks with bounded in-memory head/tail results and exact
+  total byte counts. Complete output up to 64 MiB per stream is spooled outside
+  the Python heap and retained as a private current-session artifact with an
+  exact `read_file` reference. Larger streams and artifact write failures report
+  an artifact error without replacing the bounded command result. Invalid
+  references, cross-session paths, symbolic links, and unrelated protected
+  runtime files fail closed.
 - Opt-in command memory cgroups: `CLAUDE_CODE_TOOL_MEMORY_LIMIT` accepts bounded
   byte or binary-unit values on Linux and WSL and places finite, batch,
   PowerShell, interactive, and persistent background command trees into a

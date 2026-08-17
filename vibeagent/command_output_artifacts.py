@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from io import BytesIO
 import os
 import re
 import uuid
 from pathlib import Path
+from typing import BinaryIO
 
 from .workspace_core import RunWorkspace
 
@@ -20,6 +22,29 @@ def persist_truncated_command_outputs(
     stdout_truncated: bool,
     stderr_truncated: bool,
 ) -> tuple[str | None, str | None, str | None]:
+    return persist_truncated_command_output_streams(
+        workspace,
+        BytesIO(stdout.encode("utf-8")),
+        BytesIO(stderr.encode("utf-8")),
+        stdout_truncated=stdout_truncated,
+        stderr_truncated=stderr_truncated,
+    )
+
+
+def persist_truncated_command_output_streams(
+    workspace: RunWorkspace,
+    stdout: BinaryIO | None,
+    stderr: BinaryIO | None,
+    *,
+    stdout_truncated: bool,
+    stderr_truncated: bool,
+    stdout_prefix: str = "",
+    stdout_suffix: str = "",
+    stderr_prefix: str = "",
+    stderr_suffix: str = "",
+    stdout_unavailable_reason: str = "complete output stream is unavailable",
+    stderr_unavailable_reason: str = "complete output stream is unavailable",
+) -> tuple[str | None, str | None, str | None]:
     if not stdout_truncated and not stderr_truncated:
         return None, None, None
 
@@ -31,15 +56,17 @@ def persist_truncated_command_outputs(
     artifact_id = uuid.uuid4().hex
     paths: dict[str, str | None] = {"stdout": None, "stderr": None}
     errors: list[str] = []
-    for stream, content, truncated in (
-        ("stdout", stdout, stdout_truncated),
-        ("stderr", stderr, stderr_truncated),
+    for stream, source, truncated, prefix, suffix, unavailable_reason in (
+        ("stdout", stdout, stdout_truncated, stdout_prefix, stdout_suffix, stdout_unavailable_reason),
+        ("stderr", stderr, stderr_truncated, stderr_prefix, stderr_suffix, stderr_unavailable_reason),
     ):
         if not truncated:
             continue
         target = directory / f"{artifact_id}.{stream}.log"
         try:
-            _write_private_text_exclusive(target, content)
+            if source is None:
+                raise OSError(unavailable_reason)
+            _write_private_stream_exclusive(target, source, prefix=prefix, suffix=suffix)
         except OSError as error:
             errors.append(f"{stream}: {error}")
         else:
@@ -88,11 +115,26 @@ def _prepare_output_directory(workspace: RunWorkspace) -> Path:
     return directory
 
 
-def _write_private_text_exclusive(path: Path, content: str) -> None:
+def _write_private_stream_exclusive(
+    path: Path,
+    source: BinaryIO,
+    *,
+    prefix: str,
+    suffix: str,
+) -> None:
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", errors="replace") as handle:
-            handle.write(content)
+        with os.fdopen(descriptor, "wb") as handle:
+            if prefix:
+                handle.write(prefix.encode("utf-8"))
+            source.seek(0)
+            while True:
+                chunk = source.read(64 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
+            if suffix:
+                handle.write(suffix.encode("utf-8"))
     except BaseException:
         try:
             path.unlink(missing_ok=True)
@@ -104,6 +146,7 @@ def _write_private_text_exclusive(path: Path, content: str) -> None:
 __all__ = [
     "OUTPUT_DIRECTORY_NAME",
     "command_output_artifact_reference",
+    "persist_truncated_command_output_streams",
     "persist_truncated_command_outputs",
     "resolve_command_output_artifact",
 ]

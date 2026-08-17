@@ -3582,12 +3582,16 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   stopping on the first failure by default. `start_command` is for long-running
   commands such as dev servers and watchers. Both accept an optional project-relative
   `cwd` for package or service subdirectories; `run_command`, `run_commands`, `run_focused_test_commands`, and `run_suggested_checks` accept
-  optional per-command `timeout_ms` up to 10 minutes for slower tests or builds,
-  and bounded stdout/stderr via `max_output_chars` so large logs do not flood
-  the next model turn. When a foreground Bash or PowerShell stream is truncated,
-  its complete UTF-8 output is saved as an owner-only artifact under the current
-  session and the result includes `stdoutPath` or `stderrPath` plus the original
-  byte count. The model can pass that exact path to `read_file`; guessed paths,
+  optional per-command `timeout_ms` up to 10 minutes for slower tests or builds.
+  Foreground stdout/stderr are drained in fixed chunks while retaining only a
+  bounded inline head/tail via `max_output_chars`, so large logs do not grow the
+  agent process memory or flood the next model turn. When a foreground Bash or
+  PowerShell stream is truncated, up to 64 MiB of complete UTF-8 output per
+  stream is spooled outside the Python heap and saved as an owner-only artifact
+  under the current session; the result includes `stdoutPath` or `stderrPath`
+  plus the original byte count. Larger streams keep their bounded result and
+  exact byte count but report that a complete artifact is unavailable. The model
+  can pass an exact artifact path to `read_file`; guessed paths,
   artifacts from another session, symbolic links, and all other protected
   `.vibeagent` files remain unreadable. Short output creates no artifact, and an
   artifact-storage failure is reported separately without replacing the command's

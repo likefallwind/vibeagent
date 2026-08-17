@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from vibeagent.action_process_types import RunCommandAction
 from vibeagent.command_output_artifacts import (
@@ -13,7 +14,9 @@ from vibeagent.command_output_artifacts import (
 )
 from vibeagent.local_runtime_report_formatting import format_run_report_text
 from vibeagent.local_runtime_reports import serialize_command_result
+from vibeagent.process_command_runtime import run_command
 from vibeagent.process_runtime import execute_run_command_item
+from vibeagent.process_command_capture import capture_command_output as real_capture_command_output
 from vibeagent.prompts import format_observations
 from vibeagent.types import RunCommandObservation
 from vibeagent.session_command_reports import (
@@ -25,6 +28,56 @@ from vibeagent.workspace_file_read import read_project_file_result
 
 
 class CommandOutputArtifactTests(unittest.TestCase):
+    def test_streamed_stderr_artifact_preserves_sandbox_warning_affixes(self) -> None:
+        raw_stderr = "e" * 2_000
+        warning = "Sandbox unavailable; command ran with host access."
+        with tempfile.TemporaryDirectory(prefix="vibeagent-command-output-affix-") as base:
+            workspace = create_run_workspace(Path(base), "artifact-affix")
+            result = run_command(
+                workspace.root,
+                "warning output",
+                argv=("python3", "-c", "import sys;sys.stderr.write('e'*2000)"),
+                max_output_chars=1_000,
+                sandbox_warning=warning,
+                output_workspace=workspace,
+            )
+            artifact = resolve_command_output_artifact(workspace, result.stderr_path or "")
+            self.assertIsNotNone(artifact)
+            assert artifact is not None
+            artifact_text = artifact.read_text(encoding="utf-8")
+
+        expected = f"{warning}\n{raw_stderr}\n"
+        self.assertEqual(result.exit_code, 0)
+        self.assertTrue(result.stderr_truncated)
+        self.assertEqual(result.stderr_total_bytes, len(expected.encode("utf-8")))
+        self.assertEqual(artifact_text, expected)
+
+    def test_complete_artifact_limit_reports_error_without_losing_bounded_result(self) -> None:
+        def capture_with_small_artifact_limit(*args, **kwargs):
+            return real_capture_command_output(*args, **kwargs, max_complete_output_bytes=32)
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-command-output-limit-") as base:
+            workspace = create_run_workspace(Path(base), "artifact-limit")
+            with patch(
+                "vibeagent.process_command_runtime.capture_command_output",
+                side_effect=capture_with_small_artifact_limit,
+            ):
+                result = execute_run_command_item(
+                    workspace,
+                    RunCommandAction(
+                        type="run_command",
+                        command="python3 -c \"print('x' * 2000)\"",
+                        max_output_chars=1_000,
+                    ),
+                    30_000,
+                )
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertTrue(result.stdout_truncated)
+        self.assertEqual(result.stdout_total_bytes, 2001)
+        self.assertIsNone(result.stdout_path)
+        self.assertIn("64 MiB complete-artifact limit", result.output_artifact_error or "")
+
     def test_truncated_foreground_output_is_private_and_readable_by_exact_reference(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-command-output-") as base:
             root = Path(base)
