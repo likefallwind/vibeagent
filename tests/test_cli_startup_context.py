@@ -4,7 +4,7 @@ from argparse import Namespace
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.cli_startup_context import resolve_interactive_startup_context
@@ -66,6 +66,58 @@ class CliStartupContextTests(unittest.TestCase):
         )
 
         self.assertEqual(context.autocompact_tokens, 200_000)
+        self.assertEqual(context.autocompact_source, "CLI --autocompact")
+
+    def test_autocompact_loads_user_setting_and_environment_override(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-startup-autocompact-") as base:
+            root = Path(base) / "project"
+            home = Path(base) / "home"
+            root.mkdir(parents=True)
+            (home / ".claude").mkdir(parents=True)
+            (home / ".claude/settings.json").write_text(
+                '{"autoCompactWindow":300000}', encoding="utf-8"
+            )
+            with (
+                patch("vibeagent.workspace_settings_sources.user_home", return_value=home),
+                patch.dict(
+                    "os.environ",
+                    {"CLAUDE_CODE_AUTO_COMPACT_WINDOW": "500000"},
+                    clear=False,
+                ),
+            ):
+                context = resolve_interactive_startup_context(
+                    _args(),
+                    root,
+                    get_resume_context_func=Mock(),
+                    get_compact_context_func=Mock(),
+                )
+
+        self.assertEqual(context.autocompact_tokens, 500_000)
+        self.assertEqual(
+            context.autocompact_source,
+            "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+        )
+        self.assertTrue(context.autocompact_locked)
+
+    def test_explicit_auto_overrides_saved_autocompact_setting(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-startup-autocompact-auto-") as base:
+            root = Path(base) / "project"
+            home = Path(base) / "home"
+            root.mkdir(parents=True)
+            (home / ".claude").mkdir(parents=True)
+            (home / ".claude/settings.json").write_text(
+                '{"autoCompactWindow":300000}', encoding="utf-8"
+            )
+            with patch("vibeagent.workspace_settings_sources.user_home", return_value=home):
+                context = resolve_interactive_startup_context(
+                    _args(autocompact=0),
+                    root,
+                    get_resume_context_func=Mock(),
+                    get_compact_context_func=Mock(),
+                )
+
+        self.assertIsNone(context.autocompact_tokens)
+        self.assertEqual(context.autocompact_source, "CLI --autocompact")
 
     def test_provider_and_beta_overrides_are_forwarded_without_repr_secrets(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-startup-provider-") as base:

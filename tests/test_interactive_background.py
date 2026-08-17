@@ -112,6 +112,8 @@ class InteractiveBackgroundTests(unittest.TestCase):
         )
 
         self.assertEqual(request.prompt, DEFAULT_BACKGROUND_PROMPT)
+        index = request.argv.index("--autocompact")
+        self.assertEqual(request.argv[index + 1], "auto")
 
     def test_request_preserves_bypass_permission_availability(self) -> None:
         request = create_interactive_background_request(

@@ -19,7 +19,7 @@ from .cli_permission_overrides import build_permission_overrides
 from .cli_project_command_expansion import expand_one_shot_project_command
 from .cli_tool_restrictions import parse_cli_tool_names
 from .cli_system_prompt_files import resolve_system_prompt_inputs
-from .context_compaction import resolve_autocompact_tokens
+from .autocompact_settings import resolve_autocompact_from_root
 from .dynamic_agent_profiles import parse_dynamic_agent_profiles
 from .model_effort import resolve_model_effort_setting
 from .invocation_settings import parse_invocation_settings, parse_setting_sources
@@ -66,6 +66,23 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
     requested_session_id = resolve_requested_session_id(
         args.session_id,
         task_input.session_id,
+    )
+    setting_sources = (
+        ()
+        if args.bare and args.setting_sources is None
+        else parse_setting_sources(args.setting_sources)
+    )
+    settings_override_json = parse_invocation_settings(
+        args.settings,
+        invocation_root=invocation_root,
+    )
+    autocompact = resolve_autocompact_from_root(
+        args.cwd or Path.cwd(),
+        cli_value=args.autocompact,
+        cli_provided=args.autocompact is not None,
+        setting_sources=setting_sources,
+        settings_override_json=settings_override_json,
+        bare_mode=args.bare,
     )
     return {
         "task": task_input.task,
@@ -128,15 +145,8 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "prompt_suggestions": args.prompt_suggestions and not _environment_flag_disabled(
             "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION"
         ),
-        "setting_sources": (
-            ()
-            if args.bare and args.setting_sources is None
-            else parse_setting_sources(args.setting_sources)
-        ),
-        "settings_override_json": parse_invocation_settings(
-            args.settings,
-            invocation_root=invocation_root,
-        ),
+        "setting_sources": setting_sources,
+        "settings_override_json": settings_override_json,
         "invocation_plugin_dirs": resolve_invocation_plugin_dirs(
             args.plugin_dir,
             invocation_root=invocation_root,
@@ -172,7 +182,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "input_user_messages": task_input.user_messages,
         "effort": effort.level,
         "effort_locked": effort.locked,
-        "autocompact_tokens": resolve_autocompact_tokens(args.autocompact),
+        "autocompact_tokens": autocompact.tokens,
         "setup_trigger": args.setup_trigger,
         "tool_names": parse_cli_tool_names(args.tools),
         "permission_overrides": build_permission_overrides(args),

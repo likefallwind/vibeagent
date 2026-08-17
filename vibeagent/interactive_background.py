@@ -61,8 +61,12 @@ def create_interactive_background_request(
     if dynamic_agent_profiles:
         argv.extend(["--agents", serialize_dynamic_agent_profiles(dynamic_agent_profiles)])
     _append_option(argv, "--effort", effort)
-    if autocompact_tokens is not None:
-        argv.extend(["--autocompact", str(autocompact_tokens)])
+    argv.extend(
+        [
+            "--autocompact",
+            "auto" if autocompact_tokens is None else str(autocompact_tokens),
+        ]
+    )
     _append_option(argv, "--system-prompt", system_prompt)
     _append_option(argv, "--append-system-prompt", append_system_prompt)
     for path in additional_directories:

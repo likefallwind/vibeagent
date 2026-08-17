@@ -49,6 +49,10 @@ from .cli_interactive_project_runtime import InteractiveProjectRuntime
 from .cli_interactive_branch import prepare_interactive_branch_switch
 from .cli_interactive_model import interactive_provider_env
 from .cli_interactive_effort import configure_interactive_effort
+from .autocompact_settings import (
+    AutocompactSetting,
+    run_autocompact_command,
+)
 from .cli_interactive_local_dispatch import (
     InteractiveLocalCommandContext,
     dispatch_interactive_local_command,
@@ -136,6 +140,8 @@ def run_interactive_loop(
     initial_effort: str | None = None,
     initial_effort_locked: bool = False,
     initial_autocompact_tokens: int | None = None,
+    initial_autocompact_source: str = "auto",
+    initial_autocompact_locked: bool = False,
     initial_system_prompt: str | None = None,
     initial_append_system_prompt: str | None = None,
     initial_additional_directories: tuple[Path, ...] = (),
@@ -173,6 +179,11 @@ def run_interactive_loop(
     model_override: str | None = initial_model
     effort_override: str | None = initial_effort
     effort_locked = initial_effort_locked
+    autocompact_setting = AutocompactSetting(
+        tokens=initial_autocompact_tokens,
+        source=initial_autocompact_source,
+        locked=initial_autocompact_locked,
+    )
     mode = "code"
     permission_state = initial_interactive_permission_state(
         permission_mode=initial_permission_mode,
@@ -373,7 +384,7 @@ def run_interactive_loop(
                     agent=initial_agent,
                     dynamic_agent_profiles=initial_dynamic_agent_profiles,
                     additional_directories=additional_directories,
-                    autocompact_tokens=initial_autocompact_tokens,
+                    autocompact_tokens=autocompact_setting.tokens,
                     safe_mode=safe_mode,
                     bare_mode=bare_mode,
                     brief=brief,
@@ -747,7 +758,7 @@ def run_interactive_loop(
                 agent=initial_agent,
                 dynamic_agent_profiles=initial_dynamic_agent_profiles,
                 effort=effort_override,
-                autocompact_tokens=initial_autocompact_tokens,
+                autocompact_tokens=autocompact_setting.tokens,
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
                 additional_directories=additional_directories,
@@ -796,6 +807,27 @@ def run_interactive_loop(
                 recap_states[mode].record_success()
             print(update.text)
             continue
+        if command and command.type == "autocompact":
+            settings_workspace = pending_workspace or create_local_workspace(
+                Path.cwd(),
+                resume_run_id or "interactive-autocompact",
+                safe_mode=safe_mode,
+                bare_mode=bare_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
+            )
+            try:
+                update = run_autocompact_command(
+                    settings_workspace,
+                    command.argument,
+                    current=autocompact_setting,
+                )
+            except ValueError as error:
+                print(str(error))
+                continue
+            autocompact_setting = update.setting
+            print(update.text)
+            continue
         project_command_namespace = command_namespace
         if command and (invocation_plugin_dirs or bare_mode) and command.type in {"custom_commands", "agents", "skills"}:
             catalog_workspace = pending_workspace or create_local_workspace(
@@ -838,7 +870,7 @@ def run_interactive_loop(
                     chat_turns=len(chat_history) // 2,
                     effort=effort_override or "auto",
                     autocompact=format_autocompact_setting(
-                        initial_autocompact_tokens
+                        autocompact_setting.tokens
                     ),
                     system_prompt_set=bool(system_prompt),
                     append_system_prompt_set=bool(append_system_prompt),

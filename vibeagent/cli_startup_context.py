@@ -14,7 +14,7 @@ from .cli_additional_directories import resolve_additional_directories
 from .cli_config import model_override_from_args, provider_env_overrides_from_args
 from .cli_system_prompt_files import resolve_system_prompt_inputs
 from .commands import get_compact_context, get_resume_context
-from .context_compaction import resolve_autocompact_tokens
+from .autocompact_settings import resolve_autocompact_from_root
 from .dynamic_agent_profiles import DynamicAgentProfile, parse_dynamic_agent_profiles
 from .model_effort import resolve_model_effort_setting
 from .invocation_settings import parse_invocation_settings, parse_setting_sources
@@ -51,6 +51,8 @@ class InteractiveStartupContext:
     effort: str | None = None
     effort_locked: bool = False
     autocompact_tokens: int | None = None
+    autocompact_source: str = "auto"
+    autocompact_locked: bool = False
     attached_background_agent_id: str | None = None
     model: str | None = None
     provider_env_overrides: tuple[tuple[str, str], ...] = field(default=(), repr=False)
@@ -90,6 +92,24 @@ def resolve_interactive_startup_context(
         append_system_prompt_file=args.append_system_prompt_file,
         invocation_root=Path.cwd(),
     )
+    setting_sources = (
+        ()
+        if getattr(args, "bare", False)
+        and getattr(args, "setting_sources", None) is None
+        else parse_setting_sources(getattr(args, "setting_sources", None))
+    )
+    settings_override_json = parse_invocation_settings(
+        getattr(args, "settings", None),
+        invocation_root=Path.cwd(),
+    )
+    autocompact = resolve_autocompact_from_root(
+        project_root,
+        cli_value=getattr(args, "autocompact", None),
+        cli_provided=getattr(args, "autocompact", None) is not None,
+        setting_sources=setting_sources,
+        settings_override_json=settings_override_json,
+        bare_mode=getattr(args, "bare", False),
+    )
     prompt_kwargs = {
         "agent": selected_agent,
         "system_prompt": system_prompt,
@@ -98,7 +118,9 @@ def resolve_interactive_startup_context(
         "dynamic_agent_profiles": dynamic_agent_profiles,
         "effort": effort.level,
         "effort_locked": effort.locked,
-        "autocompact_tokens": resolve_autocompact_tokens(getattr(args, "autocompact", None)),
+        "autocompact_tokens": autocompact.tokens,
+        "autocompact_source": autocompact.source,
+        "autocompact_locked": autocompact.locked,
         "attached_background_agent_id": getattr(args, "_attached_background_agent_id", None),
         "model": model_override_from_args(args),
         "provider_env_overrides": provider_env_overrides_from_args(args, project_root),
@@ -117,16 +139,8 @@ def resolve_interactive_startup_context(
         "ax_screen_reader": getattr(args, "ax_screen_reader", False),
         "browser_mode": getattr(args, "browser_mode", "auto"),
         "teammate_mode": getattr(args, "teammate_mode", None),
-        "setting_sources": (
-            ()
-            if getattr(args, "bare", False)
-            and getattr(args, "setting_sources", None) is None
-            else parse_setting_sources(getattr(args, "setting_sources", None))
-        ),
-        "settings_override_json": parse_invocation_settings(
-            getattr(args, "settings", None),
-            invocation_root=Path.cwd(),
-        ),
+        "setting_sources": setting_sources,
+        "settings_override_json": settings_override_json,
         "invocation_plugin_dirs": resolve_invocation_plugin_dirs(
             getattr(args, "plugin_dir", None),
             invocation_root=Path.cwd(),

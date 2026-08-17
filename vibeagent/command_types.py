@@ -9,6 +9,7 @@ CoreCommandType: TypeAlias = Literal[
     "help",
     "model",
     "effort",
+    "autocompact",
     "config",
     "custom_commands",
     "plugin",
