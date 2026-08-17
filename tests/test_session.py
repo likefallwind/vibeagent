@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 from vibeagent.config import CostRates
 from vibeagent.session import (
@@ -87,6 +88,20 @@ class SessionTests(unittest.TestCase):
         self.assertEqual([session.run_id for session in sessions], ["new-run", "old-run"])
         self.assertEqual(sessions[0].event_count, 1)
         self.assertEqual(sessions[0].malformed_count, 1)
+
+    def test_list_sessions_counts_rows_without_materializing_event_objects(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(root, "run-1", [{"type": "task", "task": "Real work"}])
+
+            with patch(
+                "vibeagent.session_store.read_events_file",
+                side_effect=AssertionError("event objects should not be materialized"),
+            ):
+                sessions = list_sessions(root)
+
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(sessions[0].event_count, 1)
 
     def test_list_sessions_ignores_empty_session_directories(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:

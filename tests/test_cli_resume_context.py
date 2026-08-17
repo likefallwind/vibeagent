@@ -10,6 +10,8 @@ from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
 from vibeagent.cli_pull_request_resume import prepare_pull_request_resume, prompt_pull_request_session
 from vibeagent.session_pull_requests import PullRequestIdentity, PullRequestSessionCandidate
+from vibeagent.agent_runtime_utils import append_session_event
+from vibeagent.workspace_core import create_run_workspace
 
 
 class CliResumeContextTests(unittest.TestCase):
@@ -57,6 +59,7 @@ class CliResumeContextTests(unittest.TestCase):
 
         self.assertEqual(args.from_pr, "")
         self.assertEqual(args.resume, "linked-run")
+        self.assertTrue(args.resume_from_pull_request)
         candidates.assert_called_once_with(Path("/tmp").resolve(), None)
         self.assertIn("acme/widgets #42", "\n".join(output))
 
@@ -211,6 +214,8 @@ class CliResumeContextTests(unittest.TestCase):
 
     def test_main_starts_interactive_with_resume_context_from_cli_args(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            source = create_run_workspace(Path(base), "run-1")
+            append_session_event(source.session_dir, "task", {"task": "Continue task"})
             result = AgentResult(
                 success=True,
                 message="done",
@@ -281,14 +286,15 @@ class CliResumeContextTests(unittest.TestCase):
             stdout = io.StringIO()
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_resume_context", return_value=(None, None, "Session not found: missing")),
+                patch("vibeagent.cli.get_resume_context") as get_resume_context,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--cwd", base, "--resume", "missing"])
 
         self.assertEqual(exit_code, 2)
-        self.assertIn("Session not found: missing", stdout.getvalue())
+        self.assertIn("requires an interactive text terminal", stdout.getvalue())
         create_chat_client.assert_not_called()
+        get_resume_context.assert_not_called()
 
     def test_main_starts_interactive_with_compact_context_from_cli_args(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:

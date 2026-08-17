@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 
 from .cli_config import resolve_project_root
+from .cli_numbered_picker import prompt_numbered_choice
 from .session_pull_requests import (
     PullRequestSessionCandidate,
     list_pull_request_session_candidates,
@@ -28,6 +29,7 @@ def prepare_pull_request_resume(
     root = resolve_project_root(args.cwd) or Path.cwd().resolve()
     if _is_exact_pull_request_selector(selector):
         args.resume = resolve_session_from_pull_request(root, selector)
+        args.resume_from_pull_request = True
         return
     if terminal_available is None:
         terminal_available = sys.stdin.isatty() and sys.stdout.isatty()
@@ -41,6 +43,7 @@ def prepare_pull_request_resume(
         input_func=input_func,
         print_func=print_func,
     )
+    args.resume_from_pull_request = True
 
 
 def prompt_pull_request_session(
@@ -54,25 +57,27 @@ def prompt_pull_request_session(
         if query is None:
             raise ValueError("No local sessions are linked to pull requests.")
         raise ValueError(f"No local pull request sessions match {query!r}.")
-    read_input = input if input_func is None else input_func
-    print_func("Local pull request sessions:")
-    for index, candidate in enumerate(candidates, start=1):
-        link = candidate.pull_request
-        label = candidate.session_name or candidate.run_id
-        print_func(f"  {index}. {link.repository} #{link.number} [{link.provider}] - {label}")
-        print_func(f"     {link.url}")
-    while True:
-        try:
-            answer = read_input(f"Select a pull request [1-{len(candidates)}] (blank to cancel): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            raise ValueError("Pull request selection cancelled.") from None
-        if not answer:
-            raise ValueError("Pull request selection cancelled.")
-        if answer.isascii() and answer.isdigit():
-            selected = int(answer)
-            if 1 <= selected <= len(candidates):
-                return candidates[selected - 1].run_id
-        print_func(f"Enter a number from 1 to {len(candidates)}, or leave blank to cancel.")
+    selected = prompt_numbered_choice(
+        candidates,
+        heading="Local pull request sessions:",
+        item_lines=_candidate_lines,
+        prompt_label="a pull request",
+        input_func=input_func,
+        print_func=print_func,
+    )
+    return selected.run_id
+
+
+def _candidate_lines(
+    index: int,
+    candidate: PullRequestSessionCandidate,
+) -> tuple[str, str]:
+    link = candidate.pull_request
+    label = candidate.session_name or candidate.run_id
+    return (
+        f"  {index}. {link.repository} #{link.number} [{link.provider}] - {label}",
+        f"     {link.url}",
+    )
 
 
 def _is_exact_pull_request_selector(value: str) -> bool:

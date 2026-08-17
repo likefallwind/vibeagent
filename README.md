@@ -431,10 +431,12 @@ python -m vibeagent --from-pr 42 "continue work associated with pull request 42"
 python -m vibeagent --from-pr https://github.com/example/project/pull/42 --fork-session "try a different fix"
 python -m vibeagent --from-pr
 python -m vibeagent --from-pr auth
+python -m vibeagent --resume
+python -m vibeagent --resume auth
 python -m vibeagent --ide "fix the diagnostics in the active VS Code file"
 python -m vibeagent --name auth-refactor "implement the authentication refactor"
 python -m vibeagent --session-id 123e4567-e89b-12d3-a456-426614174000 "start with this session UUID"
-python -m vibeagent --resume -- "continue the latest session"
+python -m vibeagent --continue -- "continue the latest session"
 python -m vibeagent --no-auto-compact "start this task without prior session context"
 python -m vibeagent -r <run-id> -p "continue the previous change"
 python -m vibeagent -c --permission-mode plan --max-turns 3 "inspect the latest change"
@@ -709,7 +711,7 @@ profile list.
 For Claude-style scripting compatibility, `-p` / `--print` runs a one-shot task
 and prints only the final text in normal text output, `-r` is an alias for
 `--resume`, `--session-id UUID` assigns a specific UUID to a new interactive or
-one-shot session, and `-c` resumes the newest session for a one-shot task.
+one-shot session, and `-c` resumes the newest session without opening a picker.
 An explicit Session ID must use canonical UUID syntax and must not already exist.
 `--worktree NAME` / `-w NAME` starts a fresh one-shot or interactive coding
 session in `.vibeagent/worktrees/NAME` on branch `vibeagent/NAME`, leaving the
@@ -909,8 +911,9 @@ not replayed; arbitrary input fields are discarded instead of echoed. Replay
 records carry the same run/session identifiers as later events and the final
 result. A top-level `session_id` or `sessionId` field resumes that VibeAgent
 session in coding mode when neither `--resume` nor `--compact` is provided.
-When `-c`, `--resume [run-id]`, or `--compact [run-id]` is provided without a
-task, VibeAgent starts the interactive prompt with that context already loaded.
+When `-c`, an exact `--resume run-id`, or `--compact [run-id]` is provided
+without a task, VibeAgent starts the interactive prompt with that context
+already loaded. A bare `--resume` opens the local session picker instead.
 `--system-prompt` or `--system-prompt-file` replaces the default system prompt;
 the two replacement forms are mutually exclusive. `--append-system-prompt`
 and `--append-system-prompt-file` add extra system-level constraints and may be
@@ -2175,9 +2178,15 @@ verification evidence in the final result and session summary; suggested checks
 that are still pending or failed are listed by command. Each coding turn records its task, and
 `/sessions` lists recent runs with completion status and a compact task summary.
 The CLI automatically uses the latest run as compact context for the next coding
-turn; `--resume [run-id]` on one-shot tasks and `/resume [run-id|latest]` in the
-interactive prompt continue the selected
-Session ID with a bounded historical resume context. An exact VibeAgent-generated
+turn; `--resume [value]` and `/resume [run-id|latest]` continue the selected
+Session ID with a bounded historical resume context. An exact local ID or name
+resumes directly. Omitting the top-level value opens a bounded picker over the
+newest 1,000 local sessions; a non-exact value filters up to 100 displayed
+candidates by ID, name, task, or status. The picker requires an interactive text
+terminal, escapes unsafe display text, and fails before provider setup for JSON,
+redirected, or otherwise noninteractive execution. Picker selections are
+rewritten to exact IDs before background or tmux child launch. `-c` remains the
+noninteractive-compatible way to continue the newest session. An exact VibeAgent-generated
 ID or canonical UUID passed to top-level `--resume` can resolve across projects
 on the same machine. VibeAgent switches to the indexed session's original
 project root before loading settings, permissions, conversation state, or file
@@ -2207,9 +2216,10 @@ context explicitly. Both one-shot forms accept `--resume-max-failures`,
 `--max-files`, `--max-commands`, `--max-checks`, `--max-output-chars`, and
 `--max-text`. The loaded context is marked as prior-session evidence, not a new
 user instruction. Use `--no-auto-compact` for a one-shot coding task that should
-not automatically load the latest compact session context. When no run id is supplied, these recovery commands skip
-`local-*` sessions created by read-only CLI utilities. `/resume off` or `/clear`
-clears it before a fresh task.
+not automatically load the latest compact session context. Latest-session
+recovery through `-c`, `--compact`, and `/resume latest` skips `local-*`
+sessions created by read-only CLI utilities. `/resume off` or `/clear` clears it
+before a fresh task.
 `-n/--name <name>` names a new interactive or one-shot coding session at startup.
 Consecutive interactive coding prompts and evaluator-driven `/goal` turns reuse
 the active Session workspace and run ID, so their plans, transcript, usage, and

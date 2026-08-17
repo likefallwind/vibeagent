@@ -50,6 +50,7 @@ from .cli_background_agent_followup import (
 )
 from .cli_pull_request_resume import prepare_pull_request_resume
 from .cli_machine_resume import prepare_machine_session_resume
+from .session_resume_picker import prepare_session_resume, rewrite_resume_picker_arguments
 from .cli_ide import prepare_ide_connection
 from .background_agent_approval import background_agent_approval_handler
 from .cli_code_intel_local_flags import run_code_intel_local_flag, run_python_local_flag
@@ -172,10 +173,10 @@ from .startup_file_resources import (
 def main(argv: Sequence[str] | None = None) -> int:
     if argv is not None:
         args = parse_args(argv)
+        effective_argv = list(argv)
         try:
             prepare_pull_request_resume(args)
             prepare_background_agent_followup(args)
-            prepare_machine_session_resume(args)
         except (OSError, ValueError) as error:
             return print_error_result(
                 format_error(error),
@@ -186,6 +187,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         validation_error = validate_cli_args(args)
         if validation_error is not None:
             return print_error_result(validation_error, args.json, exit_code=2, output_format=args.output_format)
+        try:
+            prepare_session_resume(args)
+            prepare_machine_session_resume(args)
+        except (OSError, ValueError) as error:
+            return print_error_result(
+                format_error(error),
+                args.json,
+                exit_code=2,
+                output_format=args.output_format,
+            )
+        if getattr(args, "resume_from_picker", False):
+            effective_argv = rewrite_resume_picker_arguments(effective_argv, args.resume)
         try:
             prepare_ide_connection(args)
         except (OSError, ValueError) as error:
@@ -198,7 +211,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         normalize_task_bound_diff_args(args)
         if args.background:
             try:
-                return launch_background_agent_from_cli(list(argv), args)
+                return launch_background_agent_from_cli(effective_argv, args)
             except (OSError, ValueError) as error:
                 return print_error_result(
                     format_error(error),
@@ -287,7 +300,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.cwd = str(worktree.root)
             if args.tmux is not None:
                 try:
-                    return launch_tmux_worktree_session(list(argv), worktree, mode=args.tmux)
+                    return launch_tmux_worktree_session(effective_argv, worktree, mode=args.tmux)
                 except (OSError, ValueError) as error:
                     return print_error_result(
                         format_error(error),

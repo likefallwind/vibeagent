@@ -30,6 +30,7 @@ def prepare_background_agent_followup(args: argparse.Namespace) -> None:
     args.print_mode = True
     args.resume = config.resume_reference
     args.resume_from_continue = False
+    args.resume_from_background_followup = True
     args.continue_latest = False
     args.session_id = None
     args.compact = None

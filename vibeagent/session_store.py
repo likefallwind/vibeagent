@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import BinaryIO
 
 from .session_types import SessionEvent, SessionInfo
 from .session_utils import (
@@ -11,6 +12,9 @@ from .session_utils import (
     session_store_safety_error,
     sessions_dir,
 )
+
+
+MAX_SESSION_EVENT_ROW_BYTES = 1 * 1024 * 1024
 
 
 def list_sessions(project_root: str | Path, limit: int = 20) -> list[SessionInfo]:
@@ -48,9 +52,7 @@ def read_session_info(path: Path) -> SessionInfo:
     events = path / "events.jsonl"
     if session_events_safety_error(events):
         raise ValueError(f"Session events path is not a regular file: {path.name}/events.jsonl")
-    parsed_events = read_events_file(events)
-    event_count = len([event for event in parsed_events if not event.malformed])
-    malformed_count = len(parsed_events) - event_count
+    event_count, malformed_count = _count_event_rows(events)
     if events.exists():
         last_event_time = datetime.fromtimestamp(events.stat().st_mtime, tz=UTC)
     else:
@@ -61,6 +63,42 @@ def read_session_info(path: Path) -> SessionInfo:
         malformed_count=malformed_count,
         last_event_time=last_event_time,
     )
+
+
+def _count_event_rows(path: Path) -> tuple[int, int]:
+    if not path.exists():
+        return 0, 0
+    event_count = 0
+    malformed_count = 0
+    with path.open("rb") as stream:
+        while True:
+            raw = stream.readline(MAX_SESSION_EVENT_ROW_BYTES + 1)
+            if not raw:
+                break
+            if len(raw) > MAX_SESSION_EVENT_ROW_BYTES:
+                if not raw.endswith(b"\n"):
+                    _discard_event_row_remainder(stream)
+                malformed_count += 1
+                continue
+            if not raw.strip():
+                continue
+            try:
+                parsed = json.loads(raw.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError):
+                malformed_count += 1
+                continue
+            if isinstance(parsed, dict) and isinstance(parsed.get("type"), str):
+                event_count += 1
+            else:
+                malformed_count += 1
+    return event_count, malformed_count
+
+
+def _discard_event_row_remainder(stream: BinaryIO) -> None:
+    while True:
+        chunk = stream.readline(MAX_SESSION_EVENT_ROW_BYTES + 1)
+        if not chunk or chunk.endswith(b"\n"):
+            return
 
 
 def read_events_file(path: Path) -> list[SessionEvent]:

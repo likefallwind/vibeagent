@@ -14,6 +14,7 @@ from vibeagent.cli_runner import run_one_shot
 from vibeagent.types import ApprovalRequest, PlanItem, TaskStep
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.session_branching import read_session_branch_info
+from vibeagent.workspace_core import create_run_workspace
 
 
 class CliOneShotTests(unittest.TestCase):
@@ -371,6 +372,8 @@ class CliOneShotTests(unittest.TestCase):
 
     def test_main_stream_json_session_id_does_not_override_explicit_resume(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            source = create_run_workspace(Path(base), "explicit-run")
+            append_session_event(source.session_dir, "task", {"task": "Explicit resume"})
             result = AgentResult(
                 success=True,
                 message="done",
@@ -786,6 +789,8 @@ class CliOneShotTests(unittest.TestCase):
 
     def test_main_one_shot_code_task_can_load_resume_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            source = create_run_workspace(Path(base), "run-1")
+            append_session_event(source.session_dir, "task", {"task": "Continue task"})
             result = AgentResult(
                 success=True,
                 message="done",
@@ -958,7 +963,7 @@ class CliOneShotTests(unittest.TestCase):
         self.assertIn("--session-id cannot be combined", stdout.getvalue())
         create_chat_client.assert_not_called()
 
-    def test_main_one_shot_resume_without_run_id_loads_newest_context(self) -> None:
+    def test_main_one_shot_continue_loads_newest_context_without_picker(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(
                 success=True,
@@ -980,7 +985,7 @@ class CliOneShotTests(unittest.TestCase):
                 patch("vibeagent.cli.run_agent", run_agent),
                 redirect_stdout(io.StringIO()),
             ):
-                exit_code = main(["--cwd", base, "--resume", "--", "continue", "task"])
+                exit_code = main(["--cwd", base, "--continue", "--", "continue", "task"])
 
         self.assertEqual(exit_code, 0)
         get_resume_context.assert_called_once_with(None, Path(base).resolve())
@@ -1126,6 +1131,8 @@ class CliOneShotTests(unittest.TestCase):
 
     def test_main_one_shot_resume_without_cwd_uses_current_directory(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            source = create_run_workspace(Path(base), "run-1")
+            append_session_event(source.session_dir, "task", {"task": "Continue task"})
             result = AgentResult(
                 success=True,
                 message="done",
@@ -1188,14 +1195,15 @@ class CliOneShotTests(unittest.TestCase):
 
         with (
             patch("vibeagent.cli.create_chat_client") as create_chat_client,
-            patch("vibeagent.cli.get_resume_context", return_value=(None, None, "Session not found: missing")),
+            patch("vibeagent.cli.get_resume_context") as get_resume_context,
             redirect_stdout(stdout),
         ):
             exit_code = main(["--resume", "missing", "continue"])
 
-        self.assertEqual(exit_code, 1)
-        self.assertEqual(stdout.getvalue(), "Session not found: missing\n")
+        self.assertEqual(exit_code, 2)
+        self.assertIn("requires an interactive text terminal", stdout.getvalue())
         create_chat_client.assert_not_called()
+        get_resume_context.assert_not_called()
 
     def test_main_one_shot_compact_passes_compacted_context_to_agent(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:

@@ -134,6 +134,7 @@ class BackgroundAgentFollowupTests(unittest.TestCase):
 
             self.assertEqual(args.task, ["new follow-up"])
             self.assertEqual(args.resume, "run-123")
+            self.assertTrue(args.resume_from_background_followup)
             self.assertEqual(args.cwd, worktree.as_posix())
             self.assertIsNone(args.worktree)
             self.assertIsNone(args.name)

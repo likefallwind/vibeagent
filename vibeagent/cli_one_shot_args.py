@@ -46,7 +46,7 @@ def add_one_shot_arguments(
         nargs="?",
         const="",
         metavar="RUN_ID",
-        help="Load a previous session summary before a one-shot coding task. Omit RUN_ID to use the newest session.",
+        help="Resume an exact local session, or open a local picker with an optional search term.",
     )
     parser.add_argument(
         "--session-id",
