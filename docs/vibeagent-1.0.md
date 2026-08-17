@@ -229,6 +229,10 @@ backfill when that project is visited.
   codes, and process-group timeout cleanup. Stage,
   restore, commit, switch, stash, remote, and worktree mutations share this
   64,000-character-per-stream runner.
+- `tests.test_runtime_probe_output_bounds` covers 4,000-character-per-stream
+  Node workflow version, environment tool, and systemd memory probes, including
+  supported-version acceptance, oversized output, resolved executable paths,
+  tail-field parsing, status return codes, and timeout failures.
 - `tests.test_browser_tools` and `tests.test_background_agent_changes` cover
   fixed-chunk browser stdout/stderr with replacement decoding, real oversized
   browser output, and background-agent change lists that bound Git output while

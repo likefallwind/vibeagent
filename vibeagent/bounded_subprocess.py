@@ -7,7 +7,7 @@ import subprocess
 
 from .command_output_observers import CommandOutputObserver
 from .process_command_capture import capture_command_output
-from .process_lifecycle import terminate_process
+from .process_termination import terminate_process
 
 
 @dataclass(frozen=True)

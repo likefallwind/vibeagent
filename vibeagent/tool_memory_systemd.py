@@ -10,6 +10,7 @@ from threading import Event, Thread
 import time
 from typing import Mapping
 
+from .bounded_subprocess import run_bounded_subprocess
 from .tool_memory_limit import (
     TOOL_MEMORY_LIMIT_ENV,
     ToolMemoryLaunch,
@@ -17,6 +18,9 @@ from .tool_memory_limit import (
     format_memory_bytes,
     valid_tool_memory_unit,
 )
+
+
+MAX_SYSTEMD_PROBE_OUTPUT_CHARS = 4_000
 
 
 @dataclass(frozen=True)
@@ -47,7 +51,7 @@ def inspect_tool_memory_result(
     if not valid_tool_memory_unit(launch.unit):
         return ToolMemoryResult()
     try:
-        completed = subprocess.run(
+        completed = run_bounded_subprocess(
             (
                 launch.systemctl,
                 "--user",
@@ -55,10 +59,8 @@ def inspect_tool_memory_result(
                 launch.unit,
                 "--property=Result,ExecMainCode,ExecMainStatus,MemoryPeak",
             ),
-            text=True,
-            capture_output=True,
-            timeout=3,
-            check=False,
+            timeout_ms=3_000,
+            max_output_chars=MAX_SYSTEMD_PROBE_OUTPUT_CHARS,
             env=dict(environment),
         )
     except (OSError, subprocess.TimeoutExpired):
@@ -90,12 +92,10 @@ def stop_tool_memory_unit(
     if executable is None:
         return False
     try:
-        completed = subprocess.run(
+        completed = run_bounded_subprocess(
             (executable, "--user", "stop", unit),
-            text=True,
-            capture_output=True,
-            timeout=3,
-            check=False,
+            timeout_ms=3_000,
+            max_output_chars=MAX_SYSTEMD_PROBE_OUTPUT_CHARS,
             env=dict(source),
         )
     except (OSError, subprocess.TimeoutExpired):
@@ -116,12 +116,10 @@ def tool_memory_unit_running(
     if executable is None:
         return None
     try:
-        completed = subprocess.run(
+        completed = run_bounded_subprocess(
             (executable, "--user", "is-active", "--quiet", unit),
-            text=True,
-            capture_output=True,
-            timeout=2,
-            check=False,
+            timeout_ms=2_000,
+            max_output_chars=MAX_SYSTEMD_PROBE_OUTPUT_CHARS,
             env=dict(source),
         )
     except (OSError, subprocess.TimeoutExpired):
@@ -240,12 +238,10 @@ def _reset_failed_unit(
     environment: Mapping[str, str],
 ) -> None:
     try:
-        subprocess.run(
+        run_bounded_subprocess(
             (launch.systemctl, "--user", "reset-failed", launch.unit),
-            text=True,
-            capture_output=True,
-            timeout=2,
-            check=False,
+            timeout_ms=2_000,
+            max_output_chars=MAX_SYSTEMD_PROBE_OUTPUT_CHARS,
             env=dict(environment),
         )
     except (OSError, subprocess.TimeoutExpired):

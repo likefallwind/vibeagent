@@ -5,8 +5,12 @@ import shutil
 import subprocess
 import sys
 
+from .bounded_subprocess import run_bounded_subprocess
 from .workspace_core import RunWorkspace
 from .workspace_git_utils import run_readonly_git
+
+
+MAX_RUNTIME_TOOL_OUTPUT_CHARS = 4_000
 
 
 def read_environment_info(workspace: RunWorkspace) -> dict[str, object]:
@@ -44,13 +48,11 @@ def read_runtime_tool_info(name: str, command: list[str]) -> dict[str, object]:
     if not path:
         return {"name": name, "available": False, "path": None, "version": None, "message": "Not found on PATH."}
     try:
-        result = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=2,
-            check=False,
+        result = run_bounded_subprocess(
+            [path, *command[1:]],
+            timeout_ms=2_000,
+            max_output_chars=MAX_RUNTIME_TOOL_OUTPUT_CHARS,
+            errors="replace",
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         return {"name": name, "available": True, "path": path, "version": None, "message": str(error)}

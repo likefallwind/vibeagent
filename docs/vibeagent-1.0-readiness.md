@@ -718,6 +718,10 @@ The automated suite currently covers these 1.0 surfaces:
   process-group timeout cleanup. This covers index, commit, branch, stash,
   remote, and worktree operations without changing complete checkpoint-patch
   semantics.
+- Node workflow version checks, environment tool discovery, and systemd memory
+  status operations use 4,000-character-per-stream bounded probes. The shared
+  process-group termination primitive is isolated below memory-service cleanup,
+  avoiding a runtime import cycle while retaining existing lifecycle behavior.
 - Opt-in command memory cgroups: `CLAUDE_CODE_TOOL_MEMORY_LIMIT` accepts bounded
   byte or binary-unit values on Linux and WSL and places finite, batch,
   PowerShell, interactive, and persistent background command trees into a

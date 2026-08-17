@@ -9,6 +9,7 @@ import subprocess
 from threading import Event, Lock, Thread
 from typing import Any, Callable, TextIO
 
+from .bounded_subprocess import run_bounded_subprocess
 from .bounded_text_lines import TextLineTooLongError, iter_bounded_text_lines
 from .dynamic_workflow_protocol import parse_workflow_agent_request, request_to_dict
 from .dynamic_workflow_script import NODE_WORKFLOW_BRIDGE
@@ -21,20 +22,18 @@ MAX_WORKFLOW_CONCURRENCY = 16
 MAX_PROTOCOL_LINE_BYTES = 1_100_000
 MAX_WORKFLOW_STDERR_CHARS = 20_000
 MIN_NODE_MAJOR_VERSION = 22
+MAX_RUNTIME_PROBE_OUTPUT_CHARS = 4_000
 
 
 def ensure_node_workflow_runtime() -> None:
     executable = shutil.which("node", path=os.environ.get("PATH"))
     if executable is None:
         raise ValueError("Dynamic workflows require Node.js 22 or newer on PATH.")
-    completed = subprocess.run(
+    completed = run_bounded_subprocess(
         [executable, "--version"],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=5,
+        timeout_ms=5_000,
+        max_output_chars=MAX_RUNTIME_PROBE_OUTPUT_CHARS,
         env=_workflow_process_env(),
-        check=False,
     )
     match = re.fullmatch(r"v(\d+)(?:\.\d+){2}\s*", completed.stdout)
     if completed.returncode != 0 or match is None or int(match.group(1)) < MIN_NODE_MAJOR_VERSION:
