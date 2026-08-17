@@ -4,18 +4,44 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
+import vibeagent.background_agent_changes as changes_runtime
 from vibeagent.background_agent_changes import (
+    MAX_BACKGROUND_CHANGE_GIT_OUTPUT_CHARS,
     read_background_agent_change_content,
     read_background_agent_changes,
 )
 from vibeagent.background_agent_config import create_background_agent_config
+from vibeagent.workspace_core import GitCommandResult
 
 
 AGENT_ID = "0123456789ab"
 
 
 class BackgroundAgentChangesTests(unittest.TestCase):
+    def test_change_list_rejects_stream_truncation_before_parsing_paths(self) -> None:
+        result = GitCommandResult(
+            ok=True,
+            stdout="head\0tail",
+            stderr="",
+            exit_code=0,
+            stdout_truncated=True,
+            stdout_total_chars=2_000_000,
+        )
+        with patch(
+            "vibeagent.background_agent_changes.run_readonly_git",
+            return_value=result,
+        ) as run:
+            with self.assertRaisesRegex(ValueError, "change list is too large"):
+                changes_runtime._changed_paths(Path("/project"), ["status"])
+
+        run.assert_called_once_with(
+            Path("/project"),
+            ["status"],
+            max_output_chars=MAX_BACKGROUND_CHANGE_GIT_OUTPUT_CHARS + 1,
+        )
+
     def test_reads_committed_staged_unstaged_and_untracked_worktree_changes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-changes-") as base:
             root = Path(base) / "project"

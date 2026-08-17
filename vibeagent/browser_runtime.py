@@ -12,6 +12,7 @@ import tempfile
 from urllib.parse import urlsplit
 
 from .action_browser_types import BrowserAction
+from .bounded_subprocess import BoundedProcessResult, run_bounded_subprocess
 from .observation_browser_types import BrowserObservation
 from .workspace_core import RunWorkspace
 from .workspace_resolve import display_workspace_path, resolve_mutation_path
@@ -99,6 +100,7 @@ def _capture_screenshot(
         if result.stderr.strip():
             output += f"\n[stderr]\n{result.stderr.strip()}"
         output, truncated = _truncate(output)
+        truncated = truncated or result.stdout_truncated or result.stderr_truncated
         return _observation(
             action,
             session,
@@ -183,18 +185,14 @@ def _operation_arguments(action: BrowserAction) -> list[str]:
     raise ValueError(f"Unsupported browser operation: {operation}")
 
 
-def _run_browser(command: list[str], cwd: Path, runtime_dir: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+def _run_browser(command: list[str], cwd: Path, runtime_dir: Path) -> BoundedProcessResult:
+    return run_bounded_subprocess(
         command,
         cwd=cwd,
         env=_browser_environment(runtime_dir),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+        timeout_ms=BROWSER_TIMEOUT_SECONDS * 1_000,
+        max_output_chars=MAX_BROWSER_OUTPUT_CHARS,
         errors="replace",
-        timeout=BROWSER_TIMEOUT_SECONDS,
-        check=False,
     )
 
 
@@ -340,7 +338,7 @@ def _browser_session(workspace: RunWorkspace) -> str:
 def _result_observation(
     action: BrowserAction,
     session: str,
-    result: subprocess.CompletedProcess[str],
+    result: BoundedProcessResult,
     *,
     path: str | None = None,
 ) -> BrowserObservation:
@@ -348,7 +346,8 @@ def _result_observation(
     stderr = result.stderr.strip()
     if stderr:
         output = f"{output}\n[stderr]\n{stderr}".strip()
-    output, truncated = _truncate(output)
+    output, combined_truncated = _truncate(output)
+    truncated = combined_truncated or result.stdout_truncated or result.stderr_truncated
     error = None if result.returncode == 0 else (stderr or output or f"agent-browser exited with {result.returncode}")
     return _observation(
         action,

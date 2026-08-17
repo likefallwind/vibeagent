@@ -30,6 +30,7 @@ def run_bounded_subprocess(
     timeout_ms: int,
     max_output_chars: int,
     observer: CommandOutputObserver | None = None,
+    errors: str | None = None,
 ) -> BoundedProcessResult:
     argv = tuple(args)
     if not argv:
@@ -48,6 +49,7 @@ def run_bounded_subprocess(
         stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
+        errors=errors,
         start_new_session=os.name != "nt",
     )
     capture = capture_command_output(

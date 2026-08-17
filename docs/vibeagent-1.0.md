@@ -224,6 +224,10 @@ backfill when that project is visited.
   shared bounded subprocess runner, model-facing Git reads, GitHub CLI PR URL
   extraction after oversized output, and noninteractive remote-plugin Git
   operations without retaining complete stdout or stderr in memory.
+- `tests.test_browser_tools` and `tests.test_background_agent_changes` cover
+  fixed-chunk browser stdout/stderr with replacement decoding, real oversized
+  browser output, and background-agent change lists that bound Git output while
+  rejecting truncated path sets before snapshot construction.
 - `tests.test_background_agent_runtime.BackgroundAgentRuntimeTests`,
   `tests.test_background_agent_attachment.BackgroundAgentAttachmentTests`, and
   `tests.test_background_agent_followup.BackgroundAgentFollowupTests` plus

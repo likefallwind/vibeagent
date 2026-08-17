@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import socket
 from pathlib import Path
-import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -13,10 +12,32 @@ from vibeagent.actions import execute_action, parse_tool_action
 from vibeagent.agent_approval import build_approval_request
 from vibeagent.agent_tool_registry import tool_available_for_policy
 from vibeagent.browser_runtime import MAX_BROWSER_OUTPUT_CHARS
+from vibeagent.bounded_subprocess import BoundedProcessResult
 from vibeagent.prompt_observation_runtime import format_runtime_observation
 from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
 from vibeagent.types import BrowserAction, BrowserObservation
 from vibeagent.workspace import create_run_workspace
+
+
+def _browser_result(
+    command: list[str],
+    stdout: str,
+    stderr: str = "",
+    *,
+    returncode: int = 0,
+    stdout_truncated: bool = False,
+    stderr_truncated: bool = False,
+) -> BoundedProcessResult:
+    return BoundedProcessResult(
+        args=tuple(command),
+        returncode=returncode,
+        stdout=stdout,
+        stderr=stderr,
+        stdout_truncated=stdout_truncated,
+        stderr_truncated=stderr_truncated,
+        stdout_total_chars=len(stdout) + (50 if stdout_truncated else 0),
+        stderr_total_chars=len(stderr) + (50 if stderr_truncated else 0),
+    )
 
 
 class BrowserToolContractTests(unittest.TestCase):
@@ -83,7 +104,7 @@ class BrowserRuntimeTests(unittest.TestCase):
 
         def run(command, **kwargs):
             calls.append((command, kwargs))
-            return subprocess.CompletedProcess(command, 0, "opened\n", "")
+            return _browser_result(command, "opened\n")
 
         host_environment = {
             "PATH": os.environ.get("PATH", ""),
@@ -95,7 +116,7 @@ class BrowserRuntimeTests(unittest.TestCase):
         }
         with (
             patch("vibeagent.browser_runtime.shutil.which", return_value="/usr/bin/agent-browser"),
-            patch("vibeagent.browser_runtime.subprocess.run", side_effect=run),
+            patch("vibeagent.browser_runtime.run_bounded_subprocess", side_effect=run),
             patch.dict(os.environ, host_environment, clear=True),
         ):
             opened = execute_action(
@@ -124,13 +145,19 @@ class BrowserRuntimeTests(unittest.TestCase):
         self.assertIn("/vab-", environment["AGENT_BROWSER_SOCKET_DIR"])
         self.assertTrue(environment["XDG_CACHE_HOME"].endswith("/browser/cache"))
         self.assertTrue(environment["XDG_RUNTIME_DIR"].endswith("/browser/runtime"))
-        self.assertIs(subprocess.DEVNULL, first_kwargs["stdin"])
+        self.assertEqual(first_kwargs["timeout_ms"], 35_000)
+        self.assertEqual(first_kwargs["max_output_chars"], MAX_BROWSER_OUTPUT_CHARS)
+        self.assertEqual(first_kwargs["errors"], "replace")
 
     def test_runtime_maps_operations_and_bounds_output(self) -> None:
-        completed = subprocess.CompletedProcess(["agent-browser"], 0, "x" * (MAX_BROWSER_OUTPUT_CHARS + 50), "")
+        completed = _browser_result(
+            ["agent-browser"],
+            "x" * MAX_BROWSER_OUTPUT_CHARS,
+            stdout_truncated=True,
+        )
         with (
             patch("vibeagent.browser_runtime.shutil.which", return_value="agent-browser"),
-            patch("vibeagent.browser_runtime.subprocess.run", return_value=completed) as run,
+            patch("vibeagent.browser_runtime.run_bounded_subprocess", return_value=completed) as run,
         ):
             observation = execute_action(
                 self.workspace,
@@ -149,6 +176,46 @@ class BrowserRuntimeTests(unittest.TestCase):
         self.assertIn("browser get_attribute", formatted)
         self.assertIn("untrusted external browser/page content", formatted)
 
+    def test_runtime_streams_oversized_process_output(self) -> None:
+        executable = self.root / "agent-browser"
+        executable.write_text(
+            "#!/usr/bin/env python3\n"
+            "import os\n"
+            "chunk = bytes([120]) * 65536\n"
+            "for _ in range(32):\n"
+            "    os.write(1, chunk)\n"
+            "os.write(1, b'tail-marker\\n')\n",
+            encoding="utf-8",
+        )
+        executable.chmod(0o755)
+        with patch("vibeagent.browser_runtime.shutil.which", return_value=str(executable)):
+            observation = execute_action(
+                self.workspace,
+                parse_tool_action("browser_snapshot", {}),
+            )
+
+        self.assertTrue(observation.ok, observation.error)
+        self.assertTrue(observation.output_truncated)
+        self.assertLessEqual(len(observation.output), MAX_BROWSER_OUTPUT_CHARS)
+        self.assertIn("tail-marker", observation.output)
+
+    def test_runtime_replaces_invalid_utf8_process_output(self) -> None:
+        executable = self.root / "agent-browser"
+        executable.write_bytes(
+            b"#!/usr/bin/env python3\n"
+            b"import os\n"
+            b"os.write(1, bytes([111, 107, 255, 10]))\n"
+        )
+        executable.chmod(0o755)
+        with patch("vibeagent.browser_runtime.shutil.which", return_value=str(executable)):
+            observation = execute_action(
+                self.workspace,
+                parse_tool_action("browser_snapshot", {}),
+            )
+
+        self.assertTrue(observation.ok, observation.error)
+        self.assertEqual(observation.output, "ok\ufffd")
+
     def test_runtime_rewrites_config_and_rejects_invalid_domain_state(self) -> None:
         runtime_dir = self.workspace.session_dir / "browser"
         runtime_dir.mkdir(parents=True)
@@ -156,7 +223,7 @@ class BrowserRuntimeTests(unittest.TestCase):
         (runtime_dir / "domains.json").write_text('["*.example.com"]', encoding="utf-8")
         with (
             patch("vibeagent.browser_runtime.shutil.which", return_value="agent-browser"),
-            patch("vibeagent.browser_runtime.subprocess.run") as run,
+            patch("vibeagent.browser_runtime.run_bounded_subprocess") as run,
         ):
             observation = execute_action(
                 self.workspace,
@@ -176,7 +243,7 @@ class BrowserRuntimeTests(unittest.TestCase):
                 "vibeagent.browser_runtime.socket.getaddrinfo",
                 return_value=[(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("169.254.169.254", 80))],
             ),
-            patch("vibeagent.browser_runtime.subprocess.run") as run,
+            patch("vibeagent.browser_runtime.run_bounded_subprocess") as run,
         ):
             link_local = execute_action(self.workspace, action)
         self.assertFalse(link_local.ok)
@@ -192,7 +259,7 @@ class BrowserRuntimeTests(unittest.TestCase):
                     (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", 80)),
                 ],
             ),
-            patch("vibeagent.browser_runtime.subprocess.run") as run,
+            patch("vibeagent.browser_runtime.run_bounded_subprocess") as run,
         ):
             mixed = execute_action(self.workspace, action)
         self.assertFalse(mixed.ok)
@@ -202,11 +269,11 @@ class BrowserRuntimeTests(unittest.TestCase):
     def test_screenshot_is_atomically_written_inside_workspace(self) -> None:
         def run(command, **_kwargs):
             Path(command[-1]).write_bytes(b"\x89PNG\r\n\x1a\nimage")
-            return subprocess.CompletedProcess(command, 0, "saved", "")
+            return _browser_result(command, "saved")
 
         with (
             patch("vibeagent.browser_runtime.shutil.which", return_value="agent-browser"),
-            patch("vibeagent.browser_runtime.subprocess.run", side_effect=run),
+            patch("vibeagent.browser_runtime.run_bounded_subprocess", side_effect=run),
         ):
             observation = execute_action(
                 self.workspace,
@@ -224,7 +291,7 @@ class BrowserRuntimeTests(unittest.TestCase):
         link.symlink_to(outside)
         with (
             patch("vibeagent.browser_runtime.shutil.which", return_value="agent-browser"),
-            patch("vibeagent.browser_runtime.subprocess.run") as run,
+            patch("vibeagent.browser_runtime.run_bounded_subprocess") as run,
         ):
             protected = execute_action(
                 self.workspace,

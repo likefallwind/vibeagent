@@ -193,10 +193,14 @@ def _change_context(project_root: Path, agent_id: str) -> _ChangeContext:
 
 
 def _changed_paths(root: Path, args: list[str]) -> set[str]:
-    result = run_readonly_git(root, args)
+    result = run_readonly_git(
+        root,
+        args,
+        max_output_chars=MAX_BACKGROUND_CHANGE_GIT_OUTPUT_CHARS + 1,
+    )
     if not result.ok:
         raise ValueError(combine_git_output(result) or "Could not inspect background agent changes.")
-    if len(result.stdout) > MAX_BACKGROUND_CHANGE_GIT_OUTPUT_CHARS:
+    if result.stdout_truncated or len(result.stdout) > MAX_BACKGROUND_CHANGE_GIT_OUTPUT_CHARS:
         raise ValueError("Background agent change list is too large.")
     return {part for part in result.stdout.split("\0") if part}
 
@@ -210,9 +214,14 @@ def _git_path(root: Path, args: list[str], label: str) -> Path:
 
 
 def _git_text(root: Path, args: list[str], label: str, *, allow_empty: bool = False) -> str:
-    result = run_readonly_git(root, args)
+    result = run_readonly_git(root, args, max_output_chars=4_001)
     value = result.stdout.strip()
-    if not result.ok or (not value and not allow_empty) or len(value) > 4_000:
+    if (
+        not result.ok
+        or result.stdout_truncated
+        or (not value and not allow_empty)
+        or len(value) > 4_000
+    ):
         message = combine_git_output(result)
         raise ValueError(message or f"Could not resolve {label}.")
     return value
@@ -272,10 +281,15 @@ def _current_fingerprint(root: Path, path: str) -> str:
         return f"symlink:{hashlib.sha256(os.fsencode(target)).hexdigest()}"
     if not stat.S_ISREG(metadata.st_mode):
         return f"mode:{stat.S_IFMT(metadata.st_mode):o}"
-    result = run_readonly_git(root, ["hash-object", "--no-filters", "--", path])
+    result = run_readonly_git(
+        root,
+        ["hash-object", "--no-filters", "--", path],
+        max_output_chars=65,
+    )
     value = result.stdout.strip()
     if (
         not result.ok
+        or result.stdout_truncated
         or len(value) not in {40, 64}
         or any(character not in "0123456789abcdef" for character in value)
     ):
