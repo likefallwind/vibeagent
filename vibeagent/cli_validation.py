@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from .anthropic_betas import normalize_anthropic_betas
+from .cli_background_exec_args import validate_background_exec_arguments
 from .cli_local_flag_detection import has_local_flag, has_non_model_local_flag
 from .cli_local_option_validation import validate_local_option_dependencies
 from .cli_permission_overrides import permission_override_validation_error
@@ -15,6 +16,7 @@ from .session_names import normalize_session_name
 
 
 def validate_cli_args(args: argparse.Namespace) -> str | None:
+    exec_command = getattr(args, "exec_command", None)
     remote_control = getattr(args, "remote_control", None)
     remote_control_selected = remote_control is not None
     remote_name_prefix = getattr(args, "remote_control_session_name_prefix", None)
@@ -88,11 +90,13 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--plugin-dir and --plugin-url require an interactive or one-shot coding session."
     if args.safe_mode and (args.maintenance or args.setup_trigger == "init"):
         return "--safe-mode cannot run custom Setup hooks through --init or --maintenance."
-    if args.background and (not args.task or has_local_flag(args) or args.chat):
+    if (exec_error := validate_background_exec_arguments(args)) is not None:
+        return exec_error
+    if args.background and exec_command is None and (not args.task or has_local_flag(args) or args.chat):
         return "--background requires a one-shot coding task."
-    if args.background and args.task == ["-"]:
+    if args.background and exec_command is None and args.task == ["-"]:
         return "--background cannot read task input from stdin."
-    if args.background and args.no_session_persistence:
+    if args.background and exec_command is None and args.no_session_persistence:
         return "--background requires session persistence."
     if args.background and args.api_key is not None:
         return "--background does not persist --api-key; configure the provider key in the environment."

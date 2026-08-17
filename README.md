@@ -464,6 +464,7 @@ python -m vibeagent -p --output-format stream-json --include-hook-events --cwd .
 python -m vibeagent -p --output-format stream-json --include-partial-messages --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format stream-json --forward-subagent-text --cwd ../my-project "delegate the investigation"
 python -m vibeagent --bg --approval auto --cwd ../my-project "run the tests and fix failures"
+python -m vibeagent --bg --exec "pytest -x" --cwd ../my-project
 python -m vibeagent agents --cwd ../my-project
 python -m vibeagent agents --json --cwd ../my-project
 python -m vibeagent agents --json --all --cwd ../my-project
@@ -608,6 +609,14 @@ directory, and shell `--bg` sessions isolate only when explicitly passed
 original terminal on normal exit, interruption, prompts, and attach. It is
 project-scoped; machine-global aggregation across unrelated repositories is not
 part of the 1.0 dashboard.
+
+`--bg --exec COMMAND` starts a provider-free shell job instead of a coding
+session and returns a project-local process ID immediately. It uses the same
+workspace command safety, sandbox, private logs, durable exit marker, and
+optional `CLAUDE_CODE_TOOL_MEMORY_LIMIT` enforcement as model-started commands.
+Use `--processes`, `--process-output`, `--wait-process`, `--write-process`, and
+`--stop-process` to manage the job from later CLI invocations. A shell job does
+not accept prompt text or agent, model, resume, naming, or local-command flags.
 
 `remote-control [name]` (also `--remote-control [name]`) serves a responsive
 browser control plane for the same project-local background agents. It can

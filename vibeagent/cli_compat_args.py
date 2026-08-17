@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 
+from .cli_background_exec_args import add_background_exec_argument
 from .cli_resume_args import normalize_resume_arguments
 from .safe_mode import resolve_safe_mode
 
@@ -31,6 +32,7 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         action="store_true",
         help="Start a one-shot coding agent in the background and return its management id.",
     )
+    add_background_exec_argument(parser)
     parser.add_argument(
         "--brief",
         action="store_true",

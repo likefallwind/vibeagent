@@ -42,6 +42,7 @@ from .cli_background_agent_local_flags import run_background_agent_local_flag
 from .cli_agent_view import run_agent_view_from_cli
 from .cli_remote_control import run_remote_control_from_cli
 from .cli_background_agent_attach import attach_background_agent_from_cli
+from .cli_background_exec import launch_background_exec_from_cli
 from .cli_background_agent_launch import launch_background_agent_from_cli
 from .cli_background_agent_followup import (
     background_agent_worker_config,
@@ -213,6 +214,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         normalize_task_bound_diff_args(args)
         if args.background:
             try:
+                if args.exec_command is not None:
+                    return launch_background_exec_from_cli(args)
                 return launch_background_agent_from_cli(effective_argv, args)
             except (OSError, ValueError) as error:
                 return print_error_result(
