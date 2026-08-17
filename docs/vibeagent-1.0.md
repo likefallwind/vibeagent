@@ -708,8 +708,12 @@ backfill when that project is visited.
   summaries, one-shot termination, interactive clear/exit/resume reasons, and
   SessionEnd timeout defaults.
 - `tests.test_pre_compact_blocking.PreCompactBlockingTests` covers exit-code,
-  structured, and universal-stop blocking without history or state mutation,
-  exact subagent identity, skipped post hooks, and interactive session retention.
+  structured blocking without history or state mutation, ignored universal-stop
+  output, exact subagent identity, skipped post hooks, and interactive session
+  retention.
+- `tests.test_hook_effort_context.HookEffortContextTests` covers wrapper-safe
+  effort resolution, tool-hook JSON and command environment input, unsupported
+  client omission, main-agent `Stop`, and profile-overridden `SubagentStop`.
 - `tests.test_task_lifecycle_hooks.TaskLifecycleHookTests` covers matcher-free
   task Hook configuration, exact creation/completion input, rollback-safe
   blocking, `continue: false` turn halting, and the teammate coordination path.

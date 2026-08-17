@@ -33,6 +33,7 @@ def run_tool_hook_handler(
     hook_model_runtime: HookModelRuntime | None,
     extra_input: dict[str, object] | None = None,
 ) -> HookRunResult:
+    effort = hook_model_runtime.effort if hook_model_runtime is not None else None
     hook_input: dict[str, object] = {
         "session_id": workspace.run_id,
         "transcript_path": str(workspace.session_dir / "events.jsonl"),
@@ -48,6 +49,7 @@ def run_tool_hook_handler(
         "hook_event_name": hook.event,
         "tool_name": tool_name,
         "tool_input": tool_input,
+        **({"effort": {"level": effort}} if effort is not None else {}),
         **(extra_input or {}),
     }
     if tool_use_id is not None:
@@ -61,6 +63,7 @@ def run_tool_hook_handler(
             **hook.environment,
             "VIBEAGENT_TOOL_NAME": tool_name,
             "VIBEAGENT_TOOL_TARGET": build_action_target(action),
+            **({"CLAUDE_EFFORT": effort} if effort is not None else {}),
         },
         iteration=iteration,
         hook_index=hook_index,

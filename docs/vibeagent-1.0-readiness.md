@@ -437,6 +437,11 @@ The automated suite currently covers these 1.0 surfaces:
   60-second default timeout, no mutation, command, delegation, or user-input
   tools, Hook-specific audit events, shared provider budget/fallback state, and
   the same block, feedback, and non-blocking failure semantics as prompt hooks.
+- Claude-compatible Hook effort context: tool hooks and `Stop`/`SubagentStop`
+  hooks receive the supported active client effort as `effort.level`, command
+  handlers also receive `CLAUDE_EFFORT`, and profile-specific main-agent or
+  subagent overrides are reflected without inventing a value for unsupported
+  clients.
 - Claude-compatible `PermissionRequest` hooks: command, HTTP, MCP tool, prompt,
   and experimental agent handlers run only at a real ask-mode approval boundary;
   prompt and agent results are advisory, command/HTTP/MCP deny wins over allow,
@@ -448,10 +453,10 @@ The automated suite currently covers these 1.0 surfaces:
 - Claude-compatible compaction and termination hooks: `PreCompact` and
   `PostCompact` wrap automatic main-agent, subagent, and interactive manual
   compaction with trigger, agent identity, and bounded summary input.
-  Synchronous `PreCompact` exit-code, structured-block, and universal-stop
-  decisions preserve exact history and skip summary generation, state reset,
-  and `PostCompact`, with redacted main/subagent audit events. `SessionEnd`
-  remains non-blocking, receives the documented one-shot and interactive exit
+  Synchronous `PreCompact` exit-code and structured-block decisions preserve
+  exact history and skip summary generation, state reset, and `PostCompact`,
+  with redacted main/subagent audit events; universal stop output is ignored.
+  `SessionEnd` remains non-blocking, receives the documented one-shot and interactive exit
   reasons, and enforces the shared 1.5-second default budget with a 60-second
   ceiling.
 - Claude-compatible task lifecycle hooks: `TaskCreated` and `TaskCompleted`

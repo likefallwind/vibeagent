@@ -2301,6 +2301,11 @@ and, on stop, `stop_hook_active`, `last_assistant_message`, and
 while resumable subagent message history is atomically stored under
 `.vibeagent/sessions/<session-id>/subagents/` with secret redaction.
 
+Tool hooks and `Stop`/`SubagentStop` hooks receive the active supported model
+effort as `effort.level`; command handlers also receive `CLAUDE_EFFORT`. The
+value is resolved after main-agent or subagent profile overrides are applied.
+Both fields are omitted when the configured client has no supported effort.
+
 Successful synchronous `PostToolUse` handlers receive the original structured
 `tool_response`. They may return
 `hookSpecificOutput.updatedToolOutput` as any finite JSON value up to 128 KiB;
@@ -2417,7 +2422,8 @@ operation; interactive `/compact` does the same around the bounded handoff summa
 `PreCompact` receives `trigger` and empty `custom_instructions`, while
 `PostCompact` receives `trigger` and `compact_summary`. A synchronous
 `PreCompact` handler can stop the operation with exit code 2,
-`{"decision":"block"}`, or `{"continue":false}`. Blocking preserves the exact
+or `{"decision":"block"}`. Its universal `continue` and `systemMessage` fields
+are ignored. Blocking preserves the exact
 message history, skips summary generation, instruction-state reset, and
 `PostCompact`, and records a redacted audit event. A blocked context-limit
 recovery may therefore end with the original provider limit error rather than

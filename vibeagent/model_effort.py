@@ -61,6 +61,22 @@ def configure_model_effort(
     return configured
 
 
+def active_model_effort(client: object) -> str | None:
+    """Return the configured effort through known client wrapper layers."""
+    seen: set[int] = set()
+    current: object | None = client
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        effort = getattr(current, "effort", None)
+        if effort in MODEL_EFFORT_LEVELS:
+            return str(effort)
+        nested = getattr(current, "client", None)
+        if nested is None:
+            nested = getattr(current, "primary", None)
+        current = nested
+    return None
+
+
 class EnvironmentEffortChatClient:
     def __init__(self, client: ChatClient, effort: str | None) -> None:
         self.client = client
@@ -121,6 +137,7 @@ __all__ = [
     "MODEL_EFFORT_LEVELS",
     "EnvironmentEffortChatClient",
     "ModelEffortSetting",
+    "active_model_effort",
     "configure_model_effort",
     "normalize_model_effort",
     "resolve_model_effort_setting",

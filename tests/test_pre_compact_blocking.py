@@ -151,7 +151,7 @@ class PreCompactBlockingTests(unittest.TestCase):
         self.assertEqual(blocked["reason"], "Keep the full debugging transcript.")
         self.assertNotIn("context_compacted", {event["type"] for event in events})
 
-    def test_universal_stop_uses_stop_reason(self) -> None:
+    def test_universal_stop_is_ignored_for_pre_compact(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-lifecycle-hook-") as base:
             workspace = create_run_workspace(base)
             runtime = AgentLifecycleRuntime(
@@ -184,7 +184,7 @@ class PreCompactBlockingTests(unittest.TestCase):
                     iteration=4,
                 )
 
-        self.assertEqual(reason, "Compaction is disabled during incident response.")
+        self.assertIsNone(reason)
 
     def test_structured_block_reaches_subagent_and_preserves_history(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-lifecycle-hook-") as base:

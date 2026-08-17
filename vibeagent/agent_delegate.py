@@ -16,6 +16,7 @@ from .agent_delegate_context import (
     compact_delegate_message_history,
 )
 from .agent_delegate_hooks import DelegateLifecycleHooks
+from .model_effort import active_model_effort
 from .agent_hook_prompt import HookModelRuntime
 from .agent_model import complete_with_retries
 from .agent_delegate_inbox import DelegateInbox
@@ -252,6 +253,7 @@ def execute_delegate_task_action(
             model_retries=model_retries,
             model_retry_delay_ms=model_retry_delay_ms,
             logger=logger,
+            effort=active_model_effort(client),
         )
         auto_mode_runtime = AutoModeRuntime(
             model=hook_model_runtime,

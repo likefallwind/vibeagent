@@ -92,6 +92,8 @@ def lifecycle_blocking_message(
         return result.stderr.strip() or result.message
     if output.decision == "block":
         return output.reason or "Configured hook blocked this lifecycle event."
+    if result.event == "PreCompact":
+        return None
     if output.continue_ is False:
         return output.stop_reason or "Configured hook stopped this lifecycle event."
     if output.context and result.event == "Stop" and not output.plain_text:

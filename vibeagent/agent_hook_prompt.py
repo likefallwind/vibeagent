@@ -34,6 +34,7 @@ class HookModelRuntime:
     model_retries: int
     model_retry_delay_ms: int
     logger: AgentLogger | None = None
+    effort: str | None = None
 
 
 def run_project_prompt_hook(

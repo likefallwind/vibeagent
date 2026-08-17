@@ -71,6 +71,7 @@ from .deferred_tool_state import DeferredToolState
 from .file_changed_hooks import FileChangedHookRuntime
 from .config_change_hooks import ConfigChangeHookRuntime
 from .model_streaming import AgentModelStreamHandler
+from .model_effort import active_model_effort
 
 
 @dataclass(frozen=True)
@@ -148,6 +149,7 @@ def run_agent_loop(
         model_retries=model_retries,
         model_retry_delay_ms=model_retry_delay_ms,
         logger=logger,
+        effort=active_model_effort(client),
     )
     auto_mode_runtime = AutoModeRuntime(
         model=hook_model_runtime,

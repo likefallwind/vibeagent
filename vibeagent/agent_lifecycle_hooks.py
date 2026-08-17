@@ -43,6 +43,7 @@ BLOCKING_EVENTS = frozenset(
 ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
 SESSION_END_DEFAULT_BUDGET_MS = 1_500
 SESSION_END_MAX_BUDGET_MS = 60_000
+EFFORT_LIFECYCLE_EVENTS = frozenset({"Stop", "SubagentStop"})
 
 
 @dataclass(frozen=True)
@@ -77,12 +78,18 @@ def run_lifecycle_hooks(
     hooks = matching_lifecycle_hooks(config, event, matcher_value)
     if not hooks:
         return LifecycleHookResult()
+    effort = (
+        hook_model_runtime.effort
+        if hook_model_runtime is not None and event in EFFORT_LIFECYCLE_EVENTS
+        else None
+    )
     hook_input = {
         "session_id": workspace.run_id,
         "transcript_path": str(workspace.session_dir / "events.jsonl"),
         "cwd": str(event_fields.get("new_cwd", workspace.root)),
         "permission_mode": _claude_permission_mode(approval_policy),
         "hook_event_name": event,
+        **({"effort": {"level": effort}} if effort is not None else {}),
         **event_fields,
     }
     results: list[HookRunResult] = []
@@ -108,7 +115,10 @@ def run_lifecycle_hooks(
             hook,
             target=matcher_value or event,
             hook_input=hook_input,
-            environment=lifecycle_hook_environment(workspace, event),
+            environment={
+                **lifecycle_hook_environment(workspace, event),
+                **({"CLAUDE_EFFORT": effort} if effort is not None else {}),
+            },
             cwd=(
                 str(event_fields["new_cwd"])
                 if event == "CwdChanged" and isinstance(event_fields.get("new_cwd"), str)
