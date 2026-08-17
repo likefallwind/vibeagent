@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import shlex
-import sys
 
+from .bounded_stdin import MAX_STDIN_INPUT_BYTES, read_bounded_stdin
 from .process_commands import decode_stdin_escapes
 
 
@@ -51,5 +51,5 @@ def parse_patches_argument(argument: str | None, *, patch: str | None = None, us
 
 def read_patch_argument_value(value: str) -> str:
     if value == "-":
-        return sys.stdin.read()
+        return read_bounded_stdin(max_bytes=MAX_STDIN_INPUT_BYTES)
     return decode_stdin_escapes(value)

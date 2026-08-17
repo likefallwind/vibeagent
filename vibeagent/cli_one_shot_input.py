@@ -4,8 +4,8 @@ import argparse
 from collections.abc import Callable, Sequence
 import os
 from pathlib import Path
-import sys
 
+from .bounded_stdin import MAX_STDIN_INPUT_BYTES, read_bounded_stdin
 from .cli_additional_directories import resolve_additional_directories
 from .cli_background_agent_followup import background_agent_worker_config
 from .cli_context import (
@@ -35,7 +35,7 @@ def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
 
 def resolve_task_input(parts: Sequence[str], input_format: str = "text") -> StreamJsonTaskInput:
     if len(parts) == 1 and parts[0] == "-":
-        raw = sys.stdin.read()
+        raw = read_bounded_stdin(max_bytes=MAX_STDIN_INPUT_BYTES)
         if input_format == "stream-json":
             return resolve_stream_json_task_input(raw)
         if input_format == "json":

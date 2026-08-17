@@ -7,7 +7,9 @@ import unittest
 from unittest.mock import patch
 
 from vibeagent import cli as cli_module
+from vibeagent.bounded_stdin import read_bounded_stdin
 from vibeagent.cli_one_shot_input import (
+    MAX_STDIN_INPUT_BYTES,
     build_compact_context_limit_kwargs,
     build_resume_context_limit_kwargs,
     combine_optional_text,
@@ -23,6 +25,56 @@ from vibeagent.cli_one_shot_input import (
 
 
 class CliOneShotInputTests(unittest.TestCase):
+    def test_bounded_stdin_counts_utf8_bytes_and_accepts_exact_limit(self) -> None:
+        self.assertEqual(read_bounded_stdin(io.StringIO("a\u00e9"), max_bytes=3), "a\u00e9")
+
+        with self.assertRaisesRegex(ValueError, "exceeds the 2 bytes limit"):
+            read_bounded_stdin(io.StringIO("a\u00e9"), max_bytes=2)
+
+    def test_bounded_stdin_reads_binary_stream_incrementally(self) -> None:
+        class RecordingBytesIO(io.BytesIO):
+            def __init__(self, value: bytes) -> None:
+                super().__init__(value)
+                self.read_sizes: list[int] = []
+
+            def read(self, size: int = -1) -> bytes:
+                self.read_sizes.append(size)
+                return super().read(size)
+
+        class BufferedInput(io.StringIO):
+            def __init__(self, value: bytes) -> None:
+                super().__init__("")
+                self.buffer = RecordingBytesIO(value)
+
+        stream = BufferedInput(b"bounded input")
+
+        self.assertEqual(read_bounded_stdin(stream, max_bytes=13), "bounded input")
+        self.assertTrue(stream.buffer.read_sizes)
+        self.assertTrue(all(0 < size <= 64 * 1024 for size in stream.buffer.read_sizes))
+
+    def test_bounded_stdin_rejects_binary_overflow_and_invalid_utf8(self) -> None:
+        class BufferedInput(io.StringIO):
+            def __init__(self, value: bytes) -> None:
+                super().__init__("")
+                self.buffer = io.BytesIO(value)
+
+        with self.assertRaisesRegex(ValueError, "exceeds the 4 bytes limit"):
+            read_bounded_stdin(BufferedInput(b"12345"), max_bytes=4)
+        with self.assertRaisesRegex(ValueError, "valid UTF-8"):
+            read_bounded_stdin(BufferedInput(b"\xff"), max_bytes=4)
+
+    def test_all_stdin_input_formats_share_the_byte_limit(self) -> None:
+        for input_format in ("text", "json", "stream-json"):
+            with (
+                self.subTest(input_format=input_format),
+                patch("vibeagent.cli_one_shot_input.MAX_STDIN_INPUT_BYTES", 4),
+                patch("sys.stdin", io.StringIO("12345")),
+                self.assertRaisesRegex(ValueError, "stdin input exceeds"),
+            ):
+                resolve_task_input(["-"], input_format=input_format)
+
+        self.assertEqual(MAX_STDIN_INPUT_BYTES, 10 * 1024**2)
+
     def test_build_one_shot_kwargs_includes_prompt_suggestions(self) -> None:
         args = cli_module.parse_args(["-p", "--prompt-suggestions", "inspect"])
 

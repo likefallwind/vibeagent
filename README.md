@@ -953,7 +953,9 @@ task metadata.
 `--approval allow` for one-shot coding tasks and cannot be combined with
 `--approval` or `--permission-mode`. `--input-format json` reads one JSON object
 or array from stdin when the task is `-`; `--input-format stream-json` reads
-newline-delimited JSON task records. Structured input accepts simple `text`,
+newline-delimited JSON task records. Plain, JSON, and stream-JSON stdin are read
+incrementally as UTF-8 and share a 10 MiB input limit; pass larger source data by
+file path instead. Structured input accepts simple `text`,
 `prompt`, or string `input` records, `message.content`, direct `message.prompt`
 / `message.input` text, SDK-style `messages` arrays, or Responses-style
 top-level `input` message arrays and uses `role: "user"` / `type: "user"`
@@ -1623,6 +1625,9 @@ python -m vibeagent --cost --cwd ../my-project
 python -m vibeagent --save-config --cwd ../my-project --provider deepseek --model-name deepseek-reasoner --max-iterations 12 --max-output-tokens 8192 --model-retries 2 --model-retry-delay-ms 500 --model-timeout-ms 120000
 python -m vibeagent --json --doctor --cwd ../my-project
 ```
+
+Patch arguments using `-` share the same incremental UTF-8 10 MiB stdin limit
+as one-shot task input.
 
 Use `/help` to list local commands, `/model` to inspect the active interactive
 provider and model, `/model <model-name>` to switch the current interactive

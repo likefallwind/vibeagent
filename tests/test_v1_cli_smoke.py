@@ -214,6 +214,21 @@ def _assert_clean_notebook_commit(
 
 
 class V1CliSmokeTests(unittest.TestCase):
+    def test_v1_cli_rejects_oversized_stdin_before_provider_call(self) -> None:
+        client = DogfoodClient([])
+        with patch("vibeagent.cli_one_shot_input.MAX_STDIN_INPUT_BYTES", 4):
+            exit_code, payload = _run_json_cli_with_stdin(
+                client,
+                ["--output-format", "json", "-"],
+                "12345",
+            )
+
+        self.assertEqual(exit_code, 2)
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["exitCode"], 2)
+        self.assertIn("stdin input exceeds the 4 bytes limit", str(payload["error"]))
+        self.assertEqual(client.messages, [])
+
     def test_v1_cli_dont_ask_completes_preapproved_repair_without_prompting(self) -> None:
         allowed_tools = [
             "project_overview",

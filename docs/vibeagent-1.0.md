@@ -586,6 +586,12 @@ backfill when that project is visited.
   stdin path, confirming structured automation input can supply the user task,
   system prompt, and assistant prior context before the agent repairs, verifies,
   reports JSON status, and commits.
+- `tests.test_cli_one_shot_input.CliOneShotInputTests.test_all_stdin_input_formats_share_the_byte_limit`
+  confirms plain, JSON, and stream-JSON stdin share one byte limit;
+  `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_rejects_oversized_stdin_before_provider_call`
+  confirms overflow returns a machine-readable exit-code-2 result before any
+  provider request. `tests.test_edit_patch_parsing.EditPatchParsingTests.test_patch_stdin_uses_the_shared_byte_limit`
+  covers the same shared limit for local patch stdin.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_stream_json_input_format_can_repair_verify_commit_and_report_ready`
   runs the same repair dogfood through the real CLI with matching stream-JSON
   input/output and `--replay-user-messages`, confirming normalized user input
