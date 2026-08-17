@@ -197,12 +197,17 @@ This gate must run:
 - `python3 -m compileall -q vibeagent`
 - `python3 scripts/install_smoke.py`
 - `npm run test:v1`
-- `python3 -m unittest discover -s tests -t . -q`
+- `npm run test:ide`
+- `npm run test:python:batched`
 
 Passing this gate proves all package modules compile, the package installs from
 outside the repository, both CLI entrypoints start, and the deterministic 1.0
 acceptance suite, real CLI smoke paths, and full unit suite are internally
-consistent.
+consistent. The fast V1 modules run in separate interpreters and the full
+Python suite runs in fresh 25-module interpreter batches. Linux and WSL enforce
+a 2 GiB aggregate descendant RSS limit, a 15-minute per-batch timeout,
+peak-memory reporting, and residual-child cleanup instead of retaining all test
+resources in one process.
 
 ## Automated Evidence
 
@@ -211,6 +216,12 @@ The automated suite currently covers these 1.0 surfaces:
 - Install smoke: `scripts/install_smoke.py` creates a fresh virtual environment
   from outside the checkout, installs the package editable, and verifies both
   `python -m vibeagent --version` and `vibeagent --version`.
+- Resource-bounded full suite: `scripts/run_python_test_batches.py` discovers
+  importable test modules deterministically, isolates batches, monitors nested
+  process memory on Linux/WSL, and fails on memory, timeout, test, or child
+  cleanup errors. `tests.test_python_test_batches` covers discovery,
+  partitioning, process-tree accounting, a real passing batch, and enforced
+  memory and timeout termination.
 - Core ReAct loop: inspect, edit, run checks, repair, review, commit, finish.
 - VS Code integration: machine-scoped exact process launch, interactive TTY
   approvals, bounded session history, exact-ID resume, parallel/primary

@@ -135,10 +135,13 @@ class HookEffortContextTests(unittest.TestCase):
         fallback = type("FallbackWrapper", (), {"primary": wrapped})()
         cycle = type("CycleWrapper", (), {})()
         cycle.client = cycle
+        dynamic = Mock()
 
         self.assertEqual(active_model_effort(fallback), "xhigh")
         self.assertIsNone(active_model_effort(EffortClient([])))
         self.assertIsNone(active_model_effort(cycle))
+        self.assertIsNone(active_model_effort(dynamic))
+        self.assertEqual(dynamic._mock_children, {})
 
     def test_tool_hook_command_receives_effort_input_and_environment(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-hook-effort-") as base:

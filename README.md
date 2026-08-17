@@ -3509,7 +3509,16 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
 ## Development
 
 ```sh
-python -m unittest discover -s tests -t .
 npm test
 npm run test:v1
+python3 scripts/run_python_test_batches.py --module tests.test_agent -q
 ```
+
+`npm test` runs the Python suite in fresh 25-module interpreter batches instead
+of retaining all tests in one process. Each batch has a 15-minute timeout. On
+Linux and WSL, the runner monitors the aggregate RSS of the interpreter and its
+descendants, fails above 2 GiB, reports peak memory, and terminates child
+processes left behind by a completed batch. Use `--batch-size`,
+`--memory-limit-mb`, and `--timeout-seconds` to lower these limits when
+diagnosing a test; other platforms retain process isolation but cannot enforce
+the `/proc`-based aggregate memory limit.

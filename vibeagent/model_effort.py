@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+import inspect
 
 from .agent_profile_client import configure_agent_profile_client
 from .model_streaming import ProviderStreamHandler, complete_streaming
@@ -67,14 +68,29 @@ def active_model_effort(client: object) -> str | None:
     current: object | None = client
     while current is not None and id(current) not in seen:
         seen.add(id(current))
-        effort = getattr(current, "effort", None)
+        effort = _declared_attribute(current, "effort")
         if effort in MODEL_EFFORT_LEVELS:
             return str(effort)
-        nested = getattr(current, "client", None)
+        nested = _declared_attribute(current, "client")
         if nested is None:
-            nested = getattr(current, "primary", None)
+            nested = _declared_attribute(current, "primary")
         current = nested
     return None
+
+
+def _declared_attribute(value: object, name: str) -> object | None:
+    """Read a real attribute without activating dynamic proxy fallback."""
+    try:
+        attribute = inspect.getattr_static(value, name)
+    except AttributeError:
+        return None
+    descriptor = getattr(type(attribute), "__get__", None)
+    if descriptor is None:
+        return attribute
+    try:
+        return descriptor(attribute, value, type(value))
+    except (AttributeError, TypeError):
+        return None
 
 
 class EnvironmentEffortChatClient:

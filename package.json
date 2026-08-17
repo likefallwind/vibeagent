@@ -10,11 +10,12 @@
     "build:python": "python3 -m compileall -q vibeagent",
     "build:ide": "npm --prefix extensions/vscode run check && python3 scripts/build_vscode_extension.py",
     "dev": "python3 -m vibeagent",
-    "test": "python3 -m unittest discover -s tests -t .",
+    "test": "python3 scripts/run_python_test_batches.py",
     "test:install": "python3 scripts/install_smoke.py",
-    "test:v1": "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood tests.test_v1_cli_smoke tests.test_project_prompt_commands tests.test_v1_live_dogfood -q",
+    "test:v1": "python3 scripts/run_python_test_batches.py -q --batch-size 1 --module tests.test_v1_acceptance --module tests.test_v1_dogfood --module tests.test_v1_cli_smoke --module tests.test_project_prompt_commands --module tests.test_v1_live_dogfood",
     "test:ide": "node --test extensions/vscode/test/*.test.js",
-    "test:v1:full": "npm run test:v1 && npm run test:ide && python3 -m unittest discover -s tests -t . -q",
+    "test:python:batched": "python3 scripts/run_python_test_batches.py -q",
+    "test:v1:full": "npm run test:v1 && npm run test:ide && npm run test:python:batched",
     "test:v1:release": "npm run build && npm run test:install && npm run test:v1:full",
     "start": "python3 -m vibeagent"
   }

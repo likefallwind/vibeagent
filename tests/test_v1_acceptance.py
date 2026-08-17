@@ -350,7 +350,7 @@ class V1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(
             package["scripts"]["test:v1"],
-            "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood tests.test_v1_cli_smoke tests.test_project_prompt_commands tests.test_v1_live_dogfood -q",
+            "python3 scripts/run_python_test_batches.py -q --batch-size 1 --module tests.test_v1_acceptance --module tests.test_v1_dogfood --module tests.test_v1_cli_smoke --module tests.test_project_prompt_commands --module tests.test_v1_live_dogfood",
         )
 
     def test_package_exposes_full_v1_readiness_script(self) -> None:
@@ -358,8 +358,13 @@ class V1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(
             package["scripts"]["test:v1:full"],
-            "npm run test:v1 && npm run test:ide && python3 -m unittest discover -s tests -t . -q",
+            "npm run test:v1 && npm run test:ide && npm run test:python:batched",
         )
+        self.assertEqual(
+            package["scripts"]["test:python:batched"],
+            "python3 scripts/run_python_test_batches.py -q",
+        )
+        self.assertTrue((ROOT / "scripts" / "run_python_test_batches.py").is_file())
         self.assertEqual(
             package["scripts"]["test:ide"],
             "node --test extensions/vscode/test/*.test.js",

@@ -808,7 +808,10 @@ backfill when that project is visited.
 - `npm run test:v1` passes from a clean worktree.
 - `npm run test:v1:release` passes from a clean worktree, including compile
   checks, install smoke, and the full deterministic v1 gate.
-- The full unit suite passes from a clean worktree.
+- The full unit suite passes from a clean worktree in isolated 25-module
+  interpreter batches. Linux/WSL release runs enforce a 2 GiB aggregate
+  descendant RSS limit, a 15-minute per-batch timeout, peak-memory reporting,
+  and residual-child cleanup.
 - A dedicated 1.0 acceptance test confirms every gate above maps to concrete
   tools and regression tests.
 - Deterministic dogfood scenarios exercise read, edit, run, repair, review,
