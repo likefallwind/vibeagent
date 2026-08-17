@@ -73,6 +73,7 @@ class InteractiveBackgroundTests(unittest.TestCase):
                             initial_provider_env_overrides=(
                                 ("ANTHROPIC_BETA", "interleaved-thinking"),
                             ),
+                            initial_background_memory_limit_bytes=256 * 1024 * 1024,
                         )
             finally:
                 os.chdir(previous)
@@ -82,6 +83,10 @@ class InteractiveBackgroundTests(unittest.TestCase):
         self.assertEqual(raised.exception.attached_agent_id, "0123456789ab")
         self.assertIn("--betas", raised.exception.argv)
         self.assertIn("interleaved-thinking", raised.exception.argv)
+        self.assertEqual(
+            raised.exception.memory_limit_bytes,
+            256 * 1024 * 1024,
+        )
 
     def test_interactive_bg_without_session_stays_foreground(self) -> None:
         stdout = io.StringIO()

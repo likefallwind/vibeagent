@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Literal, Protocol
 
@@ -14,6 +15,10 @@ from .background_agent_changes import (
     read_background_agent_changes,
 )
 from .background_agent_inbox import pending_background_agent_message_count
+from .background_agent_memory import (
+    resolve_background_agent_memory_limit,
+    validate_background_agent_memory_limit_bytes,
+)
 from .background_agent_input import (
     BackgroundUserInput,
     answer_background_user_input,
@@ -34,6 +39,9 @@ from .background_agent_runtime import (
 )
 from .background_agent_types import BackgroundAgentView
 from .workspace_git_utils import run_readonly_git
+
+
+_UNSET_MEMORY_LIMIT = object()
 
 
 class AgentViewBackend(Protocol):
@@ -86,10 +94,23 @@ class ProjectAgentViewBackend:
         invocation_root: Path,
         *,
         dispatch_argv: tuple[str, ...] = (),
+        memory_limit_bytes: int | None | object = _UNSET_MEMORY_LIMIT,
     ) -> None:
         self.project_root = project_root.resolve()
         self.invocation_root = invocation_root.resolve()
         self.dispatch_argv = dispatch_argv
+        resolved_memory_limit = (
+            resolve_background_agent_memory_limit(None, os.environ)
+            if memory_limit_bytes is _UNSET_MEMORY_LIMIT
+            else memory_limit_bytes
+        )
+        if resolved_memory_limit is not None and not isinstance(
+            resolved_memory_limit, int
+        ):
+            raise ValueError("Background agent memory limit is invalid.")
+        self.memory_limit_bytes = validate_background_agent_memory_limit_bytes(
+            resolved_memory_limit
+        )
 
     def list(self) -> tuple[BackgroundAgentView, ...]:
         return list_background_agents(self.project_root)
@@ -173,6 +194,7 @@ class ProjectAgentViewBackend:
             argv,
             task_summary=task,
             session_name=None,
+            memory_limit_bytes=self.memory_limit_bytes,
         )
 
     def reply(self, agent_id: str, message: str) -> str:

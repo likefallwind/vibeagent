@@ -88,16 +88,38 @@ def prepare_tool_memory_launch(
     limit = parse_tool_memory_limit(environment)
     if limit is None:
         return None
+    return prepare_memory_launch(
+        argv,
+        cwd,
+        environment,
+        limit_bytes=limit,
+        requirement=TOOL_MEMORY_LIMIT_ENV,
+    )
+
+
+def prepare_memory_launch(
+    argv: Sequence[str],
+    cwd: Path,
+    environment: Mapping[str, str],
+    *,
+    limit_bytes: int,
+    requirement: str,
+) -> ToolMemoryLaunch:
+    if limit_bytes <= 0 or limit_bytes > MAX_TOOL_MEMORY_LIMIT_BYTES:
+        raise ToolMemoryLimitError(
+            f"{requirement} must be between 1 byte and "
+            f"{format_memory_bytes(MAX_TOOL_MEMORY_LIMIT_BYTES)}."
+        )
     if not sys.platform.startswith("linux"):
         raise ToolMemoryLimitError(
-            f"{TOOL_MEMORY_LIMIT_ENV} requires Linux or WSL with a user systemd manager."
+            f"{requirement} requires Linux or WSL with a user systemd manager."
         )
     search_path = environment.get("PATH")
     systemd_run = shutil.which("systemd-run", path=search_path)
     systemctl = shutil.which("systemctl", path=search_path)
     if systemd_run is None or systemctl is None:
         raise ToolMemoryLimitError(
-            f"{TOOL_MEMORY_LIMIT_ENV} requires systemd-run and systemctl on PATH."
+            f"{requirement} requires systemd-run and systemctl on PATH."
         )
     environment_path = _write_private_environment(environment)
     unit = f"vibeagent-tool-{uuid.uuid4().hex}.service"
@@ -110,7 +132,7 @@ def prepare_tool_memory_launch(
         f"--unit={unit}",
         f"--working-directory={cwd.resolve()}",
         "--service-type=exec",
-        f"--property=MemoryMax={limit}",
+        f"--property=MemoryMax={limit_bytes}",
         "--property=MemorySwapMax=0",
         "--property=OOMPolicy=kill",
         "--property=KillMode=control-group",
@@ -125,7 +147,7 @@ def prepare_tool_memory_launch(
     return ToolMemoryLaunch(
         argv=command,
         unit=unit,
-        limit_bytes=limit,
+        limit_bytes=limit_bytes,
         environment_path=environment_path,
         systemctl=systemctl,
     )
@@ -177,6 +199,7 @@ __all__ = [
     "cleanup_tool_memory_launch",
     "format_memory_bytes",
     "parse_tool_memory_limit",
+    "prepare_memory_launch",
     "prepare_tool_memory_launch",
     "valid_tool_memory_unit",
 ]

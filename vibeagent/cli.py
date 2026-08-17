@@ -447,6 +447,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_autocompact_tokens=context.autocompact_tokens,
         initial_autocompact_source=context.autocompact_source,
         initial_autocompact_locked=context.autocompact_locked,
+        initial_background_memory_limit_bytes=context.background_memory_limit_bytes,
         initial_system_prompt=context.system_prompt,
         initial_append_system_prompt=context.append_system_prompt,
         initial_additional_directories=context.additional_directories,

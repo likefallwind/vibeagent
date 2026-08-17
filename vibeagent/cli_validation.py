@@ -100,6 +100,14 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--background requires session persistence."
     if args.background and args.api_key is not None:
         return "--background does not persist --api-key; configure the provider key in the environment."
+    if args.background_memory_limit is not None and (
+        (not args.background and not args.agent_view and bool(args.task))
+        or exec_command is not None
+    ):
+        return (
+            "--background-memory-limit requires an interactive session, "
+            "background coding task, or agents dashboard."
+        )
     if args.agent_view and args.api_key is not None:
         return "agents does not persist --api-key; configure the provider key in the environment."
     if args.permission_prompt_tool is not None and (

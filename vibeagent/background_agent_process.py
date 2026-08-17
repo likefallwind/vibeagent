@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import os
 from pathlib import Path
 import subprocess
@@ -18,6 +19,20 @@ from .background_agent_store import (
     open_private_log_append,
     write_private_json,
 )
+from .background_agent_memory import BACKGROUND_AGENT_MEMORY_LIMIT_ENV
+from .background_agent_memory_monitor import start_background_agent_memory_monitor
+from .tool_memory_limit import (
+    ToolMemoryLaunch,
+    cleanup_tool_memory_launch,
+    prepare_memory_launch,
+)
+from .tool_memory_systemd import stop_tool_memory_unit, wait_for_tool_memory_service
+
+
+@dataclass(frozen=True)
+class BackgroundAgentSpawn:
+    process: subprocess.Popen[str]
+    memory_launch: ToolMemoryLaunch | None
 
 
 def spawn_background_agent_worker(
@@ -29,7 +44,8 @@ def spawn_background_agent_worker(
     exit_code_path: Path,
     initial_argv: list[str] | None,
     append_logs: bool,
-) -> subprocess.Popen[str]:
+    memory_limit_bytes: int | None,
+) -> BackgroundAgentSpawn:
     launch_root = ensure_private_directory(
         background_agent_runtime_root(config.project_root) / "launch"
     )
@@ -71,14 +87,24 @@ def spawn_background_agent_worker(
     environment["PYTHONUNBUFFERED"] = "1"
     environment["VIBEAGENT_BACKGROUND_AGENT_ID"] = config.agent_id
     environment["VIBEAGENT_BACKGROUND_AGENT_CONFIG"] = config_path
+    worker_argv = [
+        sys.executable,
+        "-m",
+        "vibeagent.background_agent_worker",
+        payload_path.as_posix(),
+    ]
+    memory_launch: ToolMemoryLaunch | None = None
     try:
+        if memory_limit_bytes is not None:
+            memory_launch = prepare_memory_launch(
+                worker_argv,
+                invocation_root,
+                environment,
+                limit_bytes=memory_limit_bytes,
+                requirement=BACKGROUND_AGENT_MEMORY_LIMIT_ENV,
+            )
         process = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "vibeagent.background_agent_worker",
-                payload_path.as_posix(),
-            ],
+            memory_launch.argv if memory_launch is not None else worker_argv,
             cwd=invocation_root,
             stdin=subprocess.DEVNULL,
             stdout=stdout_handle,
@@ -88,12 +114,51 @@ def spawn_background_agent_worker(
             env=environment,
         )
     except Exception:
+        cleanup_tool_memory_launch(memory_launch)
         payload_path.unlink(missing_ok=True)
         raise
     finally:
         stdout_handle.close()
         stderr_handle.close()
-    return process
+    try:
+        memory_start_error = wait_for_tool_memory_service(process, memory_launch)
+    except BaseException:
+        _stop_memory_launch(process, memory_launch, environment)
+        raise
+    if memory_start_error is not None:
+        _stop_memory_launch(process, memory_launch, environment)
+        raise RuntimeError(memory_start_error)
+    if memory_launch is not None:
+        try:
+            start_background_agent_memory_monitor(
+                config.project_root,
+                config.agent_id,
+                memory_launch,
+                process,
+                stderr_path=stderr_path,
+                exit_code_path=exit_code_path,
+            )
+        except Exception:
+            _stop_memory_launch(process, memory_launch, environment)
+            raise
+    return BackgroundAgentSpawn(process=process, memory_launch=memory_launch)
+
+
+def _stop_memory_launch(
+    process: subprocess.Popen[str],
+    launch: ToolMemoryLaunch | None,
+    environment: dict[str, str],
+) -> None:
+    if launch is not None:
+        stop_tool_memory_unit(
+            launch.unit,
+            environment,
+            systemctl=launch.systemctl,
+        )
+    if process.poll() is None:
+        process.kill()
+        process.wait()
+    cleanup_tool_memory_launch(launch)
 
 
 def start_background_process_reaper(process: subprocess.Popen[str]) -> None:
@@ -104,4 +169,8 @@ def start_background_process_reaper(process: subprocess.Popen[str]) -> None:
     ).start()
 
 
-__all__ = ["spawn_background_agent_worker", "start_background_process_reaper"]
+__all__ = [
+    "BackgroundAgentSpawn",
+    "spawn_background_agent_worker",
+    "start_background_process_reaper",
+]

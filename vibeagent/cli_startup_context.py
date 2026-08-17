@@ -15,6 +15,7 @@ from .cli_config import model_override_from_args, provider_env_overrides_from_ar
 from .cli_system_prompt_files import resolve_system_prompt_inputs
 from .commands import get_compact_context, get_resume_context
 from .autocompact_settings import resolve_autocompact_from_root
+from .background_agent_memory import resolve_background_agent_memory_limit
 from .dynamic_agent_profiles import DynamicAgentProfile, parse_dynamic_agent_profiles
 from .model_effort import resolve_model_effort_setting
 from .invocation_settings import parse_invocation_settings, parse_setting_sources
@@ -53,6 +54,7 @@ class InteractiveStartupContext:
     autocompact_tokens: int | None = None
     autocompact_source: str = "auto"
     autocompact_locked: bool = False
+    background_memory_limit_bytes: int | None = None
     attached_background_agent_id: str | None = None
     model: str | None = None
     provider_env_overrides: tuple[tuple[str, str], ...] = field(default=(), repr=False)
@@ -121,6 +123,10 @@ def resolve_interactive_startup_context(
         "autocompact_tokens": autocompact.tokens,
         "autocompact_source": autocompact.source,
         "autocompact_locked": autocompact.locked,
+        "background_memory_limit_bytes": resolve_background_agent_memory_limit(
+            getattr(args, "background_memory_limit", None),
+            os.environ,
+        ),
         "attached_background_agent_id": getattr(args, "_attached_background_agent_id", None),
         "model": model_override_from_args(args),
         "provider_env_overrides": provider_env_overrides_from_args(args, project_root),

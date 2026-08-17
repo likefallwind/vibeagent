@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 
-BACKGROUND_AGENT_SCHEMA_VERSION = 1
+BACKGROUND_AGENT_SCHEMA_VERSION = 2
 BACKGROUND_AGENT_ID_PATTERN = re.compile(r"^[0-9a-f]{12}$")
 DEFAULT_BACKGROUND_AGENT_LOG_CHARS = 20_000
 MAX_BACKGROUND_AGENT_LOG_CHARS = 100_000
@@ -28,6 +28,8 @@ class BackgroundAgentRecord:
     stderr_path: Path
     exit_code_path: Path
     stopped_path: Path
+    memory_unit: str | None = None
+    memory_limit_bytes: int | None = None
 
 
 @dataclass(frozen=True)

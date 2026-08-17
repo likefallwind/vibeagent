@@ -9,6 +9,7 @@ from .background_agent_store import write_private_text_atomic
 from .background_agent_types import BackgroundAgentView
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .session_names import read_session_name
+from .tool_memory_limit import format_memory_bytes
 from .types import ApprovalPolicy
 from .workspace_core import BrowserMode
 
@@ -25,6 +26,7 @@ class InteractiveBackgroundRequest(Exception):
     prompt: str
     argv: tuple[str, ...]
     attached_agent_id: str | None = None
+    memory_limit_bytes: int | None = None
 
 
 def create_interactive_background_request(
@@ -53,6 +55,7 @@ def create_interactive_background_request(
     anthropic_betas: tuple[str, ...] = (),
     invocation_plugin_dirs: tuple[Path, ...] = (),
     attached_agent_id: str | None = None,
+    memory_limit_bytes: int | None = None,
 ) -> InteractiveBackgroundRequest:
     task = prompt.strip() if prompt and prompt.strip() else DEFAULT_BACKGROUND_PROMPT
     argv = ["--background", "--resume", run_id, "--approval", approval_policy]
@@ -105,6 +108,7 @@ def create_interactive_background_request(
         prompt=task,
         argv=tuple(argv),
         attached_agent_id=attached_agent_id,
+        memory_limit_bytes=memory_limit_bytes,
     )
 
 
@@ -120,6 +124,7 @@ def launch_interactive_background_request(
         task_summary=request.prompt,
         session_name=read_session_name(request.project_root, request.run_id),
         resume_reference=request.run_id,
+        memory_limit_bytes=request.memory_limit_bytes,
     )
 
 
@@ -164,6 +169,12 @@ def format_interactive_background_started(view: BackgroundAgentView) -> str:
         [
             f"Session moved to background agent {record.id}.",
             f"  session: {record.session_name or '.'}",
+            "  memory: "
+            + (
+                format_memory_bytes(getattr(record, "memory_limit_bytes", None))
+                if getattr(record, "memory_limit_bytes", None) is not None
+                else "unlimited"
+            ),
             f"  logs: vibeagent --background-agent-log {record.id}",
             "  attach: vibeagent agents",
         ]

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
+from .background_agent_memory import resolve_background_agent_memory_limit
 from .background_agent_runtime import (
     background_agent_view_payload,
     launch_background_agent,
@@ -12,6 +14,7 @@ from .cli_config import resolve_project_root
 from .cli_local_result import emit_local_result
 from .commands import get_resume_context
 from .invocation_plugins import resolve_invocation_plugin_dirs
+from .tool_memory_limit import format_memory_bytes
 
 
 def launch_background_agent_from_cli(
@@ -21,6 +24,10 @@ def launch_background_agent_from_cli(
     invocation_root = Path.cwd()
     project_root = resolve_project_root(args.cwd) or invocation_root
     resume_reference = _resolve_background_resume_reference(args, project_root)
+    memory_limit_bytes = resolve_background_agent_memory_limit(
+        getattr(args, "background_memory_limit", None),
+        os.environ,
+    )
     launch_argv = _with_resolved_invocation_plugins(argv, args, invocation_root)
     view = launch_background_agent(
         project_root,
@@ -29,6 +36,7 @@ def launch_background_agent_from_cli(
         task_summary=" ".join(args.task),
         session_name=args.name,
         resume_reference=resume_reference,
+        memory_limit_bytes=memory_limit_bytes,
     )
     record = view.record
     session_line = record.session_name or "."
@@ -37,6 +45,12 @@ def launch_background_agent_from_cli(
             f"Background agent started: {record.id}",
             f"  pid: {record.pid}",
             f"  session: {session_line}",
+            "  memory: "
+            + (
+                format_memory_bytes(record.memory_limit_bytes)
+                if record.memory_limit_bytes is not None
+                else "unlimited"
+            ),
             f"  logs: vibeagent --background-agent-log {record.id}",
             f"  stop: vibeagent --stop-background-agent {record.id}",
             "  input: open `vibeagent agents` to handle approvals and questions.",

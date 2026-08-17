@@ -106,16 +106,18 @@ def stop_tool_memory_unit(
 def tool_memory_unit_running(
     unit: str,
     environment: Mapping[str, str] | None = None,
+    *,
+    systemctl: str | None = None,
 ) -> bool | None:
     if not valid_tool_memory_unit(unit):
         return None
     source = os.environ if environment is None else environment
-    systemctl = shutil.which("systemctl", path=source.get("PATH"))
-    if systemctl is None:
+    executable = systemctl or shutil.which("systemctl", path=source.get("PATH"))
+    if executable is None:
         return None
     try:
         completed = subprocess.run(
-            (systemctl, "--user", "is-active", "--quiet", unit),
+            (executable, "--user", "is-active", "--quiet", unit),
             text=True,
             capture_output=True,
             timeout=2,
@@ -137,6 +139,8 @@ def start_background_memory_diagnostics(
     stderr_path: Path,
     exit_code_path: Path,
     environment: Mapping[str, str],
+    *,
+    requirement: str = TOOL_MEMORY_LIMIT_ENV,
 ) -> Event | None:
     if launch is None:
         return None
@@ -150,7 +154,11 @@ def start_background_memory_diagnostics(
             result = inspect_tool_memory_result(launch, environment)
             if not result.exceeded:
                 return
-            message = tool_memory_exceeded_message(launch, result)
+            message = tool_memory_exceeded_message(
+                launch,
+                result,
+                requirement=requirement,
+            )
             with stderr_path.open("a", encoding="utf-8") as handle:
                 handle.write(f"{message}\n")
             _write_exit_code_if_missing(exit_code_path, 1)
@@ -186,14 +194,19 @@ def wait_for_tool_memory_service(
     return "Could not start the memory-limited command service."
 
 
-def tool_memory_exceeded_message(launch: ToolMemoryLaunch, result: ToolMemoryResult) -> str:
+def tool_memory_exceeded_message(
+    launch: ToolMemoryLaunch,
+    result: ToolMemoryResult,
+    *,
+    requirement: str = TOOL_MEMORY_LIMIT_ENV,
+) -> str:
     peak = (
         f"; peak {format_memory_bytes(result.memory_peak_bytes)}"
         if result.memory_peak_bytes is not None
         else ""
     )
     return (
-        f"Command terminated after exceeding {TOOL_MEMORY_LIMIT_ENV}="
+        f"Command terminated after exceeding {requirement}="
         f"{format_memory_bytes(launch.limit_bytes)}{peak}."
     )
 

@@ -12,7 +12,9 @@ from .background_agent_types import (
     BackgroundAgentRecord,
     BackgroundAgentView,
 )
+from .background_agent_memory import validate_background_agent_memory_limit_bytes
 from .process_registry import PersistentProcessRecord, persistent_process_running
+from .tool_memory_limit import valid_tool_memory_unit
 
 
 def list_background_agents(project_root: Path) -> tuple[BackgroundAgentView, ...]:
@@ -107,6 +109,8 @@ def background_agent_view_payload(view: BackgroundAgentView) -> dict[str, object
         "sessionName": record.session_name,
         "stdoutPath": relative_runtime_path(record),
         "stderrPath": relative_runtime_path(record, stderr=True),
+        "memoryLimitBytes": record.memory_limit_bytes,
+        "memoryConstrained": record.memory_unit is not None,
     }
 
 
@@ -163,7 +167,10 @@ def read_background_agent_record(
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    if not isinstance(payload, dict) or payload.get("schemaVersion") != BACKGROUND_AGENT_SCHEMA_VERSION:
+    if not isinstance(payload, dict) or payload.get("schemaVersion") not in {
+        1,
+        BACKGROUND_AGENT_SCHEMA_VERSION,
+    }:
         return None
     agent_id = payload.get("id")
     if not isinstance(agent_id, str) or background_agent_record_path(project_root, agent_id) != path:
@@ -173,6 +180,8 @@ def read_background_agent_record(
     task_summary = payload.get("task_summary")
     session_name = payload.get("session_name")
     invocation_root = payload.get("invocation_root")
+    memory_unit = payload.get("memory_unit")
+    memory_limit_bytes = payload.get("memory_limit_bytes")
     if (
         not isinstance(pid, int)
         or pid <= 0
@@ -181,7 +190,17 @@ def read_background_agent_record(
         or (session_name is not None and not isinstance(session_name, str))
         or not isinstance(invocation_root, str)
         or not Path(invocation_root).is_absolute()
+        or (memory_unit is not None and not isinstance(memory_unit, str))
+        or (memory_unit is not None and not valid_tool_memory_unit(memory_unit))
     ):
+        return None
+    try:
+        normalized_memory_limit = validate_background_agent_memory_limit_bytes(
+            memory_limit_bytes
+        )
+    except ValueError:
+        return None
+    if (memory_unit is None) != (normalized_memory_limit is None):
         return None
     paths = [
         resolve_background_agent_path(project_root, payload.get(key))
@@ -207,6 +226,8 @@ def read_background_agent_record(
         stderr_path=stderr_path,
         exit_code_path=exit_code_path,
         stopped_path=stopped_path,
+        memory_unit=memory_unit,
+        memory_limit_bytes=normalized_memory_limit,
     )
 
 
@@ -232,6 +253,7 @@ def as_process_record(record: BackgroundAgentRecord) -> PersistentProcessRecord:
         stderr_path=record.stderr_path,
         exit_code_path=record.exit_code_path,
         start_ticks=record.start_ticks,
+        memory_unit=record.memory_unit,
     )
 
 

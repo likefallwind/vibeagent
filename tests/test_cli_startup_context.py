@@ -68,6 +68,16 @@ class CliStartupContextTests(unittest.TestCase):
         self.assertEqual(context.autocompact_tokens, 200_000)
         self.assertEqual(context.autocompact_source, "CLI --autocompact")
 
+    def test_background_memory_limit_is_forwarded_for_interactive_handoff(self) -> None:
+        context = resolve_interactive_startup_context(
+            _args(background_memory_limit="256MiB"),
+            Path.cwd(),
+            get_resume_context_func=Mock(),
+            get_compact_context_func=Mock(),
+        )
+
+        self.assertEqual(context.background_memory_limit_bytes, 256 * 1024 * 1024)
+
     def test_autocompact_loads_user_setting_and_environment_override(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-startup-autocompact-") as base:
             root = Path(base) / "project"

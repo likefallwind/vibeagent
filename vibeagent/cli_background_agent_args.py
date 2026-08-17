@@ -80,6 +80,14 @@ def add_background_agent_local_arguments(
 
 def add_background_agent_option_arguments(parser: argparse.ArgumentParser, *, positive_int) -> None:
     parser.add_argument(
+        "--background-memory-limit",
+        metavar="LIMIT",
+        help=(
+            "Hard memory limit for a detached coding agent and its descendants "
+            "(for example 2GiB; Linux/WSL user systemd required)."
+        ),
+    )
+    parser.add_argument(
         "--agent-list-all",
         action="store_true",
         help=argparse.SUPPRESS,

@@ -150,6 +150,20 @@ tool command:
 export CLAUDE_CODE_TOOL_MEMORY_LIMIT=2GiB
 ```
 
+Detached coding agents can be bounded independently. The limit covers the
+worker and all of its descendants, survives `respawn`, and is enforced by a
+transient user-systemd cgroup on Linux or WSL:
+
+```bash
+python -m vibeagent --background --background-memory-limit 2GiB -- "fix the tests"
+# Or configure new dashboard and CLI background launches:
+export VIBEAGENT_BACKGROUND_AGENT_MEMORY_LIMIT=2GiB
+```
+
+Use `off`, `none`, `unlimited`, or `0` as the CLI/environment value to disable
+an inherited environment limit. When a limit is requested, missing user
+systemd support fails before the worker is detached.
+
 The value accepts bytes or binary `K`, `M`, `G`, `T`, and `P` suffixes, including
 forms such as `512M` and `2GiB`. VibeAgent starts each command tree in a private
 transient service with `MemoryMax` set to that value, `MemorySwapMax=0`,

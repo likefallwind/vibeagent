@@ -19,6 +19,7 @@ from .background_agent_inbox import (
     remove_background_agent_inbox,
 )
 from .background_agent_lock import background_agent_transition_lock
+from .background_agent_memory import validate_background_agent_memory_limit_bytes
 from .background_agent_process import (
     spawn_background_agent_worker,
     start_background_process_reaper,
@@ -57,10 +58,14 @@ def launch_background_agent(
     task_summary: str,
     session_name: str | None,
     resume_reference: str | None = None,
+    memory_limit_bytes: int | None = None,
 ) -> BackgroundAgentView:
     root = project_root.resolve()
     invocation = invocation_root.resolve()
     agent_id = uuid.uuid4().hex[:12]
+    memory_limit_bytes = validate_background_agent_memory_limit_bytes(
+        memory_limit_bytes
+    )
     runtime_root = ensure_background_agent_runtime_root(root)
     logs_root = ensure_private_directory(runtime_root / "logs")
     stdout_path = logs_root / f"{agent_id}.stdout.log"
@@ -90,7 +95,7 @@ def launch_background_agent(
             base_argv=child_argv,
         )
         write_private_text(exit_code_path, "", exclusive=True)
-        process = spawn_background_agent_worker(
+        spawned = spawn_background_agent_worker(
             config,
             invocation_root=invocation,
             stdout_path=stdout_path,
@@ -98,6 +103,7 @@ def launch_background_agent(
             exit_code_path=exit_code_path,
             initial_argv=child_argv,
             append_logs=False,
+            memory_limit_bytes=memory_limit_bytes,
         )
     except Exception:
         _remove_background_agent_metadata(root, agent_id)
@@ -108,8 +114,8 @@ def launch_background_agent(
         id=agent_id,
         project_root=root,
         invocation_root=invocation,
-        pid=process.pid,
-        start_ticks=read_process_start_ticks(process.pid),
+        pid=spawned.process.pid,
+        start_ticks=read_process_start_ticks(spawned.process.pid),
         started_at=datetime.now(UTC).isoformat(timespec="seconds"),
         task_summary=_task_summary(task_summary),
         session_name=effective_session_name or effective_resume_reference,
@@ -117,16 +123,20 @@ def launch_background_agent(
         stderr_path=stderr_path,
         exit_code_path=exit_code_path,
         stopped_path=stopped_path,
+        memory_unit=(
+            spawned.memory_launch.unit if spawned.memory_launch is not None else None
+        ),
+        memory_limit_bytes=memory_limit_bytes,
     )
     try:
         write_background_agent_record(record)
     except Exception:
         terminate_persistent_process(as_process_record(record))
-        start_background_process_reaper(process)
+        start_background_process_reaper(spawned.process)
         _remove_background_agent_metadata(root, agent_id)
         _remove_paths(stdout_path, stderr_path, exit_code_path)
         raise
-    start_background_process_reaper(process)
+    start_background_process_reaper(spawned.process)
     return background_agent_view(record)
 
 
@@ -281,14 +291,21 @@ def _task_summary(task: str) -> str:
 def _without_background_flag(argv: list[str]) -> list[str]:
     result: list[str] = []
     options = True
-    for item in argv:
+    index = 0
+    while index < len(argv):
+        item = argv[index]
         if options and item == "--":
             options = False
             result.append(item)
         elif options and item in {"--background", "--bg"}:
-            continue
+            pass
+        elif options and item == "--background-memory-limit":
+            index += 1
+        elif options and item.startswith("--background-memory-limit="):
+            pass
         else:
             result.append(item)
+        index += 1
     return result
 
 
@@ -332,7 +349,7 @@ def _respawn_background_agent_locked(
         remove_background_user_input(record.project_root, record.id)
         write_private_text_atomic(record.exit_code_path, "")
         record.stopped_path.unlink(missing_ok=True)
-        process = spawn_background_agent_worker(
+        spawned = spawn_background_agent_worker(
             config,
             invocation_root=record.invocation_root,
             stdout_path=record.stdout_path,
@@ -340,25 +357,29 @@ def _respawn_background_agent_locked(
             exit_code_path=record.exit_code_path,
             initial_argv=None,
             append_logs=True,
+            memory_limit_bytes=record.memory_limit_bytes,
         )
     except Exception:
         _restore_background_agent_terminal_state(view, was_stopped=was_stopped)
         raise
     updated = replace(
         record,
-        pid=process.pid,
-        start_ticks=read_process_start_ticks(process.pid),
+        pid=spawned.process.pid,
+        start_ticks=read_process_start_ticks(spawned.process.pid),
         started_at=datetime.now(UTC).isoformat(timespec="seconds"),
         task_summary=_task_summary(task_summary),
+        memory_unit=(
+            spawned.memory_launch.unit if spawned.memory_launch is not None else None
+        ),
     )
     try:
         write_background_agent_record(updated, exclusive=False)
     except Exception:
         terminate_persistent_process(as_process_record(updated))
-        start_background_process_reaper(process)
+        start_background_process_reaper(spawned.process)
         _restore_background_agent_terminal_state(view, was_stopped=was_stopped)
         raise
-    start_background_process_reaper(process)
+    start_background_process_reaper(spawned.process)
     return background_agent_view(updated)
 
 

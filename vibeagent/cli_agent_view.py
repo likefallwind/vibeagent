@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Callable
+import os
 from pathlib import Path
 
 from .agent_view import ProjectAgentViewBackend, run_agent_view
+from .background_agent_memory import resolve_background_agent_memory_limit
 from .cli_additional_directories import resolve_additional_directories
 from .cli_background_agent_attach import attach_background_agent_from_cli
 from .cli_config import model_override_from_args, resolve_project_root
@@ -20,6 +22,10 @@ def run_agent_view_from_cli(
 ) -> int:
     invocation_root = Path.cwd()
     project_root = resolve_project_root(args.cwd) or Path.cwd()
+    memory_limit_bytes = resolve_background_agent_memory_limit(
+        args.background_memory_limit,
+        os.environ,
+    )
     dispatch_argv = build_agent_view_dispatch_argv(
         args,
         project_root=project_root,
@@ -31,6 +37,7 @@ def run_agent_view_from_cli(
             project_root,
             invocation_root,
             dispatch_argv=dispatch_argv,
+            memory_limit_bytes=memory_limit_bytes,
         ),
         screen_reader=getattr(args, "ax_screen_reader", False),
     )
