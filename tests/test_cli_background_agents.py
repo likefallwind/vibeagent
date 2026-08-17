@@ -45,11 +45,12 @@ def _view(root: Path, *, status: str = "running") -> BackgroundAgentView:
 class CliBackgroundAgentTests(unittest.TestCase):
     def test_main_routes_background_task_before_one_shot_execution(self) -> None:
         with patch("vibeagent.cli.launch_background_agent_from_cli", return_value=0) as launch:
-            exit_code = main(["--bg", "fix", "tests"])
+            argv = ["--bg", "fix", "tests", "--file", "file_alpha:fixtures/input.bin"]
+            exit_code = main(argv)
 
         self.assertEqual(exit_code, 0)
         launch.assert_called_once()
-        self.assertEqual(launch.call_args.args[0], ["--bg", "fix", "tests"])
+        self.assertEqual(launch.call_args.args[0], argv)
 
     def test_internal_followup_arguments_fail_outside_registered_worker(self) -> None:
         stdout = io.StringIO()

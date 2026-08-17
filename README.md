@@ -51,6 +51,32 @@ The Anthropic adapter defaults to `claude-sonnet-5` at
 an `x-api-key`. Claude 5 requests omit sampling temperature as required by
 those models.
 
+### Startup file resources
+
+Anthropic API-key sessions can download Files API resources into the active
+project before the first model request. Put a one-shot task before the variadic
+option, or omit the task for an interactive session:
+
+```sh
+python -m vibeagent "inspect the supplied fixtures" --provider anthropic \
+  --file file_abc123:fixtures/input.bin file_def456:fixtures/expected.json
+python -m vibeagent --provider anthropic --file file_abc123:fixtures/input.bin
+```
+
+Each specification is `FILE_ID:PROJECT_RELATIVE_PATH`. The API permits downloads
+only for generated resources marked downloadable; uploaded input files are not
+downloadable through this endpoint. `--file` requires `ANTHROPIC_API_KEY` or a
+foreground `--api-key`; bearer `ANTHROPIC_AUTH_TOKEN` sessions and other
+providers are rejected before network access.
+
+VibeAgent accepts at most 20 resources, streams in 64 KiB chunks, limits each
+file to 500 MiB and one startup to 1 GiB, rejects redirects, and never replaces
+an existing path. Destinations retain the normal workspace, protected-file,
+sensitive-file, and symbolic-link boundaries. All resources are staged as
+owner-only files and published without overwrite only after every download
+succeeds; failures roll back outputs and temporary files. Worktree and detached
+one-shot launches download into their final session root.
+
 To use DeepSeek or another OpenAI-compatible tool-calling API, switch provider:
 
 ```sh

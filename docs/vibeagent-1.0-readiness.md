@@ -622,6 +622,14 @@ The automated suite currently covers these 1.0 surfaces:
   files. One immutable override reaches provider environment, permissions,
   hooks, sandbox, agents, plugins, resume, fork, background, and subagents
   without recording setting contents in session events.
+- Startup file resources: Claude-compatible `--file FILE_ID:PATH [...]` uses
+  Anthropic API-key authentication to download generated downloadable resources
+  before the first interactive or one-shot model request. It streams bounded
+  chunks, rejects redirects and non-Anthropic authentication, preserves
+  workspace/protected/sensitive/symlink boundaries, refuses existing or
+  duplicate destinations, and transactionally publishes owner-only files only
+  after every resource succeeds. Limits are 20 files, 500 MiB per file, and
+  1 GiB total; worktree and detached one-shot sessions target their final root.
 - Selective debugging: Claude-compatible `--debug` emits redacted categorized
   status and session-event records to stderr, equals-form filters include or
   exclude bounded categories, and `--debug-file` writes owner-only bounded

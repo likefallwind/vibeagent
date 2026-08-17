@@ -84,6 +84,14 @@ def add_one_shot_arguments(
     parser.add_argument("--compact-max-text", type=positive_int, metavar="N", help="Maximum text characters per timeline, failure, or readiness entry in --compact context.")
     parser.add_argument("--cwd", help="Project directory for one-shot coding tasks.")
     parser.add_argument(
+        "--file",
+        action="extend",
+        nargs="+",
+        default=[],
+        metavar="FILE_ID:PATH",
+        help="Download Anthropic file resources into project-relative paths before startup.",
+    )
+    parser.add_argument(
         "--add-dir",
         action="append",
         default=[],

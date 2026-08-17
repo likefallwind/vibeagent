@@ -32,6 +32,13 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
             normalize_anthropic_betas(args.betas)
         except ValueError as error:
             return str(error)
+    if args.file and (
+        has_local_flag(args)
+        or args.agent_view
+        or remote_control
+        or args.attach_background_agent is not None
+    ):
+        return "--file requires an interactive or one-shot model session."
     if args.bare and args.setting_sources is not None:
         return "--bare does not load settings files; pass explicit settings with --settings."
     if args.auto_mode_label is not None and not (

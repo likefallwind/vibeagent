@@ -41,6 +41,16 @@ behavior, private one-use environment transfer, explicit peak diagnostics, and
 post-restart unit tracking. Invalid configuration or unavailable user systemd
 fails closed only when the option is requested.
 
+`VA1-SAFETY` also covers Claude-compatible startup file resources. Variadic
+`--file FILE_ID:PROJECT_RELATIVE_PATH` is accepted only for interactive or
+one-shot model sessions using Anthropic API-key authentication. Downloads occur
+before the first model request, reject redirects and existing destinations,
+stream at most 64 KiB per read, and enforce 20-file, 500 MiB per-file, and 1 GiB
+total limits. Workspace, protected, sensitive, and symlink checks are repeated
+around staging and no-overwrite publication; a failed transfer or publication
+removes all temporary and newly published outputs. Worktree and detached
+one-shot flows resolve their final project root before downloading.
+
 `VA1-OUTPUT` includes Claude-compatible `--ax-screen-reader` for human-facing
 terminal sessions. Agent View uses flat append-only snapshots and word commands
 without alternate-screen, cursor visibility, clear-screen, or raw-key control
@@ -141,6 +151,13 @@ backfill when that project is visited.
 
 ## Current Evidence
 
+- `tests.test_startup_file_resources`, `tests.test_startup_file_cli`,
+  `tests.test_cli_one_shot_input`, and `tests.test_cli_args_validation` cover
+  startup ordering before model creation, variadic CLI mapping, Anthropic
+  request headers, bounded streaming, declared and undeclared overflow,
+  workspace and symlink refusal, no-overwrite publication, multi-file rollback,
+  provider/authentication rejection, interactive path reporting, and final-root
+  propagation through the existing worktree and background startup chain.
 - `tests.test_screen_reader`, `tests.test_agent_view`, and
   `tests.test_subagent_status_line` cover text-only CLI validation, startup,
   attachment and `/bg` propagation, word-command mapping, flat bounded Agent

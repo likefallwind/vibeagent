@@ -94,6 +94,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "compact_max_output_chars": args.compact_max_output_chars,
         "compact_max_text": args.compact_max_text,
         "base_dir": args.cwd,
+        "file_resources": tuple(args.file),
         "additional_directories": additional_directories,
         "max_iterations": args.max_iterations,
         "command_timeout_ms": args.command_timeout_ms,

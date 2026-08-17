@@ -34,6 +34,7 @@ from .background_agent_config import BackgroundAgentConfig
 from .debug_runtime import DebugOptions
 from .workspace_core import BrowserMode, create_local_workspace
 from .workspace_view_mode import resolve_verbose_mode
+from .startup_file_resources import download_startup_file_resources
 
 
 def run_one_shot(
@@ -61,6 +62,7 @@ def run_one_shot(
     compact_max_output_chars: int | None = None,
     compact_max_text: int | None = None,
     base_dir: str | None = None,
+    file_resources: tuple[str, ...] = (),
     additional_directories: tuple[Path, ...] = (),
     max_iterations: int | None = None,
     command_timeout_ms: int | None = None,
@@ -113,6 +115,7 @@ def run_one_shot(
     run_agent_func=run_agent,
     get_resume_context_func=get_resume_context,
     get_compact_context_func=get_compact_context,
+    download_file_resources_func=download_startup_file_resources,
 ) -> int:
     started_at = monotonic()
     output_mode = resolve_cli_output_mode(output_json, output_format)
@@ -180,6 +183,7 @@ def run_one_shot(
         )
         execution_config = runtime_setup.execution_config
         provider_env = runtime_setup.provider_env
+        download_file_resources_func(file_resources, project_root, provider_env)
         if request_mode == "chat":
             return run_one_shot_chat(
                 task,

@@ -194,13 +194,25 @@ class CliWorktreeTests(unittest.TestCase):
             root = Path(base)
             init_git_repo(root)
             with patch.object(cli_module, "run_one_shot", side_effect=fake_run_one_shot):
-                exit_code = cli_module.main(["--cwd", str(root), "--worktree", "one-shot", "modify", "app"])
+                exit_code = cli_module.main(
+                    [
+                        "--cwd",
+                        str(root),
+                        "--worktree",
+                        "one-shot",
+                        "modify",
+                        "app",
+                        "--file",
+                        "file_alpha:fixtures/input.bin",
+                    ]
+                )
             linked_root = Path(str(captured["base_dir"]))
             main_content = (root / "app.py").read_text(encoding="utf-8")
             linked_content = (linked_root / "app.py").read_text(encoding="utf-8")
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(captured["task"], "modify app")
+        self.assertEqual(captured["file_resources"], ("file_alpha:fixtures/input.bin",))
         self.assertEqual(linked_root, root / ".vibeagent" / "worktrees" / "one-shot")
         self.assertEqual(main_content, "value = 1\n")
         self.assertEqual(linked_content, "value = 2\n")

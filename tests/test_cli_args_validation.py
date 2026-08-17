@@ -8,6 +8,21 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_file_resources_require_model_session(self) -> None:
+        interactive = cli_module.parse_args(["--file", "file_alpha:input.bin"])
+        one_shot = cli_module.parse_args(
+            ["inspect", "--file", "file_alpha:input.bin", "file_beta:other.bin"]
+        )
+        local = cli_module.parse_args(["--file", "file_alpha:input.bin", "--status"])
+        remote = cli_module.parse_args(
+            ["--file", "file_alpha:input.bin", "--remote-control"]
+        )
+
+        self.assertIsNone(cli_module.validate_cli_args(interactive))
+        self.assertIsNone(cli_module.validate_cli_args(one_shot))
+        self.assertIn("model session", cli_module.validate_cli_args(local) or "")
+        self.assertIn("model session", cli_module.validate_cli_args(remote) or "")
+
     def test_betas_accept_repeated_names_and_reject_local_or_invalid_values(self) -> None:
         valid = cli_module.parse_args(
             [

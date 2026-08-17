@@ -365,9 +365,24 @@ class CliOneShotInputTests(unittest.TestCase):
         self.assertEqual(kwargs["resume_arg"], "last")
         self.assertEqual(kwargs["max_iterations"], 7)
         self.assertEqual(kwargs["command_timeout_ms"], 1234)
+        self.assertEqual(kwargs["file_resources"], ())
         self.assertTrue(kwargs["auto_compact"])
         self.assertEqual(kwargs["permission_overrides"].rules, ())
         self.assertIs(kwargs["provider_args"], args)
+
+        file_args = cli_module.parse_args(
+            [
+                "inspect",
+                "repo",
+                "--file",
+                "file_alpha:fixtures/a.bin",
+                "file_beta:fixtures/b.bin",
+            ]
+        )
+        self.assertEqual(
+            cli_module.build_one_shot_kwargs_from_args(file_args)["file_resources"],
+            ("file_alpha:fixtures/a.bin", "file_beta:fixtures/b.bin"),
+        )
 
         plan_args = cli_module.parse_args(["--approval", "plan", "inspect", "repo"])
         self.assertEqual(plan_args.approval, "plan")

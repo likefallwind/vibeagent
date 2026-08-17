@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from dataclasses import replace
 import os
 from pathlib import Path
 
@@ -10,7 +11,7 @@ from .btw import run_btw
 from .chat import run_chat
 from .session_recap import run_session_recap
 from .cli_args import has_local_flag, parse_args
-from .cli_config import resolve_project_root
+from .cli_config import build_provider_env, resolve_project_root
 from .cli_exit_codes import (
     LOCAL_RESULT_ARG_NAMES,
     has_bad_session_summary_status,
@@ -162,6 +163,10 @@ from .workspace_hooks import read_project_hooks
 from .workspace_permissions import ProjectPermissions
 from .workspace_core import RunWorkspace
 from .model_effort import resolve_model_effort_setting
+from .startup_file_resources import (
+    download_startup_file_resources,
+    format_downloaded_file_resources,
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -381,6 +386,17 @@ def run_interactive_with_args(args: argparse.Namespace) -> int:
     )
     if startup_context.error is not None:
         return print_error_result(startup_context.error, args.json, exit_code=2, output_format=args.output_format)
+    if args.file:
+        provider_env = build_provider_env(args, project_root)
+        downloaded = download_startup_file_resources(args.file, project_root, provider_env)
+        downloaded_message = format_downloaded_file_resources(downloaded)
+        if downloaded_message is not None:
+            startup_context = replace(
+                startup_context,
+                message="\n".join(
+                    part for part in (startup_context.message, downloaded_message) if part
+                ),
+            )
     return run_interactive(args.cwd, startup_context)
 
 
