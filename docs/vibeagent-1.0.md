@@ -810,9 +810,11 @@ backfill when that project is visited.
   `tests.test_cli_worktree.CliWorktreeTests`, and
   `tests.test_worktree_tools.WorktreeToolTests`, and
   `tests.test_subagent_worktree_isolation.SubagentWorktreeIsolationTests`
-  cover Git-native include/ignore intersection and negation rules, pre-copy
-  bounds, symlink and runtime-path refusal, CLI setup rollback, and ignored-file
-  delivery into CLI, model-entered, and subagent worktrees.
+  cover Git-native include/ignore intersection and negation rules, incremental
+  NUL record parsing, bounded disk-backed candidate intersection, oversized
+  stream termination, pre-copy bounds, symlink and runtime-path refusal, CLI
+  setup rollback, and ignored-file delivery into CLI, model-entered, and
+  subagent worktrees.
 - `tests.test_delegation.DelegationTests` covers `SubagentStart` context
   injection for foreground and background workers plus `SubagentStop` blocking
   and retry for both text completion and the `finish` tool protocol.

@@ -781,7 +781,10 @@ ignore syntax to copy matching files only when they are also untracked and
 Git-ignored. It applies to CLI and subagent Git worktrees, evaluates patterns
 with Git itself, excludes `.git`, `.vibeagent`, and worktree-storage runtime
 paths, refuses symlinks and overwrites, and validates 1,000-file, 16 MiB
-per-file, and 64 MiB total limits before copying anything. Custom
+per-file, and 64 MiB total limits before copying anything. Candidate Git paths
+are NUL-parsed incrementally into a temporary disk-backed intersection index
+with a 67,108,864-character limit, so large ignored trees are not retained as
+two complete in-memory sets. Custom
 `WorktreeCreate` hooks own their setup and do not process `.worktreeinclude`.
 Worktree launch cannot be combined with chat,
 local inspection commands, resume, continue, or compact modes.

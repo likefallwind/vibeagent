@@ -709,6 +709,10 @@ The automated suite currently covers these 1.0 surfaces:
   and propagate stream truncation to observations. Background-agent change
   inspection pushes its 512,000-character path-list boundary into Git reads and
   rejects every truncated list before constructing a review snapshot.
+- `.worktreeinclude` Git path lists are incrementally NUL-parsed with per-path
+  and aggregate bounds. Standard-ignore and explicit-include intersection uses
+  a temporary disk-backed SQLite index, while Python retains only the bounded
+  final selection; sustained oversized Git output terminates the process group.
 - Opt-in command memory cgroups: `CLAUDE_CODE_TOOL_MEMORY_LIMIT` accepts bounded
   byte or binary-unit values on Linux and WSL and places finite, batch,
   PowerShell, interactive, and persistent background command trees into a

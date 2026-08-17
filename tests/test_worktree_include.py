@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import vibeagent.worktree_include_paths as worktree_include_paths
 from vibeagent.worktree_include import copy_worktree_includes
 
 
@@ -47,6 +50,48 @@ def _target_worktree(root: Path) -> Path:
 
 
 class WorktreeIncludeTests(unittest.TestCase):
+    def test_nul_path_parser_handles_split_records(self) -> None:
+        paths: list[str] = []
+        parser = worktree_include_paths.NulPathParser(paths.append)
+
+        parser.append("ignored/one.txt\0ignored/t")
+        parser.append("wo.txt\0ignored/three.txt")
+        parser.finish()
+
+        self.assertEqual(
+            paths,
+            ["ignored/one.txt", "ignored/two.txt", "ignored/three.txt"],
+        )
+
+    def test_streaming_candidate_limit_terminates_oversized_git_output(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-worktree-stream-") as base:
+            root = Path(base)
+            executable = root / "git"
+            executable.write_text(
+                f"#!{sys.executable}\n"
+                "import os\n"
+                "chunk = b'ignored/file\\0' * 4096\n"
+                "while True:\n"
+                "    os.write(1, chunk)\n",
+                encoding="utf-8",
+            )
+            executable.chmod(0o755)
+            path = f"{root}{os.pathsep}{os.environ.get('PATH', '')}"
+
+            with (
+                patch.dict(os.environ, {"PATH": path}),
+                patch(
+                    "vibeagent.worktree_include_paths.MAX_WORKTREE_INCLUDE_LIST_CHARS",
+                    1_000_000,
+                ),
+            ):
+                with self.assertRaisesRegex(ValueError, "candidate paths exceed"):
+                    worktree_include_paths.stream_ignored_paths(
+                        root,
+                        ("--exclude-standard",),
+                        lambda _path: None,
+                    )
+
     def test_copies_only_gitignored_untracked_files_matching_include_rules(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-worktree-include-") as base:
             root = Path(base)

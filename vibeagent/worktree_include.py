@@ -3,9 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import shutil
-import subprocess
 
 from .workspace_git_utils import combine_git_output, run_readonly_git
+from .worktree_include_paths import (
+    MAX_WORKTREE_INCLUDE_LIST_CHARS,
+    MAX_WORKTREE_INCLUDE_PATH_CHARS,
+    select_worktree_include_paths,
+    validate_worktree_include_path,
+)
 
 
 MAX_WORKTREE_INCLUDE_BYTES = 64 * 1024
@@ -52,19 +57,13 @@ def copy_worktree_includes(
     if "\x00" in include_text:
         raise ValueError(".worktreeinclude must not contain NUL bytes.")
 
-    standard_ignored = _ignored_paths(source_top, ("--exclude-standard",))
-    explicitly_included = _ignored_paths(
+    selected, matched_count = select_worktree_include_paths(
         source_top,
-        ("--exclude-from=.worktreeinclude",),
+        max_files=MAX_WORKTREE_INCLUDE_FILES,
     )
-    selected = sorted(
-        path
-        for path in standard_ignored & explicitly_included
-        if _copyable_project_path(path)
-    )
-    if len(selected) > MAX_WORKTREE_INCLUDE_FILES:
+    if matched_count > MAX_WORKTREE_INCLUDE_FILES:
         raise ValueError(
-            f".worktreeinclude matches {len(selected)} files; limit is "
+            f".worktreeinclude matches {matched_count} files; limit is "
             f"{MAX_WORKTREE_INCLUDE_FILES}."
         )
 
@@ -139,52 +138,8 @@ def _git_common_dir(root: Path, label: str) -> Path:
     return common.resolve()
 
 
-def _ignored_paths(root: Path, exclude_args: tuple[str, ...]) -> set[str]:
-    try:
-        result = subprocess.run(
-            [
-                "git",
-                "ls-files",
-                "--others",
-                "--ignored",
-                *exclude_args,
-                "-z",
-                "--",
-            ],
-            cwd=root,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=10,
-            check=False,
-        )
-    except FileNotFoundError as error:
-        raise ValueError("git executable was not found.") from error
-    except subprocess.TimeoutExpired as error:
-        raise ValueError("git ls-files timed out while reading .worktreeinclude.") from error
-    if result.returncode != 0:
-        detail = result.stderr.decode("utf-8", errors="replace").strip()
-        raise ValueError(
-            "Could not evaluate .worktreeinclude"
-            + (f": {detail}" if detail else ".")
-        )
-    paths: set[str] = set()
-    for raw in result.stdout.split(b"\0"):
-        if not raw:
-            continue
-        try:
-            relative = raw.decode("utf-8")
-        except UnicodeDecodeError as error:
-            raise ValueError(
-                ".worktreeinclude matched a path that is not valid UTF-8."
-            ) from error
-        _validate_relative_path(relative)
-        paths.add(relative)
-    return paths
-
-
 def _validated_file(root: Path, relative: str, *, label: str) -> Path:
-    _validate_relative_path(relative)
+    validate_worktree_include_path(relative)
     candidate = root / relative
     _reject_symlink_components(root, candidate, label=label)
     if not candidate.is_file():
@@ -195,7 +150,7 @@ def _validated_file(root: Path, relative: str, *, label: str) -> Path:
 
 
 def _validated_target(root: Path, relative: str) -> Path:
-    _validate_relative_path(relative)
+    validate_worktree_include_path(relative)
     candidate = root / relative
     _reject_symlink_components(root, candidate.parent, label="target")
     if candidate.exists() or candidate.is_symlink():
@@ -203,26 +158,6 @@ def _validated_target(root: Path, relative: str) -> Path:
             f".worktreeinclude refuses to overwrite target path: {relative}"
         )
     return candidate
-
-
-def _validate_relative_path(value: str) -> None:
-    path = Path(value)
-    if (
-        not value
-        or path.is_absolute()
-        or ".." in path.parts
-        or "\x00" in value
-        or "\n" in value
-        or "\r" in value
-    ):
-        raise ValueError(f".worktreeinclude returned an unsafe path: {value!r}")
-
-
-def _copyable_project_path(value: str) -> bool:
-    parts = Path(value).parts
-    if not parts or parts[0] in {".git", ".vibeagent"}:
-        return False
-    return parts[:2] != (".claude", "worktrees")
 
 
 def _reject_symlink_components(root: Path, candidate: Path, *, label: str) -> None:
@@ -246,6 +181,8 @@ __all__ = [
     "MAX_WORKTREE_INCLUDE_BYTES",
     "MAX_WORKTREE_INCLUDE_FILES",
     "MAX_WORKTREE_INCLUDE_FILE_BYTES",
+    "MAX_WORKTREE_INCLUDE_LIST_CHARS",
+    "MAX_WORKTREE_INCLUDE_PATH_CHARS",
     "MAX_WORKTREE_INCLUDE_TOTAL_BYTES",
     "WorktreeIncludeReport",
     "copy_worktree_includes",
