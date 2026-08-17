@@ -164,6 +164,12 @@ Invalid values, unsupported platforms, missing systemd tools, and service-start
 failures reject the command instead of silently running it without the requested
 limit. Leave the variable unset to retain the normal command runtime.
 
+Background shell commands also stream stdout and stderr through a persistent,
+bounded supervisor. Their combined output is capped at 5 GiB; exceeding the
+limit terminates the complete command process group and records a diagnostic and
+non-zero durable exit code. Set `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` to
+reject new background shell commands before any process or log is created.
+
 ### Session shell environment
 
 `SessionStart` and `CwdChanged` hooks receive `CLAUDE_ENV_FILE`, which points to
@@ -615,7 +621,8 @@ session and returns a project-local process ID immediately. On POSIX systems,
 the job runs behind a PTY and accepts bounded UTF-8 stdin writes of at most 64
 KiB from later CLI invocations. It uses the same workspace command safety,
 sandbox, private logs, durable exit marker, and optional
-`CLAUDE_CODE_TOOL_MEMORY_LIMIT` enforcement as model-started commands. Use
+`CLAUDE_CODE_TOOL_MEMORY_LIMIT` enforcement as model-started commands. Combined
+stdout and stderr are limited to 5 GiB even after the launching CLI exits. Use
 `--processes`, `--process-output`, `--wait-process`, `--write-process`, and
 `--stop-process` to manage the job. A shell job does not accept prompt text or
 agent, model, resume, naming, or local-command flags.

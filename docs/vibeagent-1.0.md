@@ -39,7 +39,11 @@ ID. On POSIX systems, a PTY relay lets later CLI invocations inspect bounded
 private logs, wait for output or exit, write at most 64 KiB of UTF-8 stdin per
 request, and stop the job through the existing process registry. Workspace
 command safety, sandboxing, durable exit markers, and optional tool memory
-limits remain active. Prompt text plus agent, provider, model, resume, naming,
+limits remain active. A persistent streaming supervisor terminates the complete
+command group after 5 GiB of combined stdout and stderr, records the failure,
+and remains active when the launching CLI exits. The Claude-compatible
+`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` setting rejects new background shell
+commands before launch. Prompt text plus agent, provider, model, resume, naming,
 and local-command options are rejected instead of ignored.
 
 `VA1-SAFETY` also includes optional Linux/WSL command cgroups through

@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 from .process_lifecycle import close_background_handles, signal_name
+from .process_pty import remove_process_stdin
 from .process_registry import (
     PersistentProcessRecord,
     persistent_process_running,
@@ -30,6 +31,8 @@ def wait_persistent_process(
     timed_out = False
     while True:
         running = persistent_process_running(record)
+        if not running:
+            remove_process_stdin(record.stdin_path)
         exit_code = None if running else read_persistent_process_exit_code(record)
         stdout = read_text_tail(record.stdout_path, max_output_chars)
         stderr = read_text_tail(record.stderr_path, max_output_chars)

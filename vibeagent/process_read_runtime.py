@@ -5,6 +5,7 @@ from pathlib import Path
 from .process_background_lookup import background_process_for_root
 from .process_io_helpers import filter_output_lines as _filter_output_lines
 from .process_lifecycle import close_background_handles, signal_name
+from .process_pty import remove_process_stdin
 from .process_registry import (
     persistent_process_running,
     process_signal_name,
@@ -27,6 +28,8 @@ def read_background_process(
         if record is not None:
             resolved_max_output_chars = max_output_chars or record.max_output_chars or 4_000
             running = persistent_process_running(record)
+            if not running:
+                remove_process_stdin(record.stdin_path)
             exit_code = None if running else read_persistent_process_exit_code(record)
             stdout = _filter_output_lines(read_text_tail(record.stdout_path, resolved_max_output_chars), output_filter)
             stderr = _filter_output_lines(read_text_tail(record.stderr_path, resolved_max_output_chars), output_filter)

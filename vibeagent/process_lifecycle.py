@@ -5,6 +5,7 @@ import signal
 import subprocess
 from typing import Any
 
+from .process_pty import remove_process_stdin
 from .tool_memory_limit import cleanup_tool_memory_launch
 from .tool_memory_systemd import stop_tool_memory_unit
 
@@ -17,6 +18,8 @@ def close_background_handles(background: Any) -> None:
     for handle in handles:
         if handle is not None and not handle.closed:
             handle.close()
+    if background.process.poll() is not None:
+        remove_process_stdin(getattr(background, "stdin_path", None))
     cleanup_tool_memory_launch(getattr(background, "memory_launch", None))
 
 

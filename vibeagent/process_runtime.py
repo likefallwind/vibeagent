@@ -33,6 +33,12 @@ from .process_output_analysis import (
     process_observation_failed,
 )
 from .process_output_runtime import read_background_process_output_contexts, read_background_process_output_diagnostics
+from .process_background_limits import (
+    BACKGROUND_TASKS_DISABLED_ENV,
+    MAX_BACKGROUND_OUTPUT_BYTES,
+    background_tasks_disabled,
+    prepare_background_output_launch,
+)
 from .process_pty import ProcessPtyError, prepare_process_pty_launch, remove_process_stdin
 from .session_environment import wrap_bash_command_with_session_environment
 from .tool_memory_limit import (
@@ -225,7 +231,20 @@ def start_background_command(
     maintain_cwd: bool = False,
     dangerously_disable_sandbox: bool = False,
     pty_backed: bool = False,
+    output_limit_bytes: int = MAX_BACKGROUND_OUTPUT_BYTES,
 ) -> StartCommandObservation:
+    if background_tasks_disabled():
+        return StartCommandObservation(
+            kind="start_command",
+            process_id="",
+            pid=None,
+            command=command,
+            cwd=cwd or ".",
+            ok=False,
+            message=f"Background commands are disabled by {BACKGROUND_TASKS_DISABLED_ENV}=1.",
+            stdout_path="",
+            stderr_path="",
+        )
     blocked = get_blocked_command_reason(command)
     if blocked:
         return StartCommandObservation(
@@ -318,6 +337,29 @@ def start_background_command(
                 stdout_path=stdout_path.as_posix(),
                 stderr_path=stderr_path.as_posix(),
             )
+    try:
+        launch_argv = prepare_background_output_launch(
+            launch_argv,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            exit_code_path=exit_code_path,
+            max_output_bytes=output_limit_bytes,
+        )
+    except ValueError as error:
+        remove_process_stdin(stdin_path)
+        stdout_handle.close()
+        stderr_handle.close()
+        return StartCommandObservation(
+            kind="start_command",
+            process_id="",
+            pid=None,
+            command=command,
+            cwd=relative_cwd(command_cwd, workspace.root),
+            ok=False,
+            message=str(error),
+            stdout_path=stdout_path.as_posix(),
+            stderr_path=stderr_path.as_posix(),
+        )
     memory_launch: ToolMemoryLaunch | None = None
     try:
         memory_launch = prepare_tool_memory_launch(
@@ -346,8 +388,8 @@ def start_background_command(
             cwd=command_cwd,
             shell=False,
             stdin=subprocess.DEVNULL if pty_backed else subprocess.PIPE,
-            stdout=stdout_handle,
-            stderr=stderr_handle,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             text=True,
             start_new_session=os.name != "nt",
             env=launch.environment,

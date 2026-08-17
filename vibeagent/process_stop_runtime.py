@@ -10,6 +10,7 @@ from .process_lifecycle import (
     signal_name,
     terminate_background_process,
 )
+from .process_pty import remove_process_stdin
 from .process_registry import (
     persistent_process_running,
     process_signal_name,
@@ -58,6 +59,8 @@ def list_background_processes(root: Path) -> ListProcessesObservation:
         if record.id in processes_by_id:
             continue
         running = persistent_process_running(record)
+        if not running:
+            remove_process_stdin(record.stdin_path)
         exit_code = None if running else read_persistent_process_exit_code(record)
         processes_by_id[record.id] = ProcessInfo(
             process_id=record.id,
@@ -95,6 +98,8 @@ def check_stop_background_process(root: Path, process_id: str) -> CheckStopProce
         record = read_persistent_process_record(root, process_id)
         if record is not None:
             running = persistent_process_running(record)
+            if not running:
+                remove_process_stdin(record.stdin_path)
             exit_code = None if running else read_persistent_process_exit_code(record)
             state = "running and can be stopped" if running else "already exited or unavailable"
             return CheckStopProcessObservation(
@@ -172,6 +177,7 @@ def stop_all_background_processes(root: Path) -> StopAllProcessesObservation:
         if was_running:
             terminate_persistent_process(record)
         exit_code = read_persistent_process_exit_code(record)
+        remove_process_stdin(record.stdin_path)
         remove_persistent_process_record(root, record.id)
         stopped.append(
             StoppedProcessInfo(
@@ -204,6 +210,7 @@ def stop_background_process(root: Path, process_id: str) -> StopProcessObservati
             if was_running:
                 terminate_persistent_process(record)
             exit_code = read_persistent_process_exit_code(record)
+            remove_process_stdin(record.stdin_path)
             remove_persistent_process_record(root, process_id)
             return StopProcessObservation(
                 kind="stop_process",
