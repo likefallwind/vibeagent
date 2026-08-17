@@ -611,12 +611,14 @@ project-scoped; machine-global aggregation across unrelated repositories is not
 part of the 1.0 dashboard.
 
 `--bg --exec COMMAND` starts a provider-free shell job instead of a coding
-session and returns a project-local process ID immediately. It uses the same
-workspace command safety, sandbox, private logs, durable exit marker, and
-optional `CLAUDE_CODE_TOOL_MEMORY_LIMIT` enforcement as model-started commands.
-Use `--processes`, `--process-output`, `--wait-process`, `--write-process`, and
-`--stop-process` to manage the job from later CLI invocations. A shell job does
-not accept prompt text or agent, model, resume, naming, or local-command flags.
+session and returns a project-local process ID immediately. On POSIX systems,
+the job runs behind a PTY and accepts bounded UTF-8 stdin writes of at most 64
+KiB from later CLI invocations. It uses the same workspace command safety,
+sandbox, private logs, durable exit marker, and optional
+`CLAUDE_CODE_TOOL_MEMORY_LIMIT` enforcement as model-started commands. Use
+`--processes`, `--process-output`, `--wait-process`, `--write-process`, and
+`--stop-process` to manage the job. A shell job does not accept prompt text or
+agent, model, resume, naming, or local-command flags.
 
 `remote-control [name]` (also `--remote-control [name]`) serves a responsive
 browser control plane for the same project-local background agents. It can

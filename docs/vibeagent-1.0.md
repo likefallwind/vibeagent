@@ -35,11 +35,12 @@ local changes when asked, and resume from recorded session context.
 
 `VA1-BACKGROUND` also supports provider-free shell jobs through
 `--bg --exec COMMAND`. The launcher immediately returns a project-local process
-ID; later CLI invocations can inspect bounded private logs, wait for output or
-exit, write stdin, and stop the job through the existing process registry.
-Workspace command safety, sandboxing, durable exit markers, and optional tool
-memory limits remain active. Prompt text plus agent, provider, model, resume,
-naming, and local-command options are rejected instead of ignored.
+ID. On POSIX systems, a PTY relay lets later CLI invocations inspect bounded
+private logs, wait for output or exit, write at most 64 KiB of UTF-8 stdin per
+request, and stop the job through the existing process registry. Workspace
+command safety, sandboxing, durable exit markers, and optional tool memory
+limits remain active. Prompt text plus agent, provider, model, resume, naming,
+and local-command options are rejected instead of ignored.
 
 `VA1-SAFETY` also includes optional Linux/WSL command cgroups through
 `CLAUDE_CODE_TOOL_MEMORY_LIMIT`. Finite, batched, PowerShell, interactive, and

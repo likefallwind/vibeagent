@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import shlex
 
+from .process_pty import MAX_PROCESS_STDIN_BYTES
 from .workspace_resolve import resolve_inside_run
 
 
@@ -20,7 +21,16 @@ def read_project_stdin_file(project_root: str | Path, relative_path: str, option
         raise ValueError(f"{option_name} does not exist: {relative_path}")
     if not path.is_file():
         raise ValueError(f"{option_name} is not a file: {relative_path}")
-    return path.read_text(encoding="utf-8")
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        raise ValueError(f"cannot read {option_name}: {error}") from error
+    if len(data) > MAX_PROCESS_STDIN_BYTES:
+        raise ValueError(f"{option_name} exceeds {MAX_PROCESS_STDIN_BYTES} bytes")
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError(f"{option_name} must be UTF-8 text") from error
 
 
 def parse_process_stdin_file_argument(

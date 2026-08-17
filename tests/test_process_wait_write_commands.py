@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from vibeagent import process_commands, process_wait_commands, process_write_commands
+from vibeagent.process_pty import MAX_PROCESS_STDIN_BYTES
 from vibeagent.process_wait_write_commands import (
     decode_stdin_escapes,
     format_check_write_process_report_text,
@@ -100,6 +101,21 @@ class ProcessWaitWriteCommandModuleTests(unittest.TestCase):
                 parse_write_process_request(process_id="bg-1", stdin_file="input.txt", project_root=root),
                 ("bg-1", None, "input.txt"),
             )
+
+    def test_parse_write_process_request_rejects_oversized_stdin_file(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-process-write-") as base:
+            root = Path(base)
+            (root / "input.txt").write_text(
+                "x" * (MAX_PROCESS_STDIN_BYTES + 1),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "exceeds 65536 bytes"):
+                parse_write_process_request(
+                    process_id="bg-1",
+                    stdin_file="input.txt",
+                    project_root=root,
+                )
 
 
 if __name__ == "__main__":

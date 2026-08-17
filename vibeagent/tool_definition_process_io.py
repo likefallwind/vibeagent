@@ -49,6 +49,7 @@ PROCESS_IO_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "process_id": {"type": "string"},
                 "content": {
                     "type": "string",
+                    "maxLength": 65536,
                     "description": "Exact text intended for stdin. Include \\n when pressing Enter is required.",
                 },
                 "stdin_file": {
@@ -70,6 +71,7 @@ PROCESS_IO_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "process_id": {"type": "string"},
                 "content": {
                     "type": "string",
+                    "maxLength": 65536,
                     "description": "Exact text to write to stdin. Include \\n when pressing Enter is required.",
                 },
                 "stdin_file": {

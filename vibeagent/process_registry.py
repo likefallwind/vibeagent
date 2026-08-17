@@ -27,6 +27,7 @@ class PersistentProcessRecord:
     start_ticks: int | None = None
     max_output_chars: int | None = None
     memory_unit: str | None = None
+    stdin_path: Path | None = None
     monitor_description: str | None = None
     monitor_timeout_ms: int | None = None
     monitor_started_at: float | None = None
@@ -63,6 +64,7 @@ def write_persistent_process_record(workspace: RunWorkspace, record: PersistentP
         "start_ticks": record.start_ticks,
         "max_output_chars": record.max_output_chars,
         "memory_unit": record.memory_unit,
+        "stdin_path": relative_process_log_path(workspace.root, record.stdin_path) if record.stdin_path else None,
         "monitor_description": record.monitor_description,
         "monitor_timeout_ms": record.monitor_timeout_ms,
         "monitor_started_at": record.monitor_started_at,
@@ -134,6 +136,7 @@ def parse_persistent_process_record(root: Path, payload: object) -> PersistentPr
     start_ticks = payload.get("start_ticks")
     max_output_chars = payload.get("max_output_chars")
     memory_unit = payload.get("memory_unit")
+    stdin_text = payload.get("stdin_path")
     monitor_description = payload.get("monitor_description")
     monitor_timeout_ms = payload.get("monitor_timeout_ms")
     monitor_started_at = payload.get("monitor_started_at")
@@ -155,6 +158,7 @@ def parse_persistent_process_record(root: Path, payload: object) -> PersistentPr
     if stdout_path is None or stderr_path is None:
         return None
     exit_code_path = resolve_process_log_path(root, exit_code_text) if isinstance(exit_code_text, str) else None
+    stdin_path = resolve_process_log_path(root, stdin_text) if isinstance(stdin_text, str) else None
     return PersistentProcessRecord(
         id=process_id,
         command=command,
@@ -172,6 +176,7 @@ def parse_persistent_process_record(root: Path, payload: object) -> PersistentPr
             if isinstance(memory_unit, str) and valid_tool_memory_unit(memory_unit)
             else None
         ),
+        stdin_path=stdin_path,
         monitor_description=(
             monitor_description
             if isinstance(monitor_description, str)

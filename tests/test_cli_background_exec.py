@@ -3,13 +3,17 @@ from __future__ import annotations
 from contextlib import redirect_stdout
 import io
 import json
+import os
 from pathlib import Path
+import shlex
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
+from vibeagent.process_registry import read_persistent_process_record, terminate_persistent_process
+from vibeagent.process_runtime import BACKGROUND_PROCESSES
 from vibeagent.types import StartCommandObservation
 
 
@@ -80,10 +84,82 @@ class CliBackgroundExecTests(unittest.TestCase):
         self.assertEqual(payload["backgroundJob"]["processId"], "abc123def456")
         self.assertEqual(payload["backgroundJob"]["command"], "pytest -x")
         self.assertTrue(payload["backgroundJob"]["sandboxed"])
+        self.assertTrue(payload["backgroundJob"]["ptyBacked"])
         start.assert_called_once()
         self.assertEqual(start.call_args.args[0].root, root)
         self.assertEqual(start.call_args.args[1], "pytest -x")
+        self.assertTrue(start.call_args.kwargs["pty_backed"])
         create_chat_client.assert_not_called()
+
+    @unittest.skipUnless(os.name == "posix", "PTY-backed jobs require POSIX")
+    def test_exec_accepts_stdin_from_a_later_cli_runtime(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-bg-exec-") as base:
+            code = (
+                "import sys; "
+                "print(f'tty={sys.stdin.isatty()}', flush=True); "
+                "print('got=' + input(), flush=True)"
+            )
+            command = f"python3 -c {shlex.quote(code)}"
+            launch_stdout = io.StringIO()
+            background = None
+            record = None
+            process_id = None
+            try:
+                with redirect_stdout(launch_stdout):
+                    launch_exit = main(["--bg", "--exec", command, "--cwd", base, "--json"])
+                launch_payload = json.loads(launch_stdout.getvalue())
+                process_id = launch_payload["backgroundJob"]["processId"]
+                background = BACKGROUND_PROCESSES.pop(process_id)
+                background.stdout_handle.close()
+                background.stderr_handle.close()
+
+                write_stdout = io.StringIO()
+                with redirect_stdout(write_stdout):
+                    write_exit = main(
+                        [
+                            "--cwd",
+                            base,
+                            "--write-process",
+                            process_id,
+                            "--write-stdin",
+                            "hello\\n",
+                            "--json",
+                        ]
+                    )
+                background.process.wait(timeout=5)
+
+                wait_stdout = io.StringIO()
+                with redirect_stdout(wait_stdout):
+                    wait_exit = main(
+                        [
+                            "--cwd",
+                            base,
+                            "--wait-process",
+                            process_id,
+                            "--wait-timeout-ms",
+                            "5000",
+                            "--json",
+                        ]
+                    )
+                wait_payload = json.loads(wait_stdout.getvalue())
+
+                self.assertEqual(launch_exit, 0)
+                self.assertTrue(launch_payload["backgroundJob"]["ptyBacked"])
+                self.assertEqual(write_exit, 0)
+                self.assertTrue(json.loads(write_stdout.getvalue())["success"])
+                self.assertEqual(wait_exit, 0, wait_payload)
+                self.assertEqual(wait_payload["waitProcess"]["exitCode"], 0)
+                self.assertIn("tty=True", wait_payload["waitProcess"]["stdout"])
+                self.assertIn("got=hello", wait_payload["waitProcess"]["stdout"])
+            finally:
+                if process_id is not None:
+                    record = read_persistent_process_record(Path(base), process_id)
+                if record is not None:
+                    terminate_persistent_process(record)
+                if background is not None:
+                    if background.process.poll() is None:
+                        background.process.terminate()
+                    background.process.wait(timeout=5)
 
     def test_blocked_exec_returns_a_failure(self) -> None:
         observation = StartCommandObservation(

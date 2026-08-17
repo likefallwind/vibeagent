@@ -33,6 +33,7 @@ from .process_output_analysis import (
     process_observation_failed,
 )
 from .process_output_runtime import read_background_process_output_contexts, read_background_process_output_diagnostics
+from .process_pty import ProcessPtyError, prepare_process_pty_launch, remove_process_stdin
 from .session_environment import wrap_bash_command_with_session_environment
 from .tool_memory_limit import (
     ToolMemoryLaunch,
@@ -93,6 +94,7 @@ class BackgroundProcess:
     max_output_chars: int
     stdout_handle: Any
     stderr_handle: Any
+    stdin_path: Path | None = None
     memory_launch: ToolMemoryLaunch | None = None
     memory_diagnostics_done: Event | None = None
 
@@ -222,6 +224,7 @@ def start_background_command(
     max_output_chars: int = 4_000,
     maintain_cwd: bool = False,
     dangerously_disable_sandbox: bool = False,
+    pty_backed: bool = False,
 ) -> StartCommandObservation:
     blocked = get_blocked_command_reason(command)
     if blocked:
@@ -295,14 +298,35 @@ def start_background_command(
     if launch.warning:
         stderr_handle.write(f"{launch.warning}\n")
         stderr_handle.flush()
+    stdin_path: Path | None = None
+    launch_argv = launch.argv
+    if pty_backed:
+        stdin_path = process_dir / f"{process_id}.stdin.fifo"
+        try:
+            launch_argv = prepare_process_pty_launch(launch.argv, stdin_path)
+        except ProcessPtyError as error:
+            stdout_handle.close()
+            stderr_handle.close()
+            return StartCommandObservation(
+                kind="start_command",
+                process_id="",
+                pid=None,
+                command=command,
+                cwd=relative_cwd(command_cwd, workspace.root),
+                ok=False,
+                message=str(error),
+                stdout_path=stdout_path.as_posix(),
+                stderr_path=stderr_path.as_posix(),
+            )
     memory_launch: ToolMemoryLaunch | None = None
     try:
         memory_launch = prepare_tool_memory_launch(
-            launch.argv,
+            launch_argv,
             command_cwd,
             launch.environment,
         )
     except ToolMemoryLimitError as error:
+        remove_process_stdin(stdin_path)
         stdout_handle.close()
         stderr_handle.close()
         return StartCommandObservation(
@@ -318,10 +342,10 @@ def start_background_command(
         )
     try:
         process = subprocess.Popen(
-            memory_launch.argv if memory_launch is not None else launch.argv,
+            memory_launch.argv if memory_launch is not None else launch_argv,
             cwd=command_cwd,
             shell=False,
-            stdin=subprocess.PIPE,
+            stdin=subprocess.DEVNULL if pty_backed else subprocess.PIPE,
             stdout=stdout_handle,
             stderr=stderr_handle,
             text=True,
@@ -329,6 +353,7 @@ def start_background_command(
             env=launch.environment,
         )
     except OSError as error:
+        remove_process_stdin(stdin_path)
         cleanup_tool_memory_launch(memory_launch)
         stdout_handle.close()
         stderr_handle.close()
@@ -356,6 +381,7 @@ def start_background_command(
         if process.poll() is None:
             _terminate_process(process)
         cleanup_tool_memory_launch(memory_launch)
+        remove_process_stdin(stdin_path)
         stdout_handle.close()
         stderr_handle.close()
         raise
@@ -369,6 +395,7 @@ def start_background_command(
         if process.poll() is None:
             _terminate_process(process)
         cleanup_tool_memory_launch(memory_launch)
+        remove_process_stdin(stdin_path)
         stdout_handle.close()
         stderr_handle.close()
         return StartCommandObservation(
@@ -395,6 +422,7 @@ def start_background_command(
         max_output_chars=max_output_chars,
         stdout_handle=stdout_handle,
         stderr_handle=stderr_handle,
+        stdin_path=stdin_path,
         memory_launch=memory_launch,
     )
     BACKGROUND_PROCESSES[process_id] = background
@@ -418,6 +446,7 @@ def start_background_command(
             start_ticks=read_process_start_ticks(process.pid),
             max_output_chars=max_output_chars,
             memory_unit=memory_launch.unit if memory_launch is not None else None,
+            stdin_path=stdin_path,
         ),
     )
     return StartCommandObservation(
@@ -428,10 +457,10 @@ def start_background_command(
         cwd=relative_cwd(command_cwd, workspace.root),
         ok=True,
         message=(
-            f"Started process {process_id} with a "
+            f"Started {'PTY-backed ' if pty_backed else ''}process {process_id} with a "
             f"{format_memory_bytes(memory_launch.limit_bytes)} memory limit."
             if memory_launch is not None
-            else f"Started process {process_id}."
+            else f"Started {'PTY-backed ' if pty_backed else ''}process {process_id}."
         ),
         stdout_path=stdout_path.as_posix(),
         stderr_path=stderr_path.as_posix(),

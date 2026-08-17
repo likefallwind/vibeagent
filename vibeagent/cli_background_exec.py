@@ -17,6 +17,7 @@ def launch_background_exec_from_cli(args: argparse.Namespace) -> int:
     observation = start_background_command(
         workspace,
         command,
+        pty_backed=True,
     )
     if not observation.ok:
         return print_error_result(
@@ -49,6 +50,7 @@ def launch_background_exec_from_cli(args: argparse.Namespace) -> int:
                 "cwd": observation.cwd,
                 "running": True,
                 "status": "running",
+                "ptyBacked": True,
                 "stdoutPath": observation.stdout_path,
                 "stderrPath": observation.stderr_path,
                 "sandboxed": observation.sandboxed,

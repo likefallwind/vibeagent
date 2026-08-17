@@ -24,6 +24,7 @@ class ProcessRegistryModuleTests(unittest.TestCase):
             stdout_path = logs / "stdout.log"
             stderr_path = logs / "stderr.log"
             exit_code_path = logs / "exit-code.txt"
+            stdin_path = logs / "stdin.fifo"
             workspace = RunWorkspace(root=root, run_id="run-1", session_dir=root / ".vibeagent" / "sessions" / "run-1")
 
             process_registry.write_persistent_process_record(
@@ -38,6 +39,7 @@ class ProcessRegistryModuleTests(unittest.TestCase):
                     exit_code_path=exit_code_path,
                     start_ticks=99,
                     memory_unit="vibeagent-tool-0123456789abcdef0123456789abcdef.service",
+                    stdin_path=stdin_path,
                 ),
             )
 
@@ -51,6 +53,7 @@ class ProcessRegistryModuleTests(unittest.TestCase):
             self.assertEqual(record.stderr_path, stderr_path.resolve())
             self.assertEqual(record.exit_code_path, exit_code_path.resolve())
             self.assertEqual(record.start_ticks, 99)
+            self.assertEqual(record.stdin_path, stdin_path.resolve())
             self.assertEqual(
                 record.memory_unit,
                 "vibeagent-tool-0123456789abcdef0123456789abcdef.service",
