@@ -11,6 +11,8 @@ from .workspace_paths import is_sensitive_project_path, path_matches_gitignore
 
 
 READONLY_GIT_TIMEOUT_MS = 10_000
+GIT_MUTATION_TIMEOUT_MS = 30_000
+MAX_GIT_MUTATION_OUTPUT_CHARS = 64_000
 
 
 def parse_git_remotes(output: str) -> list[dict[str, str]]:
@@ -202,15 +204,11 @@ def _run_bounded_readonly_git(
 
 def run_git_mutation(root: str | Path, args: list[str]) -> GitCommandResult:
     try:
-        result = subprocess.run(
+        result = run_bounded_subprocess(
             ["git", *args],
             cwd=Path(root),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=30,
-            check=False,
+            timeout_ms=GIT_MUTATION_TIMEOUT_MS,
+            max_output_chars=MAX_GIT_MUTATION_OUTPUT_CHARS,
         )
     except FileNotFoundError:
         return GitCommandResult(ok=False, stdout="", stderr="git executable was not found.", exit_code=None)
@@ -219,7 +217,11 @@ def run_git_mutation(root: str | Path, args: list[str]) -> GitCommandResult:
 
     return GitCommandResult(
         ok=result.returncode == 0,
-        stdout=result.stdout or "",
-        stderr=result.stderr or "",
+        stdout=result.stdout,
+        stderr=result.stderr,
         exit_code=result.returncode,
+        stdout_truncated=result.stdout_truncated,
+        stderr_truncated=result.stderr_truncated,
+        stdout_total_chars=result.stdout_total_chars,
+        stderr_total_chars=result.stderr_total_chars,
     )

@@ -224,6 +224,11 @@ backfill when that project is visited.
   shared bounded subprocess runner, model-facing Git reads, GitHub CLI PR URL
   extraction after oversized output, and noninteractive remote-plugin Git
   operations without retaining complete stdout or stderr in memory.
+- `tests.test_git_mutation_output_bounds` covers 128 MiB on each Git mutation
+  output stream, exact total-character and truncation metadata, failed return
+  codes, and process-group timeout cleanup. Stage,
+  restore, commit, switch, stash, remote, and worktree mutations share this
+  64,000-character-per-stream runner.
 - `tests.test_browser_tools` and `tests.test_background_agent_changes` cover
   fixed-chunk browser stdout/stderr with replacement decoding, real oversized
   browser output, and background-agent change lists that bound Git output while

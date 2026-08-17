@@ -713,6 +713,11 @@ The automated suite currently covers these 1.0 surfaces:
   and aggregate bounds. Standard-ignore and explicit-include intersection uses
   a temporary disk-backed SQLite index, while Python retains only the bounded
   final selection; sustained oversized Git output terminates the process group.
+- Git mutation subprocesses use the same fixed-chunk collector with 64,000
+  characters retained per stream, exact total-character metadata, and
+  process-group timeout cleanup. This covers index, commit, branch, stash,
+  remote, and worktree operations without changing complete checkpoint-patch
+  semantics.
 - Opt-in command memory cgroups: `CLAUDE_CODE_TOOL_MEMORY_LIMIT` accepts bounded
   byte or binary-unit values on Linux and WSL and places finite, batch,
   PowerShell, interactive, and persistent background command trees into a
