@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 import json
 import shlex
@@ -51,15 +52,23 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
         parts = shlex.split(argument or "")
     except ValueError as error:
         return PluginCommandResult(f"{PLUGIN_USAGE}\nError: {error}")
+    return handle_plugin_command_parts(project_root, parts)
+
+
+def handle_plugin_command_parts(
+    project_root: Path,
+    parts: Sequence[str],
+) -> PluginCommandResult:
+    values = list(parts)
     try:
-        if not parts or parts in (["list"], ["ls"]):
+        if not values or values in (["list"], ["ls"]):
             return PluginCommandResult(format_plugin_list(list_installed_plugins(project_root)))
-        if parts[0] in {"marketplace", "market"}:
-            text, changed = handle_marketplace_command(project_root, parts[1:])
+        if values[0] in {"marketplace", "market"}:
+            text, changed = handle_marketplace_command(project_root, values[1:])
             return PluginCommandResult(text, changed=changed)
-        if parts[0] == "config":
-            return _handle_plugin_config_command(project_root, parts[1:])
-        parsed_operation = _parse_plugin_operation(parts)
+        if values[0] == "config":
+            return _handle_plugin_config_command(project_root, values[1:])
+        parsed_operation = _parse_plugin_operation(values)
         if parsed_operation is None:
             return PluginCommandResult(PLUGIN_USAGE)
         operation, value, scope = parsed_operation
@@ -364,5 +373,6 @@ __all__ = [
     "format_plugin_details",
     "format_plugin_list",
     "handle_plugin_command",
+    "handle_plugin_command_parts",
     "reload_plugins_text",
 ]

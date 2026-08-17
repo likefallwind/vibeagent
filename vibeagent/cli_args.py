@@ -12,6 +12,7 @@ from .cli_local_flag_detection import (
     has_local_flag as _has_local_flag,
 )
 from .cli_mcp_command_args import normalize_mcp_command_arguments
+from .cli_plugin_command_args import normalize_plugin_command_arguments
 from .cli_output_args import normalize_output_arguments
 from .cli_status_args import normalize_status_command_arguments
 from .cli_tmux import normalize_tmux_arguments
@@ -30,7 +31,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
             normalize_auto_mode_command_arguments(
                 normalize_status_command_arguments(
                     normalize_background_agent_command_arguments(
-                        normalize_tmux_arguments(normalize_mcp_command_arguments(argv))
+                        normalize_tmux_arguments(
+                            normalize_plugin_command_arguments(
+                                normalize_mcp_command_arguments(argv)
+                            )
+                        )
                     )
                 )
             )

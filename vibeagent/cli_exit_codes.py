@@ -178,6 +178,7 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "processes",
         "background_agents",
         "mcp_command",
+        "plugin_command",
         "background_agent_log",
         "stop_background_agent",
         "send_background_agent",
@@ -259,6 +260,8 @@ def local_result_exit_code(args: argparse.Namespace, text: str) -> int:
     if text.startswith("Session not found:") or text.startswith("Invalid session id:"):
         return 1
     if text.startswith("Tool not found:"):
+        return 1
+    if args.plugin_command is not None and text.startswith("Plugin error:"):
         return 1
     if text.startswith("Background agent not found:"):
         return 1

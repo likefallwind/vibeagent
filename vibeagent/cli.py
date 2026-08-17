@@ -156,6 +156,7 @@ from .cli_parse_run import (
     parse_interactive_run_suggested_checks_argument,
 )
 from .cli_mcp_local_flags import run_mcp_local_flag
+from .cli_plugin_local_flags import run_plugin_local_flag
 from .cli_command_namespace import *  # re-export command helpers for local flag dispatch and tests
 from .cli_input_format import TaskInputFormatError
 from .providers import create_chat_client

@@ -429,6 +429,10 @@ python -m vibeagent --cwd ../my-project mcp list
 python -m vibeagent --cwd ../my-project mcp get docs
 python -m vibeagent --cwd ../my-project mcp add --scope project docs -- npx docs-mcp
 python -m vibeagent --cwd ../my-project mcp remove --scope project docs
+python -m vibeagent --cwd ../my-project plugin list
+python -m vibeagent --cwd ../my-project plugin validate extensions/team-tools
+python -m vibeagent --cwd ../my-project plugin install extensions/team-tools --scope project
+python -m vibeagent --cwd ../my-project plugin disable team-tools --scope project
 python -m vibeagent --chat "explain this repository at a high level"
 python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-commands 5 --resume-max-checks 20 "continue the previous change"
 python -m vibeagent --resume <run-id> --fork-session "try a different implementation"
@@ -2031,6 +2035,12 @@ Install a project directory directly or register a local/remote marketplace:
 /reload-plugins
 /plugin list
 ```
+
+The same administration surface is available outside the interactive prompt as
+`vibeagent plugin ...` (with `plugins` as an alias). It accepts global `--cwd`,
+`--json`, and `--output-format` options before or after the plugin arguments,
+uses the existing local/project/user stores, and does not initialize a model
+provider or create a coding session.
 
 Installation rejects path escapes, symbolic links, non-regular files, more than
 5,000 files, or more than 100 MB, then atomically copies the plugin into the
