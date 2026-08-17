@@ -424,6 +424,7 @@ python -m vibeagent --trust-status --cwd ../my-project
 python -m vibeagent --trust-project --cwd ../my-project
 python -m vibeagent --untrust-project --cwd ../my-project
 python -m vibeagent --sandbox-status --cwd ../my-project
+python -m vibeagent doctor --cwd ../my-project
 python -m vibeagent --chat "explain this repository at a high level"
 python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-commands 5 --resume-max-checks 20 "continue the previous change"
 python -m vibeagent --resume <run-id> --fork-session "try a different implementation"

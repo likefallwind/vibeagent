@@ -216,6 +216,9 @@ The automated suite currently covers these 1.0 surfaces:
 - Install smoke: `scripts/install_smoke.py` creates a fresh virtual environment
   from outside the checkout, installs the package editable, and verifies both
   `python -m vibeagent --version` and `vibeagent --version`.
+- Provider-free diagnostics: Claude-compatible `doctor` and the existing
+  `--doctor` spelling inspect the same bounded local report without creating a
+  provider or session; global project and JSON output options remain available.
 - Resource-bounded full suite: `scripts/run_python_test_batches.py` discovers
   importable test modules deterministically, isolates batches, monitors nested
   process memory on Linux/WSL, and fails on memory, timeout, test, or child

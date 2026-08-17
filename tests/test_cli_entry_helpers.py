@@ -64,6 +64,49 @@ class CliEntryHelperTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 0)
         self.assertIn("Quote text with spaces", stdout.getvalue())
 
+    def test_doctor_command_normalizes_to_provider_free_local_diagnostics(self) -> None:
+        args = cli_module.parse_args(["doctor", "--cwd", "/tmp"])
+        stdout = io.StringIO()
+
+        with (
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch(
+                "vibeagent.cli.get_doctor_text",
+                return_value="Doctor:\n  provider: minimax",
+            ) as get_doctor_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["doctor", "--cwd", "/tmp"])
+
+        self.assertTrue(args.doctor)
+        self.assertEqual(args.task, [])
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue(), "Doctor:\n  provider: minimax\n")
+        get_doctor_text.assert_called_once()
+        create_chat_client.assert_not_called()
+
+    def test_doctor_command_retains_json_output_and_rejects_task_arguments(self) -> None:
+        json_args = cli_module.parse_args(["doctor", "--json"])
+        leading_options = cli_module.parse_args(["--json", "--cwd", "/tmp", "doctor"])
+        invalid_args = cli_module.parse_args(["doctor", "unexpected"])
+        ordinary_task = cli_module.parse_args(["fix", "doctor"])
+        stdout = io.StringIO()
+
+        with patch("vibeagent.cli.create_chat_client") as create_chat_client, redirect_stdout(stdout):
+            exit_code = main(["doctor", "unexpected"])
+
+        self.assertTrue(json_args.doctor)
+        self.assertTrue(json_args.json)
+        self.assertTrue(leading_options.doctor)
+        self.assertTrue(leading_options.json)
+        self.assertEqual(leading_options.task, [])
+        self.assertEqual(invalid_args.task, ["unexpected"])
+        self.assertFalse(ordinary_task.doctor)
+        self.assertEqual(ordinary_task.task, ["fix", "doctor"])
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(stdout.getvalue(), "Local command flags cannot be combined with a task.\n")
+        create_chat_client.assert_not_called()
+
     def test_normalize_task_bound_diff_args_moves_task_into_diff_argument(self) -> None:
         args = argparse.Namespace(
             diff_contexts="",
