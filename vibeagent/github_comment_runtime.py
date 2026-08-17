@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from .secret_detection import secret_like_line_label
+
 
 MAX_COMMENT_CHARS = 65_536
 
@@ -24,4 +26,11 @@ def validate_github_comment_body(body: object, *, destination: str) -> str | Non
         return f"GitHub {destination} comment body must contain 1-{MAX_COMMENT_CHARS} characters."
     if any(ord(char) < 32 and char not in "\n\r\t" for char in body):
         return f"GitHub {destination} comment body cannot contain control characters."
+    for line in body.splitlines():
+        label = secret_like_line_label(line)
+        if label:
+            return (
+                f"GitHub {destination} comment body appears to contain sensitive "
+                f"credential material ({label}); redact it before posting."
+            )
     return None

@@ -76,6 +76,15 @@ class GitHubPrCommentRuntimeTests(unittest.TestCase):
             with self.subTest(payload=payload), self.assertRaises(ActionParseError):
                 parse_tool_action("github_pr_comment", payload)
 
+    def test_parser_rejects_secret_like_body_without_echoing_it(self) -> None:
+        token = "ghp_" + "A" * 36
+
+        with self.assertRaises(ActionParseError) as raised:
+            parse_tool_action("github_pr_comment", {"body": f"token={token}"})
+
+        self.assertIn("sensitive credential material", str(raised.exception))
+        self.assertNotIn(token, str(raised.exception))
+
     def test_preflight_is_local_and_exposes_stable_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

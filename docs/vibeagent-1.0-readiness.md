@@ -261,8 +261,12 @@ The automated suite currently covers these 1.0 surfaces:
   no source-buffer transfer, and bridge-secret stripping for child processes.
 - Built-in `/code-review` expansion in interactive and print modes: bounded
   effort/target parsing, verified multi-agent review, read-only default behavior,
-  explicit `--fix`, and fail-closed unsupported cloud/comment options before
-  any model request or external write.
+  explicit `--fix`, and opt-in current-branch PR discussion comments only after
+  exact local preview and normal approval. Comment content excludes unverified
+  candidates and sensitive/internal material, shared comment validation rejects
+  high-confidence credentials without echoing them before approval or network
+  access, and failures never retry with changed content. Unsupported cloud
+  `ultra` fails before any model request.
 - Built-in `/simplify` expansion in interactive and print modes: four parallel
   cleanup reviewers, independent candidate verification, strict separation from
   correctness review, bounded local targets, a behavior-preserving edit contract,

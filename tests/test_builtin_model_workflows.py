@@ -32,6 +32,7 @@ class BuiltinModelWorkflowTests(unittest.TestCase):
         self.assertNotIn("After the review, inspect every verified finding", workflow.task)
         self.assertEqual(workflow.metadata["name"], "code-review")
         self.assertFalse(workflow.metadata["fix"])
+        self.assertFalse(workflow.metadata["comment"])
 
     def test_builds_fix_workflow_with_effort_and_target(self) -> None:
         workflow = build_code_review_workflow('xhigh --fix "src/auth flow.py"')
@@ -42,23 +43,51 @@ class BuiltinModelWorkflowTests(unittest.TestCase):
         self.assertEqual(workflow.metadata["effort"], "xhigh")
         self.assertEqual(workflow.metadata["target"], "src/auth flow.py")
         self.assertTrue(workflow.metadata["fix"])
+        self.assertFalse(workflow.metadata["comment"])
 
     def test_parses_end_of_options_target(self) -> None:
         self.assertEqual(
             parse_code_review_arguments("medium --fix -- --generated"),
-            (True, "medium", "--generated"),
+            (True, False, "medium", "--generated"),
+        )
+        self.assertEqual(
+            parse_code_review_arguments("-- --comment"),
+            (False, False, None, "--comment"),
         )
 
     def test_rejects_unsupported_or_invalid_options(self) -> None:
         for argument, message in (
-            ("--comment", "not supported"),
             ("ultra", "cloud review"),
             ("--fix --fix", "at most once"),
+            ("--comment --comment", "at most once"),
             ("--unknown", "Unknown"),
             ("'unterminated", "invalid"),
         ):
             with self.subTest(argument=argument), self.assertRaisesRegex(ValueError, message):
                 parse_code_review_arguments(argument)
+
+    def test_builds_current_pr_comment_workflow_with_exact_preview_and_approval(self) -> None:
+        workflow = build_code_review_workflow("medium --comment src")
+
+        self.assertIn("locally read-only", workflow.task)
+        self.assertIn("one GitHub discussion comment", workflow.task)
+        self.assertIn("check_github_pr_comment exactly once", workflow.task)
+        self.assertIn("github_pr_comment exactly once with the exact same body", workflow.task)
+        self.assertIn("explicit-approval requirements remain mandatory", workflow.task)
+        self.assertIn("Do not include credentials, secrets", workflow.task)
+        self.assertNotIn("do not edit, stage, commit, push, or post comments", workflow.task)
+        self.assertTrue(workflow.metadata["comment"])
+        self.assertFalse(workflow.metadata["fix"])
+        self.assertEqual(workflow.metadata["target"], "src")
+
+    def test_fix_and_comment_workflow_posts_only_after_verification(self) -> None:
+        workflow = build_code_review_workflow("--fix --comment")
+
+        self.assertIn("Run focused verification and final_review after edits", workflow.task)
+        self.assertIn("After all review, fix, and verification work is complete", workflow.task)
+        self.assertIn("include each finding's disposition and the checks run", workflow.task)
+        self.assertTrue(workflow.metadata["fix"])
+        self.assertTrue(workflow.metadata["comment"])
 
     def test_one_shot_code_review_expands_before_provider_execution(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-code-review-") as base:
@@ -313,19 +342,21 @@ class BuiltinModelWorkflowTests(unittest.TestCase):
         create_client.assert_not_called()
         self.assertIn("Unknown", stdout.getvalue())
 
-    def test_unsupported_print_mode_option_fails_before_provider_creation(self) -> None:
+    def test_print_mode_comment_expands_before_agent_run(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-code-review-") as base:
-            create_client = Mock()
-            stdout = io.StringIO()
+            root = Path(base)
+            result = AgentResult(True, "review posted", root, "review-run", 1, [], [])
+            run_agent = Mock(return_value=result)
             with (
-                patch("vibeagent.cli.create_chat_client", create_client),
-                redirect_stdout(stdout),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
             ):
                 exit_code = main(["--cwd", base, "--print", "/code-review --comment"])
 
-        self.assertNotEqual(exit_code, 0)
-        create_client.assert_not_called()
-        self.assertIn("not supported", stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertIn("check_github_pr_comment exactly once", run_agent.call_args.args[0])
+        self.assertTrue(run_agent.call_args.kwargs["task_metadata"]["comment"])
 
 
 if __name__ == "__main__":

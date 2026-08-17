@@ -3420,10 +3420,16 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   duplicates, and ranks the surviving findings. One failed reviewer is reported
   without discarding the other reports.
   Interactive and print-mode `/code-review [low|medium|high|xhigh|max]
-  [--fix] [target]` expose the workflow directly. Targets can select a local
+  [--fix] [--comment] [target]` expose the workflow directly. Targets can select a local
   file, branch, ref range, or short review scope; review is read-only unless
-  `--fix` is explicit. Unsupported cloud `ultra` and GitHub `--comment` modes
-  fail before any model request or external write.
+  `--fix` is explicit. `--comment` requests one bounded Markdown discussion
+  comment on the current branch pull request after verified findings and any
+  requested fixes/checks are complete. The exact body must pass
+  `check_github_pr_comment` and the normal explicit approval before
+  `github_pr_comment`; failed preview, approval, or posting does not retry with
+  changed content. GitHub issue and PR comment previews reject high-confidence
+  credential material without echoing it before any approval or network call.
+  Unsupported cloud `ultra` mode fails before any model request.
   `/simplify [target]` reuses the verified parallel review engine with four
   cleanup-only agents for existing-helper reuse, simplicity, concrete
   efficiency, and abstraction placement. It excludes correctness bugs and

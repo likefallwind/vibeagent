@@ -90,6 +90,15 @@ class GitHubIssueCommentRuntimeTests(unittest.TestCase):
             with self.subTest(payload=payload), self.assertRaises(ActionParseError):
                 parse_tool_action("github_issue_comment", payload)
 
+    def test_parser_rejects_private_key_material_before_preview(self) -> None:
+        body = "-----BEGIN PRIVATE KEY-----\nnot-a-real-key"
+
+        with self.assertRaises(ActionParseError) as raised:
+            parse_tool_action("github_issue_comment", {"body": body, "issue": "42"})
+
+        self.assertIn("sensitive credential material", str(raised.exception))
+        self.assertNotIn(body, str(raised.exception))
+
     def test_preflight_is_local_and_returns_stable_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

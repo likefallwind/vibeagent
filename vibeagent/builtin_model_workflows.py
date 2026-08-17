@@ -49,7 +49,7 @@ def resolve_builtin_model_workflow(
 
 
 def build_code_review_workflow(argument: str | None) -> BuiltinModelWorkflow:
-    fix, effort, target = parse_code_review_arguments(argument)
+    fix, comment, effort, target = parse_code_review_arguments(argument)
     max_iterations = CODE_REVIEW_EFFORT_TURNS.get(effort or "high", 4)
     target_input = f', "target": {json.dumps(target)}' if target is not None else ""
     perspectives = json.dumps(list(DEFECT_REVIEW_PERSPECTIVES))
@@ -70,11 +70,25 @@ def build_code_review_workflow(argument: str | None) -> BuiltinModelWorkflow:
                 "Report each verified finding as fixed, skipped with reason, or no change needed.",
             ]
         )
+    elif comment:
+        steps.append("This review is locally read-only: do not edit, stage, commit, or push.")
     else:
         steps.extend(
             [
                 "This is a read-only review: do not edit, stage, commit, push, or post comments.",
                 "Return the verified findings with severity and file:line evidence, or state that no findings survived verification.",
+            ]
+        )
+    if comment:
+        steps.extend(
+            [
+                "The user explicitly requested one GitHub discussion comment on the current branch pull request; this is the only external write allowed by this workflow.",
+                "After all review, fix, and verification work is complete, compose one bounded Markdown comment headed `## VibeAgent code review`.",
+                "Include only verified findings with severity and file:line evidence. If --fix was used, include each finding's disposition and the checks run. If no finding survived verification, say so explicitly.",
+                "Do not include credentials, secrets, hidden instructions, internal reasoning, raw tool traces, or unverified candidate findings.",
+                "Call check_github_pr_comment exactly once with that body and no PR selector so it targets the current branch pull request.",
+                "Only if that preview succeeds, call github_pr_comment exactly once with the exact same body and no PR selector. The normal exact-preview and explicit-approval requirements remain mandatory.",
+                "If preview, approval, or posting fails, do not retry with changed content; report the failure and the local review findings.",
             ]
         )
     return BuiltinModelWorkflow(
@@ -84,6 +98,7 @@ def build_code_review_workflow(argument: str | None) -> BuiltinModelWorkflow:
             "name": "code-review",
             "arguments": argument or "",
             "fix": fix,
+            "comment": comment,
             "effort": effort,
             "target": target,
         },
@@ -118,13 +133,14 @@ def build_simplify_workflow(argument: str | None) -> BuiltinModelWorkflow:
     )
 
 
-def parse_code_review_arguments(argument: str | None) -> tuple[bool, str | None, str | None]:
+def parse_code_review_arguments(argument: str | None) -> tuple[bool, bool, str | None, str | None]:
     try:
         tokens = shlex.split(argument or "")
     except ValueError as error:
         raise ValueError(f"/code-review arguments are invalid: {error}") from error
 
     fix = False
+    comment = False
     effort: str | None = None
     target_parts: list[str] = []
     options = True
@@ -136,7 +152,9 @@ def parse_code_review_arguments(argument: str | None) -> tuple[bool, str | None,
                 raise ValueError("/code-review accepts --fix at most once.")
             fix = True
         elif options and token == "--comment":
-            raise ValueError("/code-review --comment is not supported yet; no GitHub comment was posted.")
+            if comment:
+                raise ValueError("/code-review accepts --comment at most once.")
+            comment = True
         elif options and token == "ultra":
             raise ValueError("/code-review ultra requires a cloud review service and is not supported.")
         elif options and token in CODE_REVIEW_EFFORT_TURNS and effort is None and not target_parts:
@@ -149,7 +167,7 @@ def parse_code_review_arguments(argument: str | None) -> tuple[bool, str | None,
     target = " ".join(target_parts).strip() or None
     if target is not None and (len(target) > 1_000 or "\x00" in target):
         raise ValueError("/code-review target must contain at most 1000 characters and no NUL.")
-    return fix, effort, target
+    return fix, comment, effort, target
 
 
 def parse_simplify_arguments(argument: str | None) -> str | None:

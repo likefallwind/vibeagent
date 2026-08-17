@@ -193,7 +193,7 @@ def get_help_text() -> str:
             "  /init [AGENTS.md|CLAUDE.md]  Create a starter project instruction file.",
             "  /doctor Show local configuration and workspace diagnostics.",
             "  /review [--max-files N] [--max-checks N] Review current git changes, syntax checks, suggested commands, and focused tests.",
-            "  /code-review [low|medium|high|xhigh|max] [--fix] [target] Run verified multi-agent code review; edits only with --fix.",
+            "  /code-review [low|medium|high|xhigh|max] [--fix] [--comment] [target] Run verified multi-agent code review; edits only with --fix, current-branch PR comment only with --comment.",
             "  /simplify [target] Run verified reuse, simplicity, efficiency, and abstraction cleanup, then apply justified fixes.",
             "  /batch <instruction> Plan 5-30 independent units, ask for approval, then run worktree agents that open pull requests.",
             "  /security-review Review the current branch against origin/HEAD for verified security vulnerabilities.",

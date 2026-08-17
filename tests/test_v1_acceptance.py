@@ -152,8 +152,20 @@ EXPECTED_GATES = {
         "tests": {"test_run_agent_repairs_a_failing_script_and_finishes"},
     },
     "VA1-REVIEW": {
-        "tools": {"final_review", "suggest_checks", "run_suggested_checks"},
-        "tests": {"test_run_agent_continues_after_pending_suggested_check_is_run"},
+        "tools": {
+            "final_review",
+            "suggest_checks",
+            "run_suggested_checks",
+            "check_github_pr_comment",
+            "github_pr_comment",
+        },
+        "tests": {
+            "test_run_agent_continues_after_pending_suggested_check_is_run",
+            "test_builds_current_pr_comment_workflow_with_exact_preview_and_approval",
+            "test_parser_rejects_secret_like_body_without_echoing_it",
+            "test_posts_discussion_comment_without_shell_interpretation",
+            "test_agent_denies_comment_without_approval_handler",
+        },
     },
     "VA1-COMMIT": {
         "tools": {"check_git_stage", "git_stage", "check_git_commit", "git_commit"},
