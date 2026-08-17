@@ -219,6 +219,10 @@ The automated suite currently covers these 1.0 surfaces:
 - Provider-free diagnostics: Claude-compatible `doctor` and the existing
   `--doctor` spelling inspect the same bounded local report without creating a
   provider or session; global project and JSON output options remain available.
+- Provider-free MCP administration: top-level `mcp` reuses the interactive
+  `list`, `get`, `add`, `add-json`, and `remove` implementation with exact
+  argument arrays, local/project/user scope validation, JSON output, and no
+  provider or session creation.
 - Resource-bounded full suite: `scripts/run_python_test_batches.py` discovers
   importable test modules deterministically, isolates batches, monitors nested
   process memory on Linux/WSL, and fails on memory, timeout, test, or child

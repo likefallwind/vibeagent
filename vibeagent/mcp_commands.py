@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 import shlex
@@ -37,14 +38,22 @@ def handle_mcp_command(project_root: Path, argument: str | None) -> McpCommandRe
         parts = shlex.split(argument or "")
     except ValueError as error:
         return McpCommandResult(f"{MCP_USAGE}\nError: {error}")
+    return handle_mcp_command_parts(project_root, parts)
+
+
+def handle_mcp_command_parts(
+    project_root: Path,
+    parts: Sequence[str],
+) -> McpCommandResult:
+    values = list(parts)
     try:
-        if not parts or parts in (["list"], ["ls"]):
+        if not values or values in (["list"], ["ls"]):
             return McpCommandResult(_format_mcp_list(project_root))
-        operation = parts[0]
-        if operation == "get" and len(parts) == 2:
-            return McpCommandResult(_format_mcp_details(project_root, parts[1]))
+        operation = values[0]
+        if operation == "get" and len(values) == 2:
+            return McpCommandResult(_format_mcp_details(project_root, values[1]))
         if operation == "add":
-            options = parse_mcp_add(parts[1:])
+            options = parse_mcp_add(values[1:])
             server = server_from_mcp_add(options)
             _validate_and_write(project_root, options.name, options.scope, server, options.replace)
             return McpCommandResult(
@@ -52,14 +61,14 @@ def handle_mcp_command(project_root: Path, argument: str | None) -> McpCommandRe
                 changed=True,
             )
         if operation == "add-json":
-            name, scope, replace, server = parse_mcp_add_json(parts[1:])
+            name, scope, replace, server = parse_mcp_add_json(values[1:])
             _validate_and_write(project_root, name, scope, server, replace)
             return McpCommandResult(
                 f"Added MCP server {name} at {scope} scope.",
                 changed=True,
             )
         if operation in {"remove", "rm"}:
-            name, scope = parse_mcp_remove(parts[1:])
+            name, scope = parse_mcp_remove(values[1:])
             remove_mcp_scope_server(project_root, scope, name)
             return McpCommandResult(
                 f"Removed MCP server {name} from {scope} scope.",
@@ -148,4 +157,9 @@ def _scope_from_source(source: str) -> str:
     return "explicit"
 
 
-__all__ = ["MCP_USAGE", "McpCommandResult", "handle_mcp_command"]
+__all__ = [
+    "MCP_USAGE",
+    "McpCommandResult",
+    "handle_mcp_command",
+    "handle_mcp_command_parts",
+]

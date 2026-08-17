@@ -177,6 +177,7 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "env",
         "processes",
         "background_agents",
+        "mcp_command",
         "background_agent_log",
         "stop_background_agent",
         "send_background_agent",

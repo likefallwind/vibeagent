@@ -78,8 +78,9 @@ class CliCommandDispatchTests(unittest.TestCase):
         review_index = LOCAL_FLAG_HANDLER_NAMES.index("run_review_local_flag")
         self.assertEqual([call[0] for call in calls], list(LOCAL_FLAG_HANDLER_NAMES[: review_index + 1]))
         self.assertEqual(calls[0], ("run_background_agent_local_flag", project_root, namespace))
-        self.assertEqual(calls[1], ("run_project_local_flag", project_root, config_root, provider_env, namespace))
-        self.assertEqual(calls[2], ("run_command_local_flag", project_root, namespace))
+        self.assertEqual(calls[1], ("run_mcp_local_flag", project_root, namespace))
+        self.assertEqual(calls[2], ("run_project_local_flag", project_root, config_root, provider_env, namespace))
+        self.assertEqual(calls[3], ("run_command_local_flag", project_root, namespace))
         self.assertEqual(calls[-1], ("run_review_local_flag", project_root, provider_env, namespace))
 
 

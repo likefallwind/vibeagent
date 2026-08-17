@@ -8,6 +8,7 @@ from typing import Any
 
 LOCAL_FLAG_HANDLER_NAMES = (
     "run_background_agent_local_flag",
+    "run_mcp_local_flag",
     "run_project_local_flag",
     "run_command_local_flag",
     "run_read_local_flag",

@@ -20,6 +20,7 @@ from .cli_git_args import (
 )
 from .cli_inspection_args import add_inspection_arguments
 from .cli_local_report_args import add_local_report_arguments
+from .cli_mcp_command_args import add_mcp_command_local_argument
 from .cli_one_shot_args import add_one_shot_arguments
 from .cli_output_args import add_output_arguments
 from .cli_parse_core import nonnegative_int, positive_decimal, positive_int, timeout_ms
@@ -59,6 +60,7 @@ def add_cli_arguments(parser: argparse.ArgumentParser) -> None:
     add_git_local_arguments(local)
     add_process_local_arguments(local)
     add_background_agent_local_arguments(local)
+    add_mcp_command_local_argument(local)
     add_status_local_arguments(local)
     add_workflow_local_arguments(local)
     add_auto_mode_arguments(parser, local)
