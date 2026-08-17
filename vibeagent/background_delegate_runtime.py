@@ -11,6 +11,7 @@ from .background_delegate_types import (
     BackgroundDelegateSnapshot,
     BackgroundDelegateTask,
 )
+from .subagent_concurrency import resolve_max_concurrent_subagents
 from .types import (
     DelegateTaskAction,
     DelegateTaskObservation,
@@ -70,6 +71,14 @@ def start_background_delegate_task(
         existing = _TASKS.get(key)
         if existing is not None and not existing.done_event.is_set():
             raise ValueError(f"Background task {task_id} is already running.")
+        limit = resolve_max_concurrent_subagents()
+        running = sum(not registered.done_event.is_set() for registered in _TASKS.values())
+        if running >= limit:
+            raise ValueError(
+                f"Concurrent subagent limit reached ({running}/{limit}). "
+                "Wait for a running subagent to finish or increase "
+                "VIBEAGENT_MAX_CONCURRENT_SUBAGENTS."
+            )
         _prune_completed_tasks_locked()
         _TASKS[key] = task
     task.thread.start()

@@ -312,32 +312,39 @@ def _execute_special_tool(
         complete_task_step(workspace, step, delegate_observation, iteration, logger)
         return delegate_observation
     if action.run_in_background:
-        delegate_observation = start_background_delegate_task(
-            workspace,
-            action,
-            lambda task_id, cancel_requested, inbound_messages: execute_delegate_task_action(
+        try:
+            delegate_observation = start_background_delegate_task(
                 workspace,
                 action,
-                client,
-                parent_iteration=iteration,
-                subagent_id=task_id,
-                max_output_tokens=max_output_tokens,
-                model_retries=model_retries,
-                model_retry_delay_ms=model_retry_delay_ms,
-                model_timeout_ms=model_timeout_ms,
-                command_timeout_ms=command_timeout_ms,
-                logger=logger,
-                approval_handler=approval_handler,
-                approval_policy=approval_policy,
-                hooks=hooks,
-                permissions=permissions,
-                cancel_requested=cancel_requested,
-                inbound_messages=inbound_messages,
-                tool_ceiling_names=tool_ceiling_names,
-                parent_tool_use_id=parent_tool_use_id,
-            ),
-            task_id=action.teammate_name,
-        )
+                lambda task_id, cancel_requested, inbound_messages: execute_delegate_task_action(
+                    workspace,
+                    action,
+                    client,
+                    parent_iteration=iteration,
+                    subagent_id=task_id,
+                    max_output_tokens=max_output_tokens,
+                    model_retries=model_retries,
+                    model_retry_delay_ms=model_retry_delay_ms,
+                    model_timeout_ms=model_timeout_ms,
+                    command_timeout_ms=command_timeout_ms,
+                    logger=logger,
+                    approval_handler=approval_handler,
+                    approval_policy=approval_policy,
+                    hooks=hooks,
+                    permissions=permissions,
+                    cancel_requested=cancel_requested,
+                    inbound_messages=inbound_messages,
+                    tool_ceiling_names=tool_ceiling_names,
+                    parent_tool_use_id=parent_tool_use_id,
+                ),
+                task_id=action.teammate_name,
+            )
+        except ValueError as error:
+            delegate_observation = ToolErrorObservation(
+                kind="tool_error",
+                tool="Agent" if action.teammate_name is not None else "delegate_task",
+                message=str(error),
+            )
     else:
         delegate_observation = execute_delegate_task_action(
             workspace,

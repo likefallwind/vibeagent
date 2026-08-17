@@ -149,6 +149,46 @@ class AgentSpecialToolTests(unittest.TestCase):
         self.assertEqual(len(steps), 1)
         self.assertEqual(steps[0].status, "completed")
 
+    def test_background_delegate_capacity_error_is_returned_to_model(self) -> None:
+        client = SpecialToolClient([])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-special-") as base:
+            workspace = create_run_workspace(Path(base))
+            steps = []
+            with patch(
+                "vibeagent.agent_special_tools.start_background_delegate_task",
+                side_effect=ValueError("Concurrent subagent limit reached (20/20)."),
+            ):
+                wrapped = execute_special_tool_action(
+                    workspace,
+                    DelegateTaskAction(
+                        type="delegate_task",
+                        task="Inspect in background",
+                        run_in_background=True,
+                    ),
+                    client,
+                    steps=steps,
+                    observations=[],
+                    iteration=2,
+                    tool_name="delegate_task",
+                    max_output_tokens=2048,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                    approval_handler=None,
+                    approval_policy="ask",
+                    user_input_handler=None,
+                    hooks=ProjectHooks(),
+                    permissions=ProjectPermissions(),
+                    execute_action_safely_func=_unexpected_execute_action_safely,
+                )
+
+        self.assertEqual(wrapped.observation.kind, "tool_error")
+        self.assertIn("Concurrent subagent limit reached", wrapped.observation.message)
+        self.assertEqual(client.messages, [])
+        self.assertEqual(steps[0].status, "failed")
+
     def test_isolated_delegate_requires_worktree_approval_before_execution(self) -> None:
         client = SpecialToolClient([[{"type": "text", "text": "must not run"}]])
         with tempfile.TemporaryDirectory(prefix="vibeagent-special-") as base:
