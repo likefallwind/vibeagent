@@ -121,6 +121,27 @@ class CliStartupContextTests(unittest.TestCase):
             self.assertEqual(read_session_name(root, context.run_id), "auth-refactor")  # type: ignore[arg-type]
             self.assertIn("Session named: auth-refactor", context.message or "")
 
+    def test_requested_session_id_is_used_by_interactive_name(self) -> None:
+        session_id = "123e4567-e89b-12d3-a456-426614174000"
+        with tempfile.TemporaryDirectory(prefix="vibeagent-startup-session-id-") as base:
+            root = Path(base)
+            resume = Mock()
+            compact = Mock()
+
+            context = resolve_interactive_startup_context(
+                _args(session_id=session_id.upper(), name="fixed-session"),
+                root,
+                get_resume_context_func=resume,
+                get_compact_context_func=compact,
+            )
+
+            self.assertIsNone(context.error)
+            self.assertEqual(context.run_id, session_id)
+            self.assertEqual(context.pending_workspace.run_id, session_id)  # type: ignore[union-attr]
+            self.assertEqual(read_session_name(root, session_id), "fixed-session")
+            resume.assert_not_called()
+            compact.assert_not_called()
+
     def test_name_with_resume_renames_the_continued_session(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-startup-name-") as base:
             root = Path(base)

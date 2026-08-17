@@ -35,6 +35,7 @@ from .debug_runtime import DebugOptions
 from .workspace_core import BrowserMode, create_local_workspace
 from .workspace_view_mode import resolve_verbose_mode
 from .startup_file_resources import download_startup_file_resources
+from .session_id import normalize_requested_session_id
 
 
 def run_one_shot(
@@ -44,6 +45,7 @@ def run_one_shot(
     agent: str | None = None,
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
     session_name: str | None = None,
+    session_id: str | None = None,
     trust_project_permissions: bool = False,
     resume_arg: str | None = None,
     compact_arg: str | None = None,
@@ -136,6 +138,21 @@ def run_one_shot(
     try:
         if not task.strip():
             return emit_error("No task provided.")
+        if session_id is not None:
+            try:
+                session_id = normalize_requested_session_id(session_id)
+            except ValueError as error:
+                return emit_error(str(error), exit_code=2)
+            if request_mode != "code":
+                return emit_error("--session-id requires a coding session.", exit_code=2)
+            if resume_arg is not None or compact_arg is not None or fork_session:
+                return emit_error(
+                    "--session-id cannot be combined with --resume, --compact, or --fork-session.",
+                    exit_code=2,
+                )
+            if not session_persistence:
+                return emit_error("--session-id cannot be combined with --no-session-persistence.", exit_code=2)
+            auto_compact = False
         if replay_user_messages and (stream is None or request_mode != "code"):
             return emit_error("User message replay requires stream-json coding output.", exit_code=2)
         project_root = resolve_project_root(base_dir) or Path.cwd()
@@ -229,6 +246,7 @@ def run_one_shot(
                 agent=agent,
                 dynamic_agent_profiles=dynamic_agent_profiles,
                 session_name=session_name,
+                session_id=session_id,
                 trust_project_permissions=trust_project_permissions,
                 permission_overrides=permission_overrides,
                 permission_prompt_tool=permission_prompt_tool,

@@ -76,6 +76,15 @@ class CliWorktreeTests(unittest.TestCase):
         local = cli_module.parse_args(["--worktree", "feature", "--tools"])
         chat = cli_module.parse_args(["--worktree", "feature", "--chat", "hello"])
         resume = cli_module.parse_args(["--worktree", "feature", "--resume", "run-1", "continue"])
+        requested_session = cli_module.parse_args(
+            [
+                "--worktree",
+                "feature",
+                "--session-id",
+                "123e4567-e89b-12d3-a456-426614174000",
+                "continue",
+            ]
+        )
 
         self.assertEqual(
             cli_module.validate_cli_args(local),
@@ -87,8 +96,9 @@ class CliWorktreeTests(unittest.TestCase):
         )
         self.assertEqual(
             cli_module.validate_cli_args(resume),
-            "--worktree cannot be combined with --resume, --session-id, --compact, or --continue.",
+            "--worktree cannot be combined with --resume, --compact, or --continue.",
         )
+        self.assertIsNone(cli_module.validate_cli_args(requested_session))
 
     def test_helper_creates_isolated_branch_and_copies_only_safe_config(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-worktree-") as base:
@@ -183,6 +193,7 @@ class CliWorktreeTests(unittest.TestCase):
 
     def test_main_routes_one_shot_execution_into_isolated_root(self) -> None:
         captured: dict[str, object] = {}
+        session_id = "123e4567-e89b-12d3-a456-426614174000"
 
         def fake_run_one_shot(**kwargs) -> int:
             captured.update(kwargs)
@@ -200,6 +211,8 @@ class CliWorktreeTests(unittest.TestCase):
                         str(root),
                         "--worktree",
                         "one-shot",
+                        "--session-id",
+                        session_id,
                         "modify",
                         "app",
                         "--file",
@@ -213,6 +226,7 @@ class CliWorktreeTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(captured["task"], "modify app")
         self.assertEqual(captured["file_resources"], ("file_alpha:fixtures/input.bin",))
+        self.assertEqual(captured["session_id"], session_id)
         self.assertEqual(linked_root, root / ".vibeagent" / "worktrees" / "one-shot")
         self.assertEqual(main_content, "value = 1\n")
         self.assertEqual(linked_content, "value = 2\n")

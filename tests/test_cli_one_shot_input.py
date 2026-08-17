@@ -14,6 +14,7 @@ from vibeagent.cli_one_shot_input import (
     format_stream_assistant_context,
     merge_stream_system_prompt,
     resolve_input_resume_arg,
+    resolve_requested_session_id,
     resolve_one_shot_code_task,
     resolve_one_shot_context_from_limits,
     resolve_task_input,
@@ -138,7 +139,6 @@ class CliOneShotInputTests(unittest.TestCase):
                 explicit_resume_arg="explicit",
                 compact_arg=None,
                 request_mode="code",
-                cli_session_id="cli",
                 input_session_id="input",
             ),
             "explicit",
@@ -148,28 +148,16 @@ class CliOneShotInputTests(unittest.TestCase):
                 explicit_resume_arg=None,
                 compact_arg="compact",
                 request_mode="code",
-                cli_session_id="cli",
                 input_session_id="input",
             )
         )
 
-    def test_resolve_input_resume_arg_uses_session_aliases_for_code_only(self) -> None:
+    def test_resolve_input_resume_arg_uses_structured_session_for_code_only(self) -> None:
         self.assertEqual(
             resolve_input_resume_arg(
                 explicit_resume_arg=None,
                 compact_arg=None,
                 request_mode="code",
-                cli_session_id="cli",
-                input_session_id="input",
-            ),
-            "cli",
-        )
-        self.assertEqual(
-            resolve_input_resume_arg(
-                explicit_resume_arg=None,
-                compact_arg=None,
-                request_mode="code",
-                cli_session_id=None,
                 input_session_id="input",
             ),
             "input",
@@ -179,7 +167,6 @@ class CliOneShotInputTests(unittest.TestCase):
                 explicit_resume_arg=None,
                 compact_arg=None,
                 request_mode="chat",
-                cli_session_id="cli",
                 input_session_id="input",
             )
         )
@@ -659,13 +646,25 @@ class CliOneShotInputTests(unittest.TestCase):
         self.assertEqual(kwargs["approval_policy"], "ask")
         self.assertTrue(kwargs["bypass_permissions_available"])
 
-    def test_cli_session_id_alias_maps_to_resume_arg(self) -> None:
-        args = cli_module.parse_args(["--session-id", "run-1", "continue"])
+    def test_cli_session_id_maps_to_new_session_and_disables_auto_compact(self) -> None:
+        session_id = "123E4567-E89B-12D3-A456-426614174000"
+        args = cli_module.parse_args(["--session-id", session_id, "continue"])
 
         kwargs = cli_module.build_one_shot_kwargs_from_args(args)
 
-        self.assertEqual(args.session_id, "run-1")
-        self.assertEqual(kwargs["resume_arg"], "run-1")
+        self.assertEqual(kwargs["session_id"], session_id.lower())
+        self.assertIsNone(kwargs["resume_arg"])
+        self.assertFalse(kwargs["auto_compact"])
+
+    def test_requested_session_id_accepts_matching_structured_uuid(self) -> None:
+        session_id = "123e4567-e89b-12d3-a456-426614174000"
+
+        self.assertEqual(
+            resolve_requested_session_id(session_id.upper(), session_id),
+            session_id,
+        )
+        with self.assertRaisesRegex(ValueError, "must match"):
+            resolve_requested_session_id(session_id, "223e4567-e89b-12d3-a456-426614174000")
 
     def test_build_one_shot_kwargs_from_args_includes_permission_overrides(self) -> None:
         args = cli_module.parse_args(

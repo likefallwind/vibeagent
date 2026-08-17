@@ -396,10 +396,50 @@ class CliArgsValidationTests(unittest.TestCase):
             "--model cannot be combined with other local command flags unless a MODEL value is provided.",
         )
 
-        session_compact_args = cli_module.parse_args(["--session-id", "run-1", "--compact", "run-2", "continue"])
+        session_compact_args = cli_module.parse_args(
+            [
+                "--session-id",
+                "123e4567-e89b-12d3-a456-426614174000",
+                "--compact",
+                "run-2",
+                "continue",
+            ]
+        )
         self.assertEqual(
             cli_module.validate_cli_args(session_compact_args),
-            "--resume/--session-id and --compact cannot be used together.",
+            "--session-id cannot be combined with --resume, --continue, --compact, --fork-session, or --from-pr.",
+        )
+
+    def test_cli_session_id_requires_a_fresh_persistent_coding_session(self) -> None:
+        session_id = "123e4567-e89b-12d3-a456-426614174000"
+        valid = cli_module.parse_args(["--session-id", session_id, "inspect"])
+        invalid = cli_module.parse_args(["--session-id", "latest", "inspect"])
+        chat = cli_module.parse_args(["--session-id", session_id, "--chat", "hello"])
+        local = cli_module.parse_args(["--session-id", session_id, "--sessions"])
+        ephemeral = cli_module.parse_args(
+            ["--session-id", session_id, "--no-session-persistence", "-p", "inspect"]
+        )
+        resume_limit = cli_module.parse_args(
+            ["--session-id", session_id, "--resume-max-files", "2", "inspect"]
+        )
+
+        self.assertIsNone(cli_module.validate_cli_args(valid))
+        self.assertEqual(cli_module.validate_cli_args(invalid), "--session-id must be a valid UUID.")
+        self.assertEqual(
+            cli_module.validate_cli_args(chat),
+            "--session-id requires an interactive or one-shot coding session.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(local),
+            "--session-id requires an interactive or one-shot coding session.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(ephemeral),
+            "--session-id cannot be combined with --no-session-persistence.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(resume_limit),
+            "--resume-max-files can only be used with --resume.",
         )
 
     def test_cli_dangerously_skip_permissions_requires_one_shot_code_task(self) -> None:
@@ -470,7 +510,7 @@ class CliArgsValidationTests(unittest.TestCase):
         self.assertTrue(cli_module.build_one_shot_kwargs_from_args(valid_resume)["fork_session"])
         self.assertEqual(
             cli_module.validate_cli_args(missing_source),
-            "--fork-session requires --resume, --session-id, or --continue.",
+            "--fork-session requires --resume or --continue.",
         )
         self.assertEqual(
             cli_module.validate_cli_args(compact),

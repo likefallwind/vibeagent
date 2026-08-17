@@ -195,6 +195,13 @@ class WorkspaceTests(unittest.TestCase):
                 with self.subTest(run_id=run_id), self.assertRaisesRegex(ValueError, "Invalid session id"):
                     create_run_workspace(base, run_id)
 
+    def test_create_run_workspace_can_require_a_new_session(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            create_run_workspace(base, "test-run")
+
+            with self.assertRaisesRegex(ValueError, "Session already exists: test-run"):
+                create_run_workspace(base, "test-run", require_new=True)
+
     def test_create_run_workspace_rejects_symlink_runtime_directories(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
             root = Path(base)

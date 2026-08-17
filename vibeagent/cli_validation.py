@@ -9,6 +9,7 @@ from .cli_permission_overrides import permission_override_validation_error
 from .cli_resume_args import validate_resume_arguments
 from .cli_tool_restrictions import parse_cli_tool_names
 from .model_fallback import normalize_fallback_models
+from .session_id import normalize_requested_session_id
 from .session_names import normalize_session_name
 
 
@@ -39,6 +40,29 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         or args.attach_background_agent is not None
     ):
         return "--file requires an interactive or one-shot model session."
+    if args.session_id is not None:
+        try:
+            normalize_requested_session_id(args.session_id)
+        except ValueError as error:
+            return str(error)
+        if (
+            args.resume is not None
+            or args.continue_latest
+            or args.compact is not None
+            or args.fork_session
+            or args.from_pr is not None
+        ):
+            return "--session-id cannot be combined with --resume, --continue, --compact, --fork-session, or --from-pr."
+        if (
+            has_local_flag(args)
+            or args.chat
+            or args.agent_view
+            or remote_control
+            or args.attach_background_agent is not None
+        ):
+            return "--session-id requires an interactive or one-shot coding session."
+        if args.no_session_persistence:
+            return "--session-id cannot be combined with --no-session-persistence."
     if args.bare and args.setting_sources is not None:
         return "--bare does not load settings files; pass explicit settings with --settings."
     if args.auto_mode_label is not None and not (
@@ -263,11 +287,10 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
             return str(error)
     if args.worktree is not None and (
         args.resume is not None
-        or args.session_id is not None
         or args.compact is not None
         or args.continue_latest
     ):
-        return "--worktree cannot be combined with --resume, --session-id, --compact, or --continue."
+        return "--worktree cannot be combined with --resume, --compact, or --continue."
     resume_error = validate_resume_arguments(args, local_selected=has_local_flag(args))
     if resume_error is not None:
         return resume_error

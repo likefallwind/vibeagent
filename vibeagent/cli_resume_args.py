@@ -16,15 +16,15 @@ def validate_resume_arguments(args: argparse.Namespace, *, local_selected: bool)
         return "--resume, --compact, and --continue cannot be combined with local command flags."
     if args.no_auto_compact and (args.resume is not None or args.compact is not None or args.continue_latest):
         return "--no-auto-compact cannot be combined with --resume, --compact, or --continue."
-    resume_context_selected = args.resume is not None or args.session_id is not None
+    resume_context_selected = args.resume is not None
     if args.fork_session and args.compact is not None:
         return "--fork-session cannot be combined with --compact."
     if args.fork_session and isinstance(args.resume, str) and args.resume.strip().lower() in {"off", "clear", "none"}:
         return "--fork-session requires a resumable source session, not --resume off."
     if args.fork_session and not resume_context_selected:
-        return "--fork-session requires --resume, --session-id, or --continue."
+        return "--fork-session requires --resume or --continue."
     if resume_context_selected and args.compact is not None:
-        return "--resume/--session-id and --compact cannot be used together."
+        return "--resume and --compact cannot be used together."
     resume_limit_error = _validate_limit_options(
         {
             "--resume-max-failures": args.resume_max_failures,
@@ -35,7 +35,7 @@ def validate_resume_arguments(args: argparse.Namespace, *, local_selected: bool)
             "--resume-max-text": args.resume_max_text,
         },
         selected=resume_context_selected,
-        required="--resume or --session-id",
+        required="--resume",
     )
     if resume_limit_error is not None:
         return resume_limit_error

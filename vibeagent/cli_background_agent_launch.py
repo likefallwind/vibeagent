@@ -95,8 +95,7 @@ def _resolve_background_resume_reference(
 ) -> str | None:
     if getattr(args, "compact", None) is not None or getattr(args, "fork_session", False):
         return None
-    resume = getattr(args, "resume", None)
-    value = resume if resume is not None else getattr(args, "session_id", None)
+    value = getattr(args, "resume", None)
     if value is None:
         return None
     normalized = normalize_resume_arg(value)

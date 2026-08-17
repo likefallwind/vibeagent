@@ -25,6 +25,7 @@ from .session_additional_directories import (
 )
 from .session_branching import create_session_branch
 from .session_names import name_session, normalize_session_name
+from .requested_session import create_requested_session_workspace
 from .session_conversation import load_session_conversation
 from .types import ApprovalPolicy, ChatMessage
 from .workspace_core import BrowserMode, RunWorkspace, create_local_workspace, create_run_workspace
@@ -138,9 +139,14 @@ def resolve_interactive_startup_context(
             invocation_root=Path.cwd(),
         ),
     }
-    session_resume = args.resume if args.resume is not None else args.session_id
+    session_resume = args.resume
     if session_resume is None and args.compact is None:
-        return _with_requested_name(InteractiveStartupContext(**prompt_kwargs), args, project_root)
+        context = _with_requested_session(
+            InteractiveStartupContext(**prompt_kwargs),
+            args,
+            project_root,
+        )
+        return _with_requested_name(context, args, project_root)
     if session_resume is not None:
         resume_kwargs = build_context_limit_kwargs(
             max_failures=args.resume_max_failures,
@@ -216,6 +222,34 @@ def _with_resumed_workspace(
             invocation_plugin_dirs=context.invocation_plugin_dirs,
         ),
     )
+
+
+def _with_requested_session(
+    context: InteractiveStartupContext,
+    args: argparse.Namespace,
+    project_root: Path,
+) -> InteractiveStartupContext:
+    requested = getattr(args, "session_id", None)
+    if requested is None or context.error is not None:
+        return context
+    try:
+        workspace = create_requested_session_workspace(
+            project_root,
+            requested,
+            additional_roots=context.additional_directories,
+            safe_mode=context.safe_mode,
+            bare_mode=context.bare_mode,
+            disable_slash_commands=context.disable_slash_commands,
+            browser_mode=context.browser_mode,
+            bypass_permissions_available=context.bypass_permissions_available,
+            setting_sources=context.setting_sources,
+            settings_override_json=context.settings_override_json,
+            invocation_plugin_dirs=context.invocation_plugin_dirs,
+        )
+    except (OSError, ValueError) as error:
+        return replace(context, error=str(error))
+    assert workspace is not None
+    return replace(context, run_id=workspace.run_id, pending_workspace=workspace)
 
 
 def _with_restored_directories(

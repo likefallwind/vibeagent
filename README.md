@@ -431,8 +431,7 @@ python -m vibeagent --from-pr 42 "continue work associated with pull request 42"
 python -m vibeagent --from-pr https://github.com/example/project/pull/42 --fork-session "try a different fix"
 python -m vibeagent --ide "fix the diagnostics in the active VS Code file"
 python -m vibeagent --name auth-refactor "implement the authentication refactor"
-python -m vibeagent --session-id <run-id> "continue the previous change"
-python -m vibeagent --session-id latest "continue the latest session"
+python -m vibeagent --session-id 123e4567-e89b-12d3-a456-426614174000 "start with this session UUID"
 python -m vibeagent --resume -- "continue the latest session"
 python -m vibeagent --no-auto-compact "start this task without prior session context"
 python -m vibeagent -r <run-id> -p "continue the previous change"
@@ -707,9 +706,9 @@ and initial prompts stay out of profile catalogs and the main agent's initial
 profile list.
 For Claude-style scripting compatibility, `-p` / `--print` runs a one-shot task
 and prints only the final text in normal text output, `-r` is an alias for
-`--resume`, `--session-id RUN_ID` is an alias for `--resume RUN_ID`,
-`--session-id latest` resumes the newest session, `-c` resumes the newest
-session for a one-shot task,
+`--resume`, `--session-id UUID` assigns a specific UUID to a new interactive or
+one-shot session, and `-c` resumes the newest session for a one-shot task.
+An explicit Session ID must use canonical UUID syntax and must not already exist.
 `--worktree NAME` / `-w NAME` starts a fresh one-shot or interactive coding
 session in `.vibeagent/worktrees/NAME` on branch `vibeagent/NAME`, leaving the
 source checkout unchanged and preserving the isolated checkout after exit.
@@ -2174,13 +2173,13 @@ verification evidence in the final result and session summary; suggested checks
 that are still pending or failed are listed by command. Each coding turn records its task, and
 `/sessions` lists recent runs with completion status and a compact task summary.
 The CLI automatically uses the latest run as compact context for the next coding
-turn; `--resume [run-id]`, `--session-id [run-id|latest]` on one-shot tasks,
-and `/resume [run-id|latest]` in the interactive prompt continue the selected
+turn; `--resume [run-id]` on one-shot tasks and `/resume [run-id|latest]` in the
+interactive prompt continue the selected
 Session ID with a bounded historical resume context. An exact VibeAgent-generated
 ID or canonical UUID passed to top-level `--resume` can resolve across projects
 on the same machine. VibeAgent switches to the indexed session's original
 project root before loading settings, permissions, conversation state, or file
-tools; session names, `latest`, `/resume`, and `--session-id` remain scoped to
+tools; session names, `latest`, and `/resume` remain scoped to
 the current project. The owner-only `~/.vibeagent/session-index/` stores only the
 ID, absolute project root, version, and update time in atomic mode-`0600` records;
 it stores no task text, transcript, credentials, or tool output. New persistent
@@ -2217,7 +2216,7 @@ that process; compaction events record the configured threshold, effective
 character threshold, and estimated previous token count. A
 redacted, bounded copy of the non-system conversation is also atomically stored
 as mode-`0600` session state after safe model/tool boundaries. Explicit
-`--resume`, `/resume`, and `--session-id` restore that copy and append the next
+`--resume` and `/resume` restore that copy and append the next
 turn to the same Session ID. Branches and `--fork-session` restore it into a new
 Session ID, while compact modes also create a new Session from the bounded
 handoff. Resumed turns rebuild the current system prompt, project snapshot,
@@ -2249,7 +2248,7 @@ project directory, refusing protected, escaping, symbolic-link, and non-regular
 targets. It does not invoke a clipboard helper, file manager, or other GUI.
 `/branch [name]` creates a new session from the active coding context and switches
 the next coding turn into that branch. `--fork-session` provides the same behavior
-when combined with `--continue`, `--resume`, or `--session-id`; one-shot JSON adds
+when combined with `--continue` or `--resume`; one-shot JSON adds
 `sessionBranch.runId` and `sessionBranch.sourceRunId`. The source transcript is
 never modified. Branches copy task, eligible scheduled-task, active-goal, and
 additional-directory state, retain explicit parent lineage, appear in

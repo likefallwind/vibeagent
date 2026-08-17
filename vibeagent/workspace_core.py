@@ -88,6 +88,7 @@ def create_run_workspace(
     settings_override_json: str | None = None,
     invocation_plugin_dirs: tuple[Path, ...] = (),
     permission_prompt_tool: str | None = None,
+    require_new: bool = False,
 ) -> RunWorkspace:
     _validate_browser_mode(browser_mode)
     # Project mode: work in the caller's directory and store task logs under .vibeagent/sessions/.
@@ -108,7 +109,12 @@ def create_run_workspace(
             raise ValueError(f"{label} is not a regular directory: {path.relative_to(project_root).as_posix()}")
         if path.exists() and not path.is_dir():
             raise ValueError(f"{label} is not a directory: {path.relative_to(project_root).as_posix()}")
-    session_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        session_dir.mkdir(parents=True, exist_ok=not require_new)
+    except FileExistsError:
+        if require_new:
+            raise ValueError(f"Session already exists: {current_run_id}") from None
+        raise
     for label, path in (
         ("Runtime path", runtime_dir),
         ("Session root path", sessions_root),

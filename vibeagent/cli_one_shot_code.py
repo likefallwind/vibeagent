@@ -54,6 +54,7 @@ from .cli_brief_output import brief_message_observer
 from .prompt_suggestions import PromptSuggestionResult, try_generate_prompt_suggestion
 from .cli_verbose_output import VerboseTranscriptRenderer
 from .model_streaming import supports_model_streaming
+from .requested_session import create_requested_session_workspace
 
 
 def run_one_shot_code(
@@ -66,6 +67,7 @@ def run_one_shot_code(
     agent: str | None = None,
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
     session_name: str | None = None,
+    session_id: str | None = None,
     trust_project_permissions: bool,
     permission_overrides: ProjectPermissions | None,
     resolved_mcp_config_paths: tuple[Path, ...],
@@ -167,6 +169,26 @@ def run_one_shot_code(
     except ValueError as error:
         return 1, replace(prior_context, error=str(error))
 
+    try:
+        requested_workspace = create_requested_session_workspace(
+            project_root,
+            session_id,
+            mcp_config_paths=resolved_mcp_config_paths,
+            strict_mcp_config=strict_mcp_config,
+            additional_roots=additional_directories,
+            safe_mode=safe_mode,
+            bare_mode=bare_mode,
+            disable_slash_commands=disable_slash_commands,
+            browser_mode=browser_mode,
+            exclude_dynamic_system_prompt_sections=exclude_dynamic_system_prompt_sections,
+            bypass_permissions_available=bypass_permissions_available,
+            setting_sources=setting_sources,
+            settings_override_json=settings_override_json,
+            invocation_plugin_dirs=invocation_plugin_dirs,
+        )
+    except (OSError, ValueError) as error:
+        return 1, replace(prior_context, error=str(error))
+
     merged_prior_context = combine_optional_text(prior_context.context, input_prior_context)
     goal_state, steering_task = _resolve_one_shot_goal(task, prior_context, project_root)
     if ephemeral_workspace is not None and goal_state is not None:
@@ -195,7 +217,8 @@ def run_one_shot_code(
         else None
     )
     resumed_workspace = (
-        ephemeral_workspace
+        requested_workspace
+        or ephemeral_workspace
         or (
             create_local_workspace(
                 project_root,
@@ -235,6 +258,7 @@ def run_one_shot_code(
             fork_session
             or brief
             or session_name is not None
+            or requested_workspace is not None
             or ephemeral_workspace is not None
             or permission_prompt_tool is not None
             or debug_runtime.enabled

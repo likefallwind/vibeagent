@@ -132,6 +132,28 @@ class CliBackgroundAgentTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(launch.call_args.kwargs["resume_reference"], "resolved-run-id")
 
+    def test_background_session_id_is_forwarded_as_a_new_worker_session(self) -> None:
+        session_id = "123e4567-e89b-12d3-a456-426614174000"
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
+            root = Path(base).resolve()
+            view = _view(root)
+            argv = ["--bg", "--cwd", root.as_posix(), "--session-id", session_id, "inspect"]
+            args = parse_args(argv)
+            with (
+                patch("vibeagent.cli_background_agent_launch.get_resume_context") as get_resume,
+                patch(
+                    "vibeagent.cli_background_agent_launch.launch_background_agent",
+                    return_value=view,
+                ) as launch,
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = launch_background_agent_from_cli(argv, args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn(session_id, launch.call_args.args[2])
+        self.assertIsNone(launch.call_args.kwargs["resume_reference"])
+        get_resume.assert_not_called()
+
     def test_background_materializes_plugin_urls_before_persisting_launch_argv(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-background-") as base:
             root = Path(base).resolve()

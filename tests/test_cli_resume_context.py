@@ -222,70 +222,57 @@ class CliResumeContextTests(unittest.TestCase):
         get_compact_context.assert_called_once_with("run-1", Path(base).resolve(), max_checks=2)
         self.assertEqual(run_agent.call_args.kwargs["prior_context"], "startup compact context")
 
-    def test_main_starts_interactive_with_session_id_resume_context(self) -> None:
+    def test_main_starts_interactive_with_requested_session_id(self) -> None:
+        session_id = "123e4567-e89b-12d3-a456-426614174000"
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
-            result = AgentResult(
-                success=True,
-                message="done",
-                run_dir=Path(base),
-                run_id="new-run",
-                iterations=1,
-                observations=[],
-                steps=[],
-            )
-            run_agent = Mock(return_value=result)
+            order: list[str] = []
+
+            def run_agent_impl(_task: str, **kwargs) -> AgentResult:
+                order.append("agent")
+                self.assertEqual(kwargs["workspace"].run_id, session_id)
+                self.assertIsNone(kwargs["prior_context"])
+                return AgentResult(
+                    success=True,
+                    message="done",
+                    run_dir=Path(base),
+                    run_id=session_id,
+                    iterations=1,
+                    observations=[],
+                    steps=[],
+                )
+
+            def get_resume_context(*_args, **_kwargs):
+                order.append("resume")
+                return session_id, "new context", "Resume context loaded."
+
+            run_agent = Mock(side_effect=run_agent_impl)
 
             with (
-                patch("builtins.input", side_effect=["continue task", "/exit"]),
+                patch("builtins.input", side_effect=["start task", "/exit"]),
                 patch("vibeagent.cli.create_chat_client", return_value=object()),
-                patch(
-                    "vibeagent.cli.get_resume_context",
-                    side_effect=[
-                        ("run-1", "startup resume context", "Resume context loaded from session run-1."),
-                        ("new-run", "new context", "Resume context loaded from session new-run."),
-                    ],
-                ) as get_resume_context,
+                patch("vibeagent.cli.get_resume_context", side_effect=get_resume_context),
                 patch("vibeagent.cli.run_agent", run_agent),
                 redirect_stdout(io.StringIO()),
             ):
-                exit_code = main(["--cwd", base, "--session-id", "run-1", "--resume-max-checks", "2"])
+                exit_code = main(["--cwd", base, "--session-id", session_id])
 
         self.assertEqual(exit_code, 0)
-        self.assertEqual(get_resume_context.call_args_list[0].args, ("run-1", Path(base).resolve()))
-        self.assertEqual(get_resume_context.call_args_list[0].kwargs, {"max_checks": 2})
-        self.assertEqual(run_agent.call_args.kwargs["prior_context"], "startup resume context")
+        self.assertEqual(order[0], "agent")
 
-    def test_main_starts_interactive_with_session_id_latest_resume_context(self) -> None:
+    def test_main_interactive_rejects_existing_requested_session_before_client(self) -> None:
+        session_id = "123e4567-e89b-12d3-a456-426614174000"
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
-            result = AgentResult(
-                success=True,
-                message="done",
-                run_dir=Path(base),
-                run_id="new-run",
-                iterations=1,
-                observations=[],
-                steps=[],
-            )
-            run_agent = Mock(return_value=result)
-
+            (Path(base) / ".vibeagent" / "sessions" / session_id).mkdir(parents=True)
+            stdout = io.StringIO()
             with (
-                patch("builtins.input", side_effect=["continue task", "/exit"]),
-                patch("vibeagent.cli.create_chat_client", return_value=object()),
-                patch(
-                    "vibeagent.cli.get_resume_context",
-                    side_effect=[
-                        ("latest-run", "startup latest context", "Resume context loaded from session latest-run."),
-                        ("new-run", "new context", "Resume context loaded from session new-run."),
-                    ],
-                ) as get_resume_context,
-                patch("vibeagent.cli.run_agent", run_agent),
-                redirect_stdout(io.StringIO()),
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                redirect_stdout(stdout),
             ):
-                exit_code = main(["--cwd", base, "--session-id", "latest"])
+                exit_code = main(["--cwd", base, "--session-id", session_id])
 
-        self.assertEqual(exit_code, 0)
-        self.assertEqual(get_resume_context.call_args_list[0].args, (None, Path(base).resolve()))
-        self.assertEqual(run_agent.call_args.kwargs["prior_context"], "startup latest context")
+        self.assertEqual(exit_code, 2)
+        self.assertIn(f"Session already exists: {session_id}", stdout.getvalue())
+        create_chat_client.assert_not_called()
 
     def test_main_resume_off_clears_context_before_next_agent_run(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:

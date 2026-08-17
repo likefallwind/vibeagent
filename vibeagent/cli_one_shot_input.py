@@ -24,6 +24,7 @@ from .dynamic_agent_profiles import parse_dynamic_agent_profiles
 from .model_effort import resolve_model_effort_setting
 from .invocation_settings import parse_invocation_settings, parse_setting_sources
 from .invocation_plugins import resolve_invocation_plugin_dirs
+from .session_id import normalize_requested_session_id
 from .structured_output import parse_structured_output_schema
 from .debug_runtime import resolve_debug_options
 
@@ -62,6 +63,10 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
     )
     effort = resolve_model_effort_setting(args.effort, os.environ)
     invocation_root = Path.cwd()
+    requested_session_id = resolve_requested_session_id(
+        args.session_id,
+        task_input.session_id,
+    )
     return {
         "task": task_input.task,
         "request_mode": "chat" if args.chat else "code",
@@ -69,13 +74,13 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "agent": args.agent,
         "dynamic_agent_profiles": parse_dynamic_agent_profiles(args.agents),
         "session_name": args.name,
+        "session_id": requested_session_id,
         "trust_project_permissions": args.trust_project_permissions,
         "resume_arg": resolve_input_resume_arg(
             explicit_resume_arg=args.resume,
             compact_arg=args.compact,
             request_mode="chat" if args.chat else "code",
-            cli_session_id=args.session_id,
-            input_session_id=task_input.session_id,
+            input_session_id=(None if requested_session_id is not None else task_input.session_id),
         ),
         "compact_arg": args.compact,
         "resume_max_failures": args.resume_max_failures,
@@ -84,7 +89,11 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "resume_max_checks": args.resume_max_checks,
         "resume_max_output_chars": args.resume_max_output_chars,
         "resume_max_text": args.resume_max_text,
-        "auto_compact": not args.no_auto_compact and not args.no_session_persistence,
+        "auto_compact": (
+            not args.no_auto_compact
+            and not args.no_session_persistence
+            and requested_session_id is None
+        ),
         "session_persistence": not args.no_session_persistence,
         "fork_session": args.fork_session,
         "compact_max_failures": args.compact_max_failures,
@@ -343,12 +352,29 @@ def resolve_input_resume_arg(
     explicit_resume_arg: str | None,
     compact_arg: str | None,
     request_mode: str,
-    cli_session_id: str | None,
     input_session_id: str | None,
 ) -> str | None:
     if explicit_resume_arg is not None or compact_arg is not None or request_mode == "chat":
         return explicit_resume_arg
-    return cli_session_id or input_session_id or explicit_resume_arg
+    return input_session_id
+
+
+def resolve_requested_session_id(
+    cli_session_id: str | None,
+    input_session_id: str | None,
+) -> str | None:
+    if cli_session_id is None:
+        return None
+    requested = normalize_requested_session_id(cli_session_id)
+    if input_session_id is None:
+        return requested
+    try:
+        structured = normalize_requested_session_id(input_session_id)
+    except ValueError:
+        structured = None
+    if structured != requested:
+        raise ValueError("Structured input session_id must match --session-id when both are provided.")
+    return requested
 
 
 def combine_optional_text(first: str | None, second: str | None) -> str | None:
