@@ -19,6 +19,10 @@ ROOT_INSTRUCTION_PATHS = (
 )
 MAX_INSTRUCTION_FILE_BYTES = 256_000
 MAX_RULE_FILES = 200
+MAX_RULE_PATH_PATTERNS = 100
+MAX_RULE_PATTERN_EXPANSIONS = 256
+MAX_RULE_TOTAL_EXPANSIONS = 1_024
+MAX_RULE_EXPANSION_STEPS = 4_096
 
 
 @dataclass(frozen=True)
@@ -285,8 +289,22 @@ def parse_rule_frontmatter(content: str) -> tuple[tuple[str, ...], str]:
             paths.append(_unquote_scalar(stripped[1:].strip()))
             continue
         in_paths = False
-    normalized = tuple(_validate_rule_pattern(path) for path in paths)
-    return tuple(dict.fromkeys(normalized)), "".join(lines[closing + 1:])
+    if len(paths) > MAX_RULE_PATH_PATTERNS:
+        raise ValueError(
+            f"Rule frontmatter paths must contain at most {MAX_RULE_PATH_PATTERNS} entries."
+        )
+    normalized = tuple(
+        dict.fromkeys(_validate_rule_pattern(path) for path in paths)
+    )
+    total_expansions = 0
+    for pattern in normalized:
+        total_expansions += len(_expand_braces(pattern))
+        if total_expansions > MAX_RULE_TOTAL_EXPANSIONS:
+            raise ValueError(
+                "Rule frontmatter paths expand to more than "
+                f"{MAX_RULE_TOTAL_EXPANSIONS} patterns."
+            )
+    return normalized, "".join(lines[closing + 1:])
 
 
 def _parse_inline_paths(value: str) -> list[str]:
@@ -339,13 +357,30 @@ def _glob_regex(pattern: str) -> str:
 
 
 def _expand_braces(pattern: str) -> tuple[str, ...]:
-    match = re.search(r"\{([^{}]+)\}", pattern)
-    if match is None:
-        return (pattern,)
+    pending = [pattern]
     values: list[str] = []
-    for option in match.group(1).split(","):
-        replacement = pattern[:match.start()] + option + pattern[match.end():]
-        values.extend(_expand_braces(replacement))
+    steps = 0
+    while pending:
+        current = pending.pop()
+        match = re.search(r"\{([^{}]+)\}", current)
+        if match is None:
+            values.append(current)
+            if len(values) > MAX_RULE_PATTERN_EXPANSIONS:
+                raise ValueError(
+                    "Rule path pattern expands to more than "
+                    f"{MAX_RULE_PATTERN_EXPANSIONS} variants."
+                )
+            continue
+        options = match.group(1).split(",")
+        steps += len(options)
+        if steps > MAX_RULE_EXPANSION_STEPS:
+            raise ValueError(
+                "Rule path brace expansion exceeds "
+                f"{MAX_RULE_EXPANSION_STEPS} processing steps."
+            )
+        prefix = current[:match.start()]
+        suffix = current[match.end():]
+        pending.extend(prefix + option + suffix for option in reversed(options))
     return tuple(values)
 
 

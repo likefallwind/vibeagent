@@ -1806,6 +1806,9 @@ inline code are left literal, HTML comments outside code are omitted from the
 injected text, and missing, oversized, cyclic, protected, external, or
 symlink-escaped imports fail closed without exposing their content. Per-file and
 whole-discovery import count and byte limits bound instruction expansion.
+Rule `paths` frontmatter is limited to 100 entries, 256 brace-expanded variants
+per pattern, and 1,024 variants per file so compact glob syntax cannot trigger
+combinatorial memory growth.
 Project commands from root or nested `package.json`, `pyproject.toml`,
 and `Makefile` files are shown as command hints with their `cwd` and executable availability. Long-running commands can be started as background
 processes, inspected through captured stdout/stderr tails across CLI calls, sent exact stdin input while the starting runtime is still attached, checked

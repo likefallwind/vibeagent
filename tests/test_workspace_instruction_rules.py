@@ -361,6 +361,55 @@ class WorkspaceInstructionRuleTests(unittest.TestCase):
         self.assertFalse(rule_pattern_matches("*.md", "docs/README.md"))
         self.assertTrue(rule_pattern_matches("src/**/*.{ts,tsx}", "src/ui/button.tsx"))
 
+    def test_rule_brace_expansion_accepts_boundary_without_recursive_growth(self) -> None:
+        pattern = "src/" + "{a,b}" * 8 + ".py"
+
+        self.assertTrue(rule_pattern_matches(pattern, "src/aaaaaaaa.py"))
+        self.assertTrue(rule_pattern_matches(pattern, "src/bbbbbbbb.py"))
+        self.assertFalse(rule_pattern_matches(pattern, "src/cccccccc.py"))
+
+    def test_rule_brace_expansion_rejects_combinatorial_pattern(self) -> None:
+        pattern = "src/" + "{a,b}" * 9 + ".py"
+
+        with self.assertRaisesRegex(ValueError, "more than 256 variants"):
+            rule_pattern_matches(pattern, "src/aaaaaaaaa.py")
+
+    def test_explosive_rule_frontmatter_fails_during_discovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="instruction-brace-budget")
+            pattern = "src/" + "{a,b}" * 9 + ".py"
+            self._write(
+                root / ".claude" / "rules" / "explosive.md",
+                f'---\npaths: ["{pattern}"]\n---\nMust not load.\n',
+            )
+
+            metadata = read_project_instruction_sources(workspace)
+
+        self.assertFalse(metadata["ok"])
+        self.assertNotIn("Must not load.", metadata["text"])
+        source = next(
+            item
+            for item in metadata["files"]
+            if item["path"] == ".claude/rules/explosive.md"
+        )
+        self.assertFalse(source["included"])
+        self.assertIn("more than 256 variants", source["message"])
+
+    def test_rule_frontmatter_rejects_excess_path_entries(self) -> None:
+        entries = ", ".join(f'"src/file-{index}.py"' for index in range(101))
+
+        with self.assertRaisesRegex(ValueError, "at most 100 entries"):
+            parse_rule_frontmatter(f"---\npaths: [{entries}]\n---\nRule body.\n")
+
+    def test_rule_frontmatter_rejects_excess_total_brace_expansions(self) -> None:
+        patterns = [f'"src/{index}-' + "{a,b}" * 8 + '.py"' for index in range(5)]
+
+        with self.assertRaisesRegex(ValueError, "more than 1024 patterns"):
+            parse_rule_frontmatter(
+                f"---\npaths: [{', '.join(patterns)}]\n---\nRule body.\n"
+            )
+
     def test_external_rule_symlink_fails_closed_without_loading_content(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as outside_dir:
             root = Path(temp_dir)
