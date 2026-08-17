@@ -2927,6 +2927,9 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   plugin-update, workflow, monitor, async-hook, and optional LSP cleanup for the
   interactive loop. It provides one idempotent shutdown boundary for exit and
   `/cd` project transitions.
+- `vibeagent/cli_interactive_local_dispatch.py`: routes stateless local command
+  handlers in precedence order while the main interactive loop retains mutable
+  session, provider, and conversation state.
 - `vibeagent/background_agent_types.py`,
   `vibeagent/background_agent_store.py`, and
   `vibeagent/background_agent_config.py`: define detached coding-session

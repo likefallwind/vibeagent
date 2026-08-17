@@ -30,13 +30,7 @@ from .directory_added_hooks import (
     schedule_directory_added_hooks,
 )
 from .cli_checkpoint_local_flags import run_interactive_checkpoint_command
-from .cli_background_agent_local_flags import run_interactive_background_agent_command
 from .cli_completion import interactive_prompt_completion
-from .cli_code_intel_local_flags import run_interactive_code_intel_command
-from .cli_command_local_flags import run_interactive_command_execution
-from .cli_edit_local_flags import run_interactive_edit_command
-from .cli_git_local_flags import run_interactive_git_command
-from .cli_json_local_flags import run_interactive_json_command
 from .cli_output import (
     build_approval_handler,
     format_error,
@@ -45,17 +39,12 @@ from .cli_output import (
     prompt_user_input,
 )
 from .cli_model_stream import terminal_model_stream_scope
-from .cli_patch_local_flags import run_interactive_patch_command
 from .cli_project_command_expansion import (
     expand_code_task_project_command,
     project_command_task_metadata,
 )
-from .cli_project_local_flags import run_interactive_project_command, run_interactive_project_state_command
-from .cli_interactive_read_commands import run_interactive_read_command
 from .cli_idle_input import input_with_idle_callback
 from .cli_idle_notification import IdleNotificationTimer
-from .cli_review_local_flags import run_interactive_review_command
-from .cli_runtime_local_flags import run_interactive_runtime_command
 from .cli_session_local_flags import CompactBlocked, run_interactive_resume_command, run_interactive_session_command
 from .cli_system_prompt_state import update_system_prompt_state
 from .cli_additional_directory_state import update_additional_directory_state
@@ -64,12 +53,15 @@ from .cli_interactive_project_runtime import InteractiveProjectRuntime
 from .cli_interactive_branch import prepare_interactive_branch_switch
 from .cli_interactive_model import interactive_provider_env
 from .cli_interactive_effort import configure_interactive_effort
+from .cli_interactive_local_dispatch import (
+    InteractiveLocalCommandContext,
+    dispatch_interactive_local_command,
+)
 from .context_compaction import format_autocompact_setting
 from .cli_interactive_provider_commands import run_interactive_provider_command
 from .cli_interactive_rewind import run_interactive_rewind_command
 from .cli_interactive_session_management import interactive_session_prompt, run_interactive_session_management
 from .cli_subagent_panel import SubagentPanel
-from .cli_text_edit_local_flags import run_interactive_text_edit_command
 from .commands import get_resume_context as default_get_resume_context, parse_local_command
 from .config import resolve_execution_config
 from .cli_goal import evaluate_and_store_goal
@@ -907,64 +899,29 @@ def run_interactive_loop(
                 or "No project skills found."
             )
         if command and (
-            project_text := run_interactive_project_command(
-                command, project_command_namespace, approval_policy, Path.cwd(), safe_mode=safe_mode
-            )
-        ) is not None:
-            print(project_text)
-            continue
-        if command and (
-            background_agent_text := run_interactive_background_agent_command(command)
-        ) is not None:
-            print(background_agent_text)
-            continue
-        if command and (command_text := run_interactive_command_execution(command, command_namespace)) is not None:
-            print(command_text)
-            continue
-        if command and (read_text := run_interactive_read_command(command, command_namespace)) is not None:
-            print(read_text)
-            continue
-        if command and (code_intel_text := run_interactive_code_intel_command(command, command_namespace)) is not None:
-            print(code_intel_text)
-            continue
-        if command and (json_text := run_interactive_json_command(command, command_namespace)) is not None:
-            print(json_text)
-            continue
-        if command and (text_edit_text := run_interactive_text_edit_command(command, command_namespace)) is not None:
-            print(text_edit_text)
-            continue
-        if command and (edit_text := run_interactive_edit_command(command, command_namespace)) is not None:
-            print(edit_text)
-            continue
-        if command and (patch_text := run_interactive_patch_command(command, command_namespace)) is not None:
-            print(patch_text)
-            continue
-        if command and (git_text := run_interactive_git_command(command, command_namespace)) is not None:
-            print(git_text)
-            continue
-        if command and (runtime_text := run_interactive_runtime_command(command, command_namespace)) is not None:
-            print(runtime_text)
-            continue
-        if command and (
-            state_text := run_interactive_project_state_command(
+            local_text := dispatch_interactive_local_command(
                 command,
                 command_namespace,
-                mode=mode,
-                approval_policy=approval_policy,
-                resume_run_id=resume_run_id,
-                resume_context=resume_context,
-                chat_turns=len(chat_history) // 2,
-                effort=effort_override or "auto",
-                autocompact=format_autocompact_setting(initial_autocompact_tokens),
-                system_prompt_set=bool(system_prompt),
-                append_system_prompt_set=bool(append_system_prompt),
-                permission_mode=permission_state.mode,
+                InteractiveLocalCommandContext(
+                    project_root=Path.cwd(),
+                    mode=mode,
+                    approval_policy=approval_policy,
+                    resume_run_id=resume_run_id,
+                    resume_context=resume_context,
+                    chat_turns=len(chat_history) // 2,
+                    effort=effort_override or "auto",
+                    autocompact=format_autocompact_setting(
+                        initial_autocompact_tokens
+                    ),
+                    system_prompt_set=bool(system_prompt),
+                    append_system_prompt_set=bool(append_system_prompt),
+                    permission_mode=permission_state.mode,
+                    safe_mode=safe_mode,
+                ),
+                project_command_namespace=project_command_namespace,
             )
         ) is not None:
-            print(state_text)
-            continue
-        if command and (review_text := run_interactive_review_command(command, command_namespace)) is not None:
-            print(review_text)
+            print(local_text)
             continue
         if command and command.type == "clear":
             run_active_session_hook("session_end", "clear")
