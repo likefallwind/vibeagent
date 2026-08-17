@@ -26,10 +26,10 @@ def normalize_management_command_arguments(
     hidden_option: str,
 ) -> list[str]:
     values = list(argv)
-    index = _management_command_index(values, command_names)
+    index = management_command_index(values, command_names)
     if index is None:
         return values
-    command_values, trailing_globals = _extract_trailing_global_options(values[index + 1 :])
+    command_values, trailing_globals = extract_trailing_global_options(values[index + 1 :])
     return [
         *values[:index],
         *trailing_globals,
@@ -48,7 +48,7 @@ def decode_management_command_arguments(value: str, *, label: str) -> list[str]:
     return payload
 
 
-def _management_command_index(
+def management_command_index(
     values: list[str],
     command_names: frozenset[str],
 ) -> int | None:
@@ -74,7 +74,7 @@ def _management_command_index(
     return None
 
 
-def _extract_trailing_global_options(values: list[str]) -> tuple[list[str], list[str]]:
+def extract_trailing_global_options(values: list[str]) -> tuple[list[str], list[str]]:
     separator = values.index("--") if "--" in values else len(values)
     command_values: list[str] = []
     global_values: list[str] = []
@@ -106,5 +106,7 @@ def _extract_trailing_global_options(values: list[str]) -> tuple[list[str], list
 __all__ = [
     "add_management_command_local_argument",
     "decode_management_command_arguments",
+    "extract_trailing_global_options",
+    "management_command_index",
     "normalize_management_command_arguments",
 ]

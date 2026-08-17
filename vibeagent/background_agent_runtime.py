@@ -40,6 +40,7 @@ from .background_agent_store import (
 from .background_agent_types import (
     DEFAULT_BACKGROUND_AGENT_LOG_CHARS,
     MAX_BACKGROUND_AGENT_LOG_CHARS,
+    BackgroundAgentBatchRespawn,
     BackgroundAgentRecord,
     BackgroundAgentView,
 )
@@ -155,18 +156,59 @@ def respawn_background_agent(
         view = get_background_agent(root, agent_id)
         if view is None:
             return None, "not-found"
-        _reject_attached_background_agent(view)
-        if view.status in {"running", "needs-input", "approval-error", "input-error"}:
-            terminate_persistent_process(as_process_record(view.record))
-            remove_background_approval(root, agent_id)
-            remove_background_user_input(root, agent_id)
-        config = read_background_agent_config(root, agent_id)
-        if pending_background_agent_message_count(root, agent_id) == 0:
-            message = "Continue the interrupted background task from the recorded session context."
-            enqueue_background_agent_message(config, message)
-        else:
-            message = "Continue with the queued background messages from the recorded session context."
-        return _respawn_background_agent_locked(view, config, task_summary=message), "respawned"
+        return _respawn_existing_background_agent_locked(root, view), "respawned"
+
+
+def respawn_inactive_background_agents(
+    project_root: Path,
+) -> BackgroundAgentBatchRespawn:
+    root = project_root.resolve()
+    candidate_ids = tuple(
+        view.record.id
+        for view in list_background_agents(root)
+        if view.status in {"stopped", "completed", "failed", "lost"}
+    )
+    respawned: list[BackgroundAgentView] = []
+    failures: list[tuple[str, str]] = []
+    for agent_id in candidate_ids:
+        try:
+            with background_agent_transition_lock(root, agent_id):
+                view = get_background_agent(root, agent_id)
+                if view is None:
+                    failures.append((agent_id, "Background agent no longer exists."))
+                    continue
+                if view.status not in {"stopped", "completed", "failed", "lost"}:
+                    failures.append(
+                        (agent_id, f"Background agent is now {view.status}; it was not restarted.")
+                    )
+                    continue
+                respawned.append(_respawn_existing_background_agent_locked(root, view))
+        except (OSError, RuntimeError, ValueError) as error:
+            failures.append((agent_id, str(error)))
+    return BackgroundAgentBatchRespawn(
+        eligible_count=len(candidate_ids),
+        respawned=tuple(respawned),
+        failures=tuple(failures),
+    )
+
+
+def _respawn_existing_background_agent_locked(
+    root: Path,
+    view: BackgroundAgentView,
+) -> BackgroundAgentView:
+    agent_id = view.record.id
+    _reject_attached_background_agent(view)
+    if view.status in {"running", "needs-input", "approval-error", "input-error"}:
+        terminate_persistent_process(as_process_record(view.record))
+        remove_background_approval(root, agent_id)
+        remove_background_user_input(root, agent_id)
+    config = read_background_agent_config(root, agent_id)
+    if pending_background_agent_message_count(root, agent_id) == 0:
+        message = "Continue the interrupted background task from the recorded session context."
+        enqueue_background_agent_message(config, message)
+    else:
+        message = "Continue with the queued background messages from the recorded session context."
+    return _respawn_background_agent_locked(view, config, task_summary=message)
 
 
 def stop_background_agent(project_root: Path, agent_id: str) -> BackgroundAgentView | None:
@@ -369,6 +411,7 @@ __all__ = [
     "read_background_agent_logs",
     "remove_background_agent",
     "respawn_background_agent",
+    "respawn_inactive_background_agents",
     "send_background_agent_message",
     "stop_background_agent",
 ]

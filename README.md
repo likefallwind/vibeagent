@@ -467,13 +467,15 @@ python -m vibeagent --bg --approval auto --cwd ../my-project "run the tests and 
 python -m vibeagent agents --cwd ../my-project
 python -m vibeagent agents --ax-screen-reader --cwd ../my-project
 python -m vibeagent --background-agents --cwd ../my-project
-python -m vibeagent --background-agent-log <agent-id> --cwd ../my-project
-python -m vibeagent --stop-background-agent <agent-id> --cwd ../my-project
+python -m vibeagent logs <agent-id> --max-chars 5000 --cwd ../my-project
+python -m vibeagent stop <agent-id> --cwd ../my-project
+python -m vibeagent kill <agent-id> --cwd ../my-project
 python -m vibeagent --attach-background-agent <agent-id> --cwd ../my-project
 python -m vibeagent attach <agent-id> --cwd ../my-project
 python -m vibeagent --send-background-agent <agent-id> "continue with the focused tests" --cwd ../my-project
-python -m vibeagent --respawn-background-agent <agent-id> --cwd ../my-project
-python -m vibeagent --remove-background-agent <agent-id> --cwd ../my-project
+python -m vibeagent respawn <agent-id> --cwd ../my-project
+python -m vibeagent respawn --all --cwd ../my-project
+python -m vibeagent rm <agent-id> --cwd ../my-project
 python -m vibeagent remote-control --cwd ../my-project
 python -m vibeagent remote-control --cwd ../my-project --remote-control-host 192.0.2.10 --remote-control-cert ./cert.pem --remote-control-key ./key.pem
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib "update both codebases"

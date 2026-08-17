@@ -183,6 +183,7 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "stop_background_agent",
         "send_background_agent",
         "respawn_background_agent",
+        "respawn_all_background_agents",
         "remove_background_agent",
         "status",
         "context",
@@ -301,6 +302,8 @@ def local_result_exit_code(args: argparse.Namespace, text: str) -> int:
         has_top_level_field(text, "status", status)
         for status in ("failed", "lost")
     ):
+        return 1
+    if args.respawn_all_background_agents and has_positive_top_level_count(text, "failed"):
         return 1
     if args.port_check is not None and has_top_level_field(text, "reachable", "no"):
         return 1

@@ -34,11 +34,19 @@ class BackgroundAgentView:
     exit_code: int | None
 
 
+@dataclass(frozen=True)
+class BackgroundAgentBatchRespawn:
+    eligible_count: int
+    respawned: tuple[BackgroundAgentView, ...]
+    failures: tuple[tuple[str, str], ...]
+
+
 __all__ = [
     "BACKGROUND_AGENT_ID_PATTERN",
     "BACKGROUND_AGENT_SCHEMA_VERSION",
     "DEFAULT_BACKGROUND_AGENT_LOG_CHARS",
     "MAX_BACKGROUND_AGENT_LOG_CHARS",
     "BackgroundAgentRecord",
+    "BackgroundAgentBatchRespawn",
     "BackgroundAgentView",
 ]

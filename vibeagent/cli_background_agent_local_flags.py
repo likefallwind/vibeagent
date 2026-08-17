@@ -12,6 +12,7 @@ from .background_agent_runtime import (
     read_background_agent_logs,
     remove_background_agent,
     respawn_background_agent,
+    respawn_inactive_background_agents,
     send_background_agent_message,
     stop_background_agent,
 )
@@ -69,6 +70,27 @@ def run_background_agent_local_flag(
         return _format_background_agent_delivery(view, disposition), {
             "backgroundAgent": background_agent_view_payload(view),
             "backgroundAgentRespawn": {"status": disposition},
+        }
+    if getattr(args, "respawn_all_background_agents", False):
+        result = respawn_inactive_background_agents(root)
+        lines = [
+            "Background agent batch respawn:",
+            f"  eligible: {result.eligible_count}",
+            f"  respawned: {len(result.respawned)}",
+            f"  failed: {len(result.failures)}",
+        ]
+        lines.extend(f"  - {agent_id}: {message}" for agent_id, message in result.failures)
+        return "\n".join(lines), {
+            "backgroundAgentRespawnAll": {
+                "eligible": result.eligible_count,
+                "respawned": [
+                    background_agent_view_payload(view) for view in result.respawned
+                ],
+                "failures": [
+                    {"id": agent_id, "message": message}
+                    for agent_id, message in result.failures
+                ],
+            }
         }
     if args.remove_background_agent is not None:
         removed, message = remove_background_agent(root, args.remove_background_agent)

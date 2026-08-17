@@ -3,6 +3,16 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 
+from .cli_management_command_args import (
+    extract_trailing_global_options,
+    management_command_index,
+)
+
+
+BACKGROUND_AGENT_COMMAND_NAMES = frozenset(
+    {"agents", "attach", "kill", "logs", "remote-control", "respawn", "rm", "stop"}
+)
+
 
 def add_background_agent_local_arguments(
     local: argparse._MutuallyExclusiveGroup,
@@ -50,6 +60,11 @@ def add_background_agent_local_arguments(
         "--respawn-background-agent",
         metavar="ID",
         help="Restart one background coding agent from its recorded session.",
+    )
+    local.add_argument(
+        "--respawn-all-background-agents",
+        action="store_true",
+        help="Restart every non-running project-local background coding agent.",
     )
     local.add_argument(
         "--remove-background-agent",
@@ -106,12 +121,35 @@ def add_background_agent_option_arguments(parser: argparse.ArgumentParser, *, po
 
 def normalize_background_agent_command_arguments(argv: Sequence[str]) -> list[str]:
     values = list(argv)
-    if values and values[0] == "agents":
-        return ["--agent-view", *values[1:]]
-    if values and values[0] == "remote-control":
-        return ["--remote-control", *values[1:]]
-    if len(values) >= 2 and values[0] == "attach":
-        return ["--attach-background-agent", values[1], *values[2:]]
+    index = management_command_index(values, BACKGROUND_AGENT_COMMAND_NAMES)
+    if index is None:
+        return values
+    command = values[index]
+    command_args, trailing_globals = extract_trailing_global_options(values[index + 1 :])
+    prefix = [*values[:index], *trailing_globals]
+    if command == "agents":
+        return [*prefix, "--agent-view", *command_args]
+    if command == "remote-control":
+        return [*prefix, "--remote-control", *command_args]
+    if command == "attach":
+        return [*prefix, "--attach-background-agent", *command_args]
+    if command == "logs":
+        normalized = _normalize_logs_arguments(command_args)
+        return [*prefix, "--background-agent-log", *normalized]
+    if command in {"stop", "kill"}:
+        return [*prefix, "--stop-background-agent", *command_args]
+    if command == "respawn" and command_args == ["--all"]:
+        return [*prefix, "--respawn-all-background-agents"]
+    if command == "respawn":
+        return [*prefix, "--respawn-background-agent", *command_args]
+    if command == "rm":
+        return [*prefix, "--remove-background-agent", *command_args]
+    return values
+
+
+def _normalize_logs_arguments(values: list[str]) -> list[str]:
+    if len(values) == 3 and values[1] == "--max-chars":
+        return [values[0], "--background-agent-log-max-chars", values[2]]
     return values
 
 

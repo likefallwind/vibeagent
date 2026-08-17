@@ -40,10 +40,14 @@ background runtime is closed, target configuration is reloaded, and the
 conversation continues in a new target-local session branch.
 Top-level `--background` / `--bg` launches a persistent one-shot coding session
 in a detached process group and returns its project-local ID. Provider-free CLI
-flags and interactive slash commands list sessions, read bounded logs, stop a
-running agent, queue follow-up turns, respawn a running or stopped worker under the
-same agent ID, and remove its private supervisor files without deleting the
-resumable transcript. `agents` opens a dependency-free full-screen project
+commands, compatibility flags, and interactive slash commands list sessions,
+read bounded logs, stop a running agent, queue follow-up turns, respawn a worker
+under the same agent ID, and remove its private supervisor files without deleting
+the resumable transcript. `logs ID`, `stop ID` / `kill ID`, `respawn ID`, and
+`rm ID` are available before provider initialization. `respawn --all` restarts
+inactive project-local sessions after rechecking each one under its transition
+lock and reports per-agent failures without discarding successful restarts.
+`agents` opens a dependency-free full-screen project
 dashboard with grouped auto-refresh, stable keyboard selection, bounded log
 peek, option-safe dispatch, reply, stop, respawn, confirmed removal, and attach
 handoff after restoring the alternate screen. Dashboard dispatch automatically
