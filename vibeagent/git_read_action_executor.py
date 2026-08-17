@@ -33,7 +33,12 @@ from .workspace import (
 def execute_git_read_action(workspace: RunWorkspace, action: object) -> Observation | None:
     if isinstance(action, GitDiffAction):
         try:
-            result = read_git_diff(workspace, action.path, action.staged)
+            result = read_git_diff(
+                workspace,
+                action.path,
+                action.staged,
+                max_output_chars=action.max_output_chars,
+            )
         except ValueError as error:
             return GitDiffObservation(
                 kind="git_diff",
@@ -45,7 +50,8 @@ def execute_git_read_action(workspace: RunWorkspace, action: object) -> Observat
                 max_output_chars=action.max_output_chars,
                 message=str(error),
             )
-        diff, truncated = truncate_command_output(result.stdout, action.max_output_chars)
+        diff, truncated_after_read = truncate_command_output(result.stdout, action.max_output_chars)
+        truncated = result.stdout_truncated or truncated_after_read
         message = "Read git diff." if result.ok else result.stderr or "git diff failed."
         return GitDiffObservation(
             kind="git_diff",
@@ -184,7 +190,12 @@ def execute_git_read_action(workspace: RunWorkspace, action: object) -> Observat
 
     if isinstance(action, GitShowAction):
         try:
-            result = read_git_show(workspace, action.rev, action.path)
+            result = read_git_show(
+                workspace,
+                action.rev,
+                action.path,
+                max_output_chars=action.max_output_chars,
+            )
         except ValueError as error:
             return GitShowObservation(
                 kind="git_show",
@@ -196,7 +207,8 @@ def execute_git_read_action(workspace: RunWorkspace, action: object) -> Observat
                 max_output_chars=action.max_output_chars,
                 message=str(error),
             )
-        output, truncated = truncate_command_output(result.stdout, action.max_output_chars)
+        output, truncated_after_read = truncate_command_output(result.stdout, action.max_output_chars)
+        truncated = result.stdout_truncated or truncated_after_read
         message = "Read git show." if result.ok else result.stderr or "git show failed."
         return GitShowObservation(
             kind="git_show",
@@ -211,7 +223,13 @@ def execute_git_read_action(workspace: RunWorkspace, action: object) -> Observat
 
     if isinstance(action, GitBlameAction):
         try:
-            result = read_git_blame(workspace, action.path, action.start_line, action.line_count)
+            result = read_git_blame(
+                workspace,
+                action.path,
+                action.start_line,
+                action.line_count,
+                max_output_chars=action.max_output_chars,
+            )
         except ValueError as error:
             return GitBlameObservation(
                 kind="git_blame",
@@ -224,7 +242,8 @@ def execute_git_read_action(workspace: RunWorkspace, action: object) -> Observat
                 max_output_chars=action.max_output_chars,
                 message=str(error),
             )
-        blame, truncated = truncate_command_output(result.stdout, action.max_output_chars)
+        blame, truncated_after_read = truncate_command_output(result.stdout, action.max_output_chars)
+        truncated = result.stdout_truncated or truncated_after_read
         message = "Read git blame." if result.ok else result.stderr or "git blame failed."
         return GitBlameObservation(
             kind="git_blame",

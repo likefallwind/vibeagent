@@ -57,6 +57,10 @@ class GitCommandResult:
     stdout: str
     stderr: str
     exit_code: int | None
+    stdout_truncated: bool = False
+    stderr_truncated: bool = False
+    stdout_total_chars: int | None = None
+    stderr_total_chars: int | None = None
 
 
 PROJECT_INSTRUCTION_FILE_NAMES = {"AGENTS.md", "CLAUDE.md", "CLAUDE.local.md"}

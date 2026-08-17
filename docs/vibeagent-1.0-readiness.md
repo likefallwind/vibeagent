@@ -690,6 +690,12 @@ The automated suite currently covers these 1.0 surfaces:
   an artifact error without replacing the bounded command result. Invalid
   references, cross-session paths, symbolic links, and unrelated protected
   runtime files fail closed.
+- Bounded model-facing Git text: `git_diff`, `git_show`, and `git_blame` push
+  their requested character limit into the Git subprocess reader. Stdout and
+  stderr are drained concurrently in fixed chunks, retain only bounded
+  head/tail text in memory, and preserve truncation plus total-character
+  metadata; checkpoint and safety paths that require complete patches keep
+  their existing full-output contract.
 - Opt-in command memory cgroups: `CLAUDE_CODE_TOOL_MEMORY_LIMIT` accepts bounded
   byte or binary-unit values on Linux and WSL and places finite, batch,
   PowerShell, interactive, and persistent background command trees into a

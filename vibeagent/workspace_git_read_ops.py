@@ -7,14 +7,20 @@ from .workspace_git_utils import run_readonly_git
 from .workspace_resolve import resolve_inside_run
 
 
-def read_git_diff(workspace: RunWorkspace, relative_path: str | None = None, staged: bool = False) -> GitCommandResult:
+def read_git_diff(
+    workspace: RunWorkspace,
+    relative_path: str | None = None,
+    staged: bool = False,
+    *,
+    max_output_chars: int | None = None,
+) -> GitCommandResult:
     args = ["diff"]
     if staged:
         args.append("--cached")
     if relative_path:
         resolve_inside_run(workspace.root, relative_path)
         args.extend(["--", relative_path])
-    return run_readonly_git(workspace.root, args)
+    return run_readonly_git(workspace.root, args, max_output_chars=max_output_chars)
 
 
 def read_git_diff_hunks(
@@ -133,7 +139,13 @@ def read_git_log(workspace: RunWorkspace, max_count: int = 5, relative_path: str
     return run_readonly_git(workspace.root, args)
 
 
-def read_git_show(workspace: RunWorkspace, rev: str = "HEAD", relative_path: str | None = None) -> GitCommandResult:
+def read_git_show(
+    workspace: RunWorkspace,
+    rev: str = "HEAD",
+    relative_path: str | None = None,
+    *,
+    max_output_chars: int | None = None,
+) -> GitCommandResult:
     rev = rev.strip()
     if not rev:
         raise ValueError("rev must be a non-empty string.")
@@ -143,7 +155,7 @@ def read_git_show(workspace: RunWorkspace, rev: str = "HEAD", relative_path: str
     if relative_path:
         resolve_inside_run(workspace.root, relative_path)
         args.extend(["--", relative_path])
-    return run_readonly_git(workspace.root, args)
+    return run_readonly_git(workspace.root, args, max_output_chars=max_output_chars)
 
 
 def read_git_blame(
@@ -151,6 +163,8 @@ def read_git_blame(
     relative_path: str,
     start_line: int | None = None,
     line_count: int | None = None,
+    *,
+    max_output_chars: int | None = None,
 ) -> GitCommandResult:
     if not relative_path or not relative_path.strip():
         raise ValueError("path must be a non-empty string.")
@@ -168,4 +182,4 @@ def read_git_blame(
     if start_line is not None:
         args.extend(["-L", f"{start_line},+{line_count or 120}"])
     args.extend(["--", relative_path])
-    return run_readonly_git(workspace.root, args)
+    return run_readonly_git(workspace.root, args, max_output_chars=max_output_chars)

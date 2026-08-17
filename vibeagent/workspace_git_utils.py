@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import re
 import subprocess
 
+from .process_command_capture import capture_command_output
+from .process_lifecycle import terminate_process
 from .workspace_core import GitCommandResult
 from .workspace_paths import is_sensitive_project_path, path_matches_gitignore
+
+
+READONLY_GIT_TIMEOUT_MS = 10_000
 
 
 def parse_git_remotes(output: str) -> list[dict[str, str]]:
@@ -111,7 +117,14 @@ def parse_git_numstat(output: str) -> list[tuple[str, int, int, bool]]:
     return entries
 
 
-def run_readonly_git(root: str | Path, args: list[str]) -> GitCommandResult:
+def run_readonly_git(
+    root: str | Path,
+    args: list[str],
+    *,
+    max_output_chars: int | None = None,
+) -> GitCommandResult:
+    if max_output_chars is not None:
+        return _run_bounded_readonly_git(root, args, max_output_chars=max_output_chars)
     try:
         result = subprocess.run(
             ["git", *args],
@@ -120,7 +133,7 @@ def run_readonly_git(root: str | Path, args: list[str]) -> GitCommandResult:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=10,
+            timeout=READONLY_GIT_TIMEOUT_MS / 1000,
             check=False,
         )
     except FileNotFoundError:
@@ -134,6 +147,54 @@ def run_readonly_git(root: str | Path, args: list[str]) -> GitCommandResult:
         stderr=result.stderr or "",
         exit_code=result.returncode,
     )
+
+
+def _run_bounded_readonly_git(
+    root: str | Path,
+    args: list[str],
+    *,
+    max_output_chars: int,
+) -> GitCommandResult:
+    if max_output_chars < 1:
+        raise ValueError("Git output character limit must be positive.")
+    try:
+        process = subprocess.Popen(
+            ["git", *args],
+            cwd=Path(root),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=os.name != "nt",
+        )
+    except FileNotFoundError:
+        return GitCommandResult(ok=False, stdout="", stderr="git executable was not found.", exit_code=None)
+
+    capture = capture_command_output(
+        process,
+        timeout_ms=READONLY_GIT_TIMEOUT_MS,
+        max_output_chars=max_output_chars,
+        observer=None,
+        preserve_complete=False,
+        terminate=lambda: terminate_process(process),
+    )
+    try:
+        if capture.timed_out:
+            return GitCommandResult(ok=False, stdout="", stderr="git command timed out.", exit_code=None)
+        stdout, stdout_truncated = capture.stdout.render()
+        stderr, stderr_truncated = capture.stderr.render()
+        return GitCommandResult(
+            ok=process.returncode == 0,
+            stdout=stdout,
+            stderr=stderr,
+            exit_code=process.returncode,
+            stdout_truncated=stdout_truncated,
+            stderr_truncated=stderr_truncated,
+            stdout_total_chars=capture.stdout.total_chars,
+            stderr_total_chars=capture.stderr.total_chars,
+        )
+    finally:
+        capture.close()
 
 
 def run_git_mutation(root: str | Path, args: list[str]) -> GitCommandResult:
