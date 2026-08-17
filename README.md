@@ -114,6 +114,30 @@ session directory, while subagents intentionally start each command from their
 own project root. Set `CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=1` to disable
 carry-over. Valid state is restored on session resume and branch continuation.
 
+### Shell command memory limit
+
+On Linux and WSL with a running user systemd manager, opt in to a hard memory
+limit for every Bash, native PowerShell, interactive `!`, batch, and background
+tool command:
+
+```sh
+export CLAUDE_CODE_TOOL_MEMORY_LIMIT=2GiB
+```
+
+The value accepts bytes or binary `K`, `M`, `G`, `T`, and `P` suffixes, including
+forms such as `512M` and `2GiB`. VibeAgent starts each command tree in a private
+transient service with `MemoryMax` set to that value, `MemorySwapMax=0`,
+`OOMPolicy=kill`, and control-group termination. This prevents a runaway build
+from shifting its excess into Swap or leaving memory-heavy descendants behind.
+The command receives its original environment through an owner-only temporary
+file that is deleted before execution; credentials are not placed in systemd
+arguments or unit properties. OOM results include the configured limit and
+measured peak, and persistent background commands retain their unit identity so
+`stop_process` still stops the complete cgroup after a VibeAgent restart.
+Invalid values, unsupported platforms, missing systemd tools, and service-start
+failures reject the command instead of silently running it without the requested
+limit. Leave the variable unset to retain the normal command runtime.
+
 ### Session shell environment
 
 `SessionStart` and `CwdChanged` hooks receive `CLAUDE_ENV_FILE`, which points to

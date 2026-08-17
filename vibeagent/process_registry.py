@@ -8,6 +8,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .workspace_core import RunWorkspace
+from .tool_memory_limit import valid_tool_memory_unit
+from .tool_memory_systemd import (
+    stop_tool_memory_unit,
+    tool_memory_unit_running,
+)
 
 
 @dataclass(frozen=True)
@@ -21,6 +26,7 @@ class PersistentProcessRecord:
     exit_code_path: Path | None = None
     start_ticks: int | None = None
     max_output_chars: int | None = None
+    memory_unit: str | None = None
     monitor_description: str | None = None
     monitor_timeout_ms: int | None = None
     monitor_started_at: float | None = None
@@ -56,6 +62,7 @@ def write_persistent_process_record(workspace: RunWorkspace, record: PersistentP
         "exit_code_path": relative_process_log_path(workspace.root, record.exit_code_path) if record.exit_code_path else None,
         "start_ticks": record.start_ticks,
         "max_output_chars": record.max_output_chars,
+        "memory_unit": record.memory_unit,
         "monitor_description": record.monitor_description,
         "monitor_timeout_ms": record.monitor_timeout_ms,
         "monitor_started_at": record.monitor_started_at,
@@ -126,6 +133,7 @@ def parse_persistent_process_record(root: Path, payload: object) -> PersistentPr
     exit_code_text = payload.get("exit_code_path")
     start_ticks = payload.get("start_ticks")
     max_output_chars = payload.get("max_output_chars")
+    memory_unit = payload.get("memory_unit")
     monitor_description = payload.get("monitor_description")
     monitor_timeout_ms = payload.get("monitor_timeout_ms")
     monitor_started_at = payload.get("monitor_started_at")
@@ -158,6 +166,11 @@ def parse_persistent_process_record(root: Path, payload: object) -> PersistentPr
         start_ticks=start_ticks if isinstance(start_ticks, int) else None,
         max_output_chars=(
             max_output_chars if isinstance(max_output_chars, int) and 1_000 <= max_output_chars <= 50_000 else None
+        ),
+        memory_unit=(
+            memory_unit
+            if isinstance(memory_unit, str) and valid_tool_memory_unit(memory_unit)
+            else None
         ),
         monitor_description=(
             monitor_description
@@ -242,6 +255,10 @@ def read_process_start_ticks(pid: int) -> int | None:
 
 
 def persistent_process_running(record: PersistentProcessRecord) -> bool:
+    if record.memory_unit is not None:
+        unit_running = tool_memory_unit_running(record.memory_unit)
+        if unit_running is not None:
+            return unit_running
     try:
         os.kill(record.pid, 0)
     except ProcessLookupError:
@@ -286,6 +303,8 @@ def process_signal_name(exit_code: int | None) -> str | None:
 
 def terminate_persistent_process(record: PersistentProcessRecord) -> None:
     if not persistent_process_running(record):
+        return
+    if record.memory_unit is not None and stop_tool_memory_unit(record.memory_unit):
         return
     if os.name != "nt":
         try:

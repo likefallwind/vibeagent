@@ -5,7 +5,11 @@ import sys
 from typing import Any
 
 from .process_background_lookup import background_process_for_root, background_processes_for_root
-from .process_lifecycle import close_background_handles, signal_name, terminate_process
+from .process_lifecycle import (
+    close_background_handles,
+    signal_name,
+    terminate_background_process,
+)
 from .process_registry import (
     persistent_process_running,
     process_signal_name,
@@ -143,7 +147,7 @@ def stop_all_background_processes(root: Path) -> StopAllProcessesObservation:
     scoped_processes = background_processes_for_root(root)
     for process_id, background in sorted(scoped_processes.items()):
         if background.process.poll() is None:
-            terminate_process(background.process)
+            terminate_background_process(background)
         exit_code = background.process.poll()
         close_background_handles(background)
         background_processes.pop(process_id, None)
@@ -221,7 +225,7 @@ def stop_background_process(root: Path, process_id: str) -> StopProcessObservati
         )
 
     if background.process.poll() is None:
-        terminate_process(background.process)
+        terminate_background_process(background)
     exit_code = background.process.poll()
     close_background_handles(background)
     background_processes.pop(process_id, None)

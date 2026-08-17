@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from threading import Event
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,7 @@ from .output_conversion import output_context_results_from_dicts, output_diagnos
 from .process_command_runtime import run_command, relative_cwd, truncate_command_output, wrap_background_command
 from .process_lifecycle import close_background_handles as _close_background_handles
 from .process_lifecycle import signal_name as _signal_name
+from .process_lifecycle import terminate_background_process as _terminate_background_process
 from .process_lifecycle import terminate_process as _terminate_process
 from .process_io_runtime import (
     check_write_background_process,
@@ -32,6 +34,18 @@ from .process_output_analysis import (
 )
 from .process_output_runtime import read_background_process_output_contexts, read_background_process_output_diagnostics
 from .session_environment import wrap_bash_command_with_session_environment
+from .tool_memory_limit import (
+    ToolMemoryLaunch,
+    ToolMemoryLimitError,
+    cleanup_tool_memory_launch,
+    format_memory_bytes,
+    prepare_tool_memory_launch,
+)
+from .tool_memory_systemd import (
+    start_background_memory_diagnostics,
+    stop_tool_memory_unit,
+    wait_for_tool_memory_service,
+)
 from .session_working_directory import (
     finalize_shell_cwd,
     prepare_shell_cwd,
@@ -79,6 +93,8 @@ class BackgroundProcess:
     max_output_chars: int
     stdout_handle: Any
     stderr_handle: Any
+    memory_launch: ToolMemoryLaunch | None = None
+    memory_diagnostics_done: Event | None = None
 
 
 BACKGROUND_PROCESSES: dict[str, BackgroundProcess] = {}
@@ -90,7 +106,7 @@ def release_background_process_handle(process_id: str) -> None:
         try:
             background.process.wait(timeout=0.5)
         except subprocess.TimeoutExpired:
-            _terminate_process(background.process)
+            _terminate_background_process(background)
         _close_background_handles(background)
 
 
@@ -279,9 +295,30 @@ def start_background_command(
     if launch.warning:
         stderr_handle.write(f"{launch.warning}\n")
         stderr_handle.flush()
+    memory_launch: ToolMemoryLaunch | None = None
+    try:
+        memory_launch = prepare_tool_memory_launch(
+            launch.argv,
+            command_cwd,
+            launch.environment,
+        )
+    except ToolMemoryLimitError as error:
+        stdout_handle.close()
+        stderr_handle.close()
+        return StartCommandObservation(
+            kind="start_command",
+            process_id="",
+            pid=None,
+            command=command,
+            cwd=relative_cwd(command_cwd, workspace.root),
+            ok=False,
+            message=str(error),
+            stdout_path=stdout_path.as_posix(),
+            stderr_path=stderr_path.as_posix(),
+        )
     try:
         process = subprocess.Popen(
-            launch.argv,
+            memory_launch.argv if memory_launch is not None else launch.argv,
             cwd=command_cwd,
             shell=False,
             stdin=subprocess.PIPE,
@@ -292,6 +329,7 @@ def start_background_command(
             env=launch.environment,
         )
     except OSError as error:
+        cleanup_tool_memory_launch(memory_launch)
         stdout_handle.close()
         stderr_handle.close()
         return StartCommandObservation(
@@ -306,7 +344,46 @@ def start_background_command(
             stderr_path=stderr_path.as_posix(),
         )
 
-    BACKGROUND_PROCESSES[process_id] = BackgroundProcess(
+    try:
+        memory_start_error = wait_for_tool_memory_service(process, memory_launch)
+    except BaseException:
+        if memory_launch is not None:
+            stop_tool_memory_unit(
+                memory_launch.unit,
+                launch.environment,
+                systemctl=memory_launch.systemctl,
+            )
+        if process.poll() is None:
+            _terminate_process(process)
+        cleanup_tool_memory_launch(memory_launch)
+        stdout_handle.close()
+        stderr_handle.close()
+        raise
+    if memory_start_error is not None:
+        if memory_launch is not None:
+            stop_tool_memory_unit(
+                memory_launch.unit,
+                launch.environment,
+                systemctl=memory_launch.systemctl,
+            )
+        if process.poll() is None:
+            _terminate_process(process)
+        cleanup_tool_memory_launch(memory_launch)
+        stdout_handle.close()
+        stderr_handle.close()
+        return StartCommandObservation(
+            kind="start_command",
+            process_id="",
+            pid=process.pid,
+            command=command,
+            cwd=relative_cwd(command_cwd, workspace.root),
+            ok=False,
+            message=memory_start_error,
+            stdout_path=stdout_path.as_posix(),
+            stderr_path=stderr_path.as_posix(),
+        )
+
+    background = BackgroundProcess(
         id=process_id,
         root=workspace.root.resolve(),
         command=command,
@@ -318,6 +395,15 @@ def start_background_command(
         max_output_chars=max_output_chars,
         stdout_handle=stdout_handle,
         stderr_handle=stderr_handle,
+        memory_launch=memory_launch,
+    )
+    BACKGROUND_PROCESSES[process_id] = background
+    background.memory_diagnostics_done = start_background_memory_diagnostics(
+        process,
+        memory_launch,
+        stderr_path,
+        exit_code_path,
+        launch.environment,
     )
     write_persistent_process_record(
         workspace,
@@ -331,6 +417,7 @@ def start_background_command(
             exit_code_path=exit_code_path,
             start_ticks=read_process_start_ticks(process.pid),
             max_output_chars=max_output_chars,
+            memory_unit=memory_launch.unit if memory_launch is not None else None,
         ),
     )
     return StartCommandObservation(
@@ -340,7 +427,12 @@ def start_background_command(
         command=command,
         cwd=relative_cwd(command_cwd, workspace.root),
         ok=True,
-        message=f"Started process {process_id}.",
+        message=(
+            f"Started process {process_id} with a "
+            f"{format_memory_bytes(memory_launch.limit_bytes)} memory limit."
+            if memory_launch is not None
+            else f"Started process {process_id}."
+        ),
         stdout_path=stdout_path.as_posix(),
         stderr_path=stderr_path.as_posix(),
         sandboxed=launch.sandboxed,

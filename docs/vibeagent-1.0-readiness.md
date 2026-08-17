@@ -649,6 +649,14 @@ The automated suite currently covers these 1.0 surfaces:
   references and total byte counts. Invalid references, cross-session paths,
   symbolic links, and unrelated protected runtime files fail closed, while
   artifact write errors preserve the actual command result.
+- Opt-in command memory cgroups: `CLAUDE_CODE_TOOL_MEMORY_LIMIT` accepts bounded
+  byte or binary-unit values on Linux and WSL and places finite, batch,
+  PowerShell, interactive, and persistent background command trees into a
+  race-free transient user service before exec. `MemoryMax`, zero additional
+  Swap, group OOM policy, private one-use environment transfer, exact OOM peak
+  diagnostics, startup failure handling, streaming timeout cleanup, and
+  post-restart background stop behavior are covered by focused and real cgroup
+  tests; unsupported hosts fail closed only when the option is requested.
 
 The source of truth for exact test names and gates is
 [`docs/vibeagent-1.0.md`](vibeagent-1.0.md).

@@ -37,6 +37,7 @@ class ProcessRegistryModuleTests(unittest.TestCase):
                     stderr_path=stderr_path,
                     exit_code_path=exit_code_path,
                     start_ticks=99,
+                    memory_unit="vibeagent-tool-0123456789abcdef0123456789abcdef.service",
                 ),
             )
 
@@ -50,6 +51,10 @@ class ProcessRegistryModuleTests(unittest.TestCase):
             self.assertEqual(record.stderr_path, stderr_path.resolve())
             self.assertEqual(record.exit_code_path, exit_code_path.resolve())
             self.assertEqual(record.start_ticks, 99)
+            self.assertEqual(
+                record.memory_unit,
+                "vibeagent-tool-0123456789abcdef0123456789abcdef.service",
+            )
 
     def test_rejects_unsafe_registry_and_log_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
