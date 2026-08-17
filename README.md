@@ -427,6 +427,7 @@ python -m vibeagent -p --output-format stream-json --include-partial-messages --
 python -m vibeagent -p --output-format stream-json --forward-subagent-text --cwd ../my-project "delegate the investigation"
 python -m vibeagent --bg --approval auto --cwd ../my-project "run the tests and fix failures"
 python -m vibeagent agents --cwd ../my-project
+python -m vibeagent agents --ax-screen-reader --cwd ../my-project
 python -m vibeagent --background-agents --cwd ../my-project
 python -m vibeagent --background-agent-log <agent-id> --cwd ../my-project
 python -m vibeagent --stop-background-agent <agent-id> --cwd ../my-project
@@ -992,6 +993,13 @@ write the transcript to the terminal; one-shot sessions use stderr so text,
 JSON, and stream-JSON stdout remain machine-readable. The selected
 `viewMode: "verbose"` setting enables the same behavior, while an explicit
 `--verbose` overrides `default` or `focus`; safe mode ignores the setting.
+`--ax-screen-reader` keeps human-facing sessions in flat text mode. Agent View
+does not enter the alternate screen, hide the cursor, clear the terminal, or
+read raw single-key input; it prints bounded snapshots and accepts words such
+as `next`, `peek`, `attach`, `approve`, `refresh`, and `quit`. Interactive
+subagent status is appended only when it changes instead of using ANSI cursor
+movement, and `/bg` handoff retains the mode. Machine JSON formats reject the
+flag because they already use a separate structured-output contract.
 `-p --prompt-suggestions[=true|false]` makes one tool-free, non-retrying model
 request after a successful completed coding turn to predict a concise next user
 prompt. The request reuses the completed conversation, active model/fallback,

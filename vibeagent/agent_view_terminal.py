@@ -147,4 +147,96 @@ class StandardAgentViewTerminal(AbstractContextManager["StandardAgentViewTermina
         return None
 
 
-__all__ = ["AgentViewTerminal", "StandardAgentViewTerminal"]
+class ScreenReaderAgentViewTerminal(AbstractContextManager["ScreenReaderAgentViewTerminal"]):
+    """Line-oriented Agent View terminal with no cursor or screen control."""
+
+    def __enter__(self) -> ScreenReaderAgentViewTerminal:
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            raise ValueError("Agent view requires an interactive terminal.")
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def size(self) -> tuple[int, int]:
+        size = shutil.get_terminal_size((100, 30))
+        return size.columns, max(size.lines, 30)
+
+    def draw(self, lines: list[str]) -> None:
+        body = "\n".join(line.rstrip() for line in lines).rstrip()
+        sys.stdout.write(f"\nAgent view update\n{body}\n")
+        sys.stdout.flush()
+
+    def read_key(self, _timeout: float) -> str | None:
+        try:
+            value = input("Agent view command: ")
+        except (EOFError, KeyboardInterrupt):
+            return "q"
+        command = _screen_reader_command(value)
+        if command is None:
+            sys.stdout.write("Unknown command. Type help for available commands.\n")
+            sys.stdout.flush()
+            return "c"
+        return command
+
+    def prompt(self, label: str) -> str | None:
+        try:
+            return input(label)
+        except (EOFError, KeyboardInterrupt):
+            return None
+
+
+def _screen_reader_command(value: str) -> str | None:
+    command = value.strip()
+    exact = {"A": "A", "N": "N", "R": "R"}
+    if command in exact:
+        return exact[command]
+    aliases = {
+        "": "c",
+        "q": "q",
+        "quit": "q",
+        "exit": "q",
+        "?": "?",
+        "help": "?",
+        "up": "up",
+        "previous": "up",
+        "k": "up",
+        "down": "down",
+        "next": "down",
+        "j": "down",
+        "home": "home",
+        "first": "home",
+        "end": "end",
+        "last": "end",
+        "p": "space",
+        "peek": "space",
+        "space": "space",
+        "enter": "enter",
+        "attach": "enter",
+        "n": "n",
+        "dispatch": "n",
+        "m": "m",
+        "message": "m",
+        "reply": "m",
+        "y": "y",
+        "approve": "y",
+        "always": "A",
+        "deny": "N",
+        "r": "r",
+        "answer": "r",
+        "s": "s",
+        "stop": "s",
+        "respawn": "R",
+        "x": "x",
+        "remove": "x",
+        "c": "c",
+        "refresh": "c",
+    }
+    return aliases.get(command.lower())
+
+
+__all__ = [
+    "AgentViewTerminal",
+    "ScreenReaderAgentViewTerminal",
+    "StandardAgentViewTerminal",
+]

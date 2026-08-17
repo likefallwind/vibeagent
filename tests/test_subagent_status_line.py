@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 import tempfile
 import unittest
@@ -199,6 +200,41 @@ class SubagentStatusLineTests(unittest.TestCase):
             panel.close()
 
         self.assertGreater(len(stream.value), len(paused_output))
+
+    def test_screen_reader_panel_appends_changed_status_without_ansi_redraw(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-status-panel-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root, run_id="panel-run")
+            stream = TtyBuffer()
+            panel = SubagentPanel(root, stream=stream, screen_reader=True)
+            panel.workspace = workspace
+            snapshot = BackgroundDelegateSnapshot(
+                task_id="task-1",
+                action=DelegateTaskAction(type="delegate_task", task="Inspect auth"),
+                status="running",
+                started_at=1.0,
+            )
+            with patch(
+                "vibeagent.cli_subagent_panel.list_background_delegate_snapshots",
+                return_value=[snapshot],
+            ):
+                panel.refresh()
+                first = stream.value
+                panel.refresh(force=True)
+                self.assertEqual(stream.value, first)
+
+                with patch(
+                    "vibeagent.cli_subagent_panel.list_background_delegate_snapshots",
+                    return_value=[replace(snapshot, status="completed")],
+                ):
+                    panel.refresh()
+
+            panel.close()
+
+        self.assertEqual(stream.value.count("Agent status update"), 2)
+        self.assertIn("running", stream.value)
+        self.assertIn("completed", stream.value)
+        self.assertNotIn("\x1b", stream.value)
 
 
 if __name__ == "__main__":

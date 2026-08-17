@@ -46,6 +46,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         action="store_true",
         help="Show complete turn-by-turn model and tool output for this session.",
     )
+    parser.add_argument(
+        "--ax-screen-reader",
+        action="store_true",
+        help="Use flat screen-reader-friendly terminal output without dynamic redraws.",
+    )
     browser_mode = parser.add_mutually_exclusive_group()
     browser_mode.add_argument(
         "--chrome",

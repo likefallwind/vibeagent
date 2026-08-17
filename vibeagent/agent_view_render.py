@@ -60,6 +60,7 @@ def render_agent_view(
     show_help: bool = False,
     width: int = 100,
     height: int = 30,
+    screen_reader: bool = False,
 ) -> list[str]:
     bounded_width = max(20, width)
     bounded_height = max(6, height)
@@ -67,12 +68,18 @@ def render_agent_view(
     lines = [
         _fit("VibeAgent Agent View", bounded_width),
         _fit(f"Project: {project_root}", bounded_width),
-        "-" * bounded_width,
     ]
+    if not screen_reader:
+        lines.append("-" * bounded_width)
     if show_help:
         lines.extend(_help_lines())
     elif not ordered:
-        lines.extend(["", "  No background agents. Press n to dispatch a task."])
+        empty_message = (
+            "  No background agents. Type dispatch to start a task."
+            if screen_reader
+            else "  No background agents. Press n to dispatch a task."
+        )
+        lines.extend(["", empty_message])
     else:
         for label, statuses in STATUS_GROUPS:
             grouped = [view for view in ordered if view.status in statuses]
@@ -105,19 +112,32 @@ def render_agent_view(
                 for view in ungrouped
             )
 
-    key_help = (
-        "q quit  ? help  Enter attach"
-        if bounded_width < 60
-        else (
-            "Up/Down select  Space peek  Enter attach  n dispatch  m reply  "
-            "y approve  A always  N deny  r answer  s stop  R respawn  x remove  ? help  q quit"
+    if screen_reader:
+        footer = [
+            _fit(
+                "Commands: next, previous, first, last, peek, attach, dispatch, reply, answer",
+                bounded_width,
+            ),
+            _fit(
+                "Commands: approve, always, deny, stop, respawn, remove, refresh, help, quit",
+                bounded_width,
+            ),
+            _fit(message or "Type refresh to update the snapshot.", bounded_width),
+        ]
+    else:
+        key_help = (
+            "q quit  ? help  Enter attach"
+            if bounded_width < 60
+            else (
+                "Up/Down select  Space peek  Enter attach  n dispatch  m reply  "
+                "y approve  A always  N deny  r answer  s stop  R respawn  x remove  ? help  q quit"
+            )
         )
-    )
-    footer = [
-        "-" * bounded_width,
-        _fit(key_help, bounded_width),
-        _fit(message or "Auto-refreshing every 0.5s.", bounded_width),
-    ]
+        footer = [
+            "-" * bounded_width,
+            _fit(key_help, bounded_width),
+            _fit(message or "Auto-refreshing every 0.5s.", bounded_width),
+        ]
     available = bounded_height - len(footer)
     if (
         not show_help

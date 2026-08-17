@@ -46,12 +46,14 @@ class SubagentPanel:
         workspace: RunWorkspace | None = None,
         brief: bool = False,
         teammate_mode: str = "in-process",
+        screen_reader: bool = False,
     ) -> None:
         self.project_root = project_root.resolve()
         self.stream = stream or sys.stdout
         self.enabled = getattr(self.stream, "isatty", lambda: False)() is True
         self.brief = brief
         self.teammate_mode = teammate_mode
+        self.screen_reader = screen_reader
         self.workspace: RunWorkspace | None = None
         self.config: ResolvedSubagentStatusLine | None = None
         self.config_error: str | None = None
@@ -107,6 +109,9 @@ class SubagentPanel:
         self._observer = observe_session_events(workspace.session_dir, self._observe_event)
         self._observer.__enter__()
         if not self.enabled:
+            return
+        if self.screen_reader:
+            self.refresh(force=True)
             return
         self._thread = Thread(target=self._refresh_loop, name="vibeagent-subagent-panel", daemon=True)
         self._thread.start()
@@ -194,6 +199,8 @@ class SubagentPanel:
         if not self.enabled:
             return
         with self._lock:
+            if self.screen_reader:
+                return
             if self._rendered_lines:
                 self.stream.write("\x1b[1A\r\x1b[2K" * self._rendered_lines)
                 self.stream.flush()
@@ -245,6 +252,8 @@ class SubagentPanel:
                 {"timestamp": int(datetime.now(UTC).timestamp() * 1000), "tokens": total}
             )
             self._token_samples[task_id] = self._token_samples[task_id][-20:]
+        if self.screen_reader:
+            self.refresh()
 
     def _display_agent_message(self, value: object) -> None:
         message = display_safe_message(value)
@@ -279,6 +288,13 @@ class SubagentPanel:
             if self._suspended:
                 return
             if text == self._last_text and not force:
+                return
+            if self.screen_reader:
+                if text == self._last_text:
+                    return
+                self.stream.write(f"\nAgent status update\n{text}\n")
+                self.stream.flush()
+                self._last_text = text
                 return
             if self._rendered_lines:
                 self.stream.write("\x1b[1A\r\x1b[2K" * self._rendered_lines)

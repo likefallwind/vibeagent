@@ -5,7 +5,11 @@ from pathlib import Path
 
 from .agent_view_backend import AgentViewBackend, ProjectAgentViewBackend
 from .agent_view_render import ordered_agent_views, render_agent_view
-from .agent_view_terminal import AgentViewTerminal, StandardAgentViewTerminal
+from .agent_view_terminal import (
+    AgentViewTerminal,
+    ScreenReaderAgentViewTerminal,
+    StandardAgentViewTerminal,
+)
 from .background_agent_types import BackgroundAgentView
 
 
@@ -20,10 +24,13 @@ def run_agent_view(
     backend: AgentViewBackend | None = None,
     terminal: AgentViewTerminal | None = None,
     refresh_interval: float = 0.5,
+    screen_reader: bool = False,
 ) -> AgentViewOutcome:
     root = project_root.resolve()
     active_backend = backend or ProjectAgentViewBackend(root, Path.cwd())
-    active_terminal = terminal or StandardAgentViewTerminal()
+    active_terminal = terminal or (
+        ScreenReaderAgentViewTerminal() if screen_reader else StandardAgentViewTerminal()
+    )
     selected_id: str | None = None
     peek = False
     show_help = False
@@ -77,6 +84,7 @@ def run_agent_view(
                 show_help=show_help,
                 width=width,
                 height=height,
+                screen_reader=screen_reader,
             )
             if frame != previous_frame:
                 active_terminal.draw(frame)

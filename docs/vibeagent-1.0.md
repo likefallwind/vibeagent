@@ -41,6 +41,13 @@ behavior, private one-use environment transfer, explicit peak diagnostics, and
 post-restart unit tracking. Invalid configuration or unavailable user systemd
 fails closed only when the option is requested.
 
+`VA1-OUTPUT` includes Claude-compatible `--ax-screen-reader` for human-facing
+terminal sessions. Agent View uses flat append-only snapshots and word commands
+without alternate-screen, cursor visibility, clear-screen, or raw-key control
+sequences. Interactive subagent status becomes deduplicated append-only text,
+and the selected mode survives interactive startup, attachment, and `/bg`
+handoff. Structured JSON output retains its separate machine contract.
+
 `VA1-SAFETY` includes Claude-compatible file-based endpoint-managed settings:
 bounded base/drop-in JSON is loaded from platform system paths at highest
 priority. Managed-only permission and Hook locks plus bypass/auto disable
@@ -134,6 +141,12 @@ backfill when that project is visited.
 
 ## Current Evidence
 
+- `tests.test_screen_reader`, `tests.test_agent_view`, and
+  `tests.test_subagent_status_line` cover text-only CLI validation, startup,
+  attachment and `/bg` propagation, word-command mapping, flat bounded Agent
+  View rendering, zero-ANSI terminal output, and deduplicated append-only
+  subagent status. A real PTY smoke run exits through the `quit` word command
+  without alternate-screen or cursor-control output.
 - `tests.test_cli_stream_protocol`, `tests.test_cli_stream_output`, and
   `tests.test_cli_subagent_forwarding` cover one-shot `system/init` ordering and
   uniqueness, bounded credential-free metadata, non-blocking redacted discovery

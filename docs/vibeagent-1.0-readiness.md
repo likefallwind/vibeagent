@@ -612,6 +612,11 @@ The automated suite currently covers these 1.0 surfaces:
   exposing thinking or contaminating one-shot machine stdout. Explicit CLI
   selection overrides `default` and `focus`, safe mode ignores the setting,
   and interactive background handoff retains the flag.
+- Accessible terminal rendering: Claude-compatible `--ax-screen-reader` keeps
+  Agent View out of the alternate screen, uses line-oriented word commands,
+  emits no cursor-control sequences, and changes interactive subagent status
+  from dynamic redraws to deduplicated append-only updates. Interactive
+  startup, attachment, and `/bg` handoff preserve the selected mode.
 - Invocation settings: Claude-compatible `--settings` accepts a bounded inline
   JSON object or file, while `--setting-sources` selects user, project, and local
   files. One immutable override reaches provider environment, permissions,

@@ -15,7 +15,10 @@ def run_agent_view_from_cli(
     run_interactive_func: Callable[[argparse.Namespace], int],
 ) -> int:
     project_root = resolve_project_root(args.cwd) or Path.cwd()
-    outcome = run_agent_view(project_root)
+    outcome = run_agent_view(
+        project_root,
+        screen_reader=getattr(args, "ax_screen_reader", False),
+    )
     if outcome.attach_id is None:
         return 0
     attached_args = argparse.Namespace(**vars(args))

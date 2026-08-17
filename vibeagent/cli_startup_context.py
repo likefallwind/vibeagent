@@ -62,6 +62,7 @@ class InteractiveStartupContext:
     brief: bool = False
     disable_slash_commands: bool = False
     verbose: bool = False
+    ax_screen_reader: bool = False
     browser_mode: BrowserMode = "auto"
     teammate_mode: str | None = None
     setting_sources: tuple[str, ...] = ("user", "project", "local")
@@ -112,6 +113,7 @@ def resolve_interactive_startup_context(
         "brief": getattr(args, "brief", False),
         "disable_slash_commands": getattr(args, "disable_slash_commands", False),
         "verbose": getattr(args, "verbose", False),
+        "ax_screen_reader": getattr(args, "ax_screen_reader", False),
         "browser_mode": getattr(args, "browser_mode", "auto"),
         "teammate_mode": getattr(args, "teammate_mode", None),
         "setting_sources": (

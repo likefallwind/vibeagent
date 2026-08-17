@@ -429,6 +429,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_brief=context.brief,
         initial_disable_slash_commands=context.disable_slash_commands,
         initial_verbose=context.verbose,
+        initial_ax_screen_reader=context.ax_screen_reader,
         initial_browser_mode=context.browser_mode,
         initial_teammate_mode=context.teammate_mode,
         initial_setting_sources=context.setting_sources,

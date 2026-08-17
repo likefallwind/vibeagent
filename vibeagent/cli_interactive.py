@@ -166,6 +166,7 @@ def run_interactive_loop(
     initial_brief: bool = False,
     initial_disable_slash_commands: bool = False,
     initial_verbose: bool = False,
+    initial_ax_screen_reader: bool = False,
     initial_browser_mode: BrowserMode = "auto",
     initial_teammate_mode: str | None = None,
     initial_setting_sources: tuple[str, ...] = ("user", "project", "local"),
@@ -198,6 +199,7 @@ def run_interactive_loop(
     brief = initial_brief
     disable_slash_commands = initial_disable_slash_commands
     verbose = initial_verbose
+    ax_screen_reader = initial_ax_screen_reader
     browser_mode = initial_browser_mode
     setting_sources = initial_setting_sources
     settings_override_json = initial_settings_override_json
@@ -306,6 +308,7 @@ def run_interactive_loop(
             workspace=notification_workspace,
             brief=brief,
             teammate_mode=teammate_mode,
+            screen_reader=ax_screen_reader,
         )
         panel.authorize_custom(approval_handler, approval_policy)
         initial_panel_error = panel.config_error
@@ -856,6 +859,7 @@ def run_interactive_loop(
                 anthropic_betas=invocation_anthropic_betas,
                 invocation_plugin_dirs=invocation_plugin_dirs,
                 verbose=verbose,
+                ax_screen_reader=ax_screen_reader,
                 browser_mode=browser_mode,
                 bypass_permissions_available=permission_state.bypass_available,
                 attached_agent_id=initial_attached_background_agent_id,

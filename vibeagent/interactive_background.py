@@ -45,6 +45,7 @@ def create_interactive_background_request(
     bare_mode: bool = False,
     disable_slash_commands: bool = False,
     verbose: bool = False,
+    ax_screen_reader: bool = False,
     browser_mode: BrowserMode = "auto",
     bypass_permissions_available: bool = False,
     setting_sources: tuple[str, ...] = ("user", "project", "local"),
@@ -74,6 +75,8 @@ def create_interactive_background_request(
         argv.append("--disable-slash-commands")
     if verbose:
         argv.append("--verbose")
+    if ax_screen_reader:
+        argv.append("--ax-screen-reader")
     if browser_mode == "enabled":
         argv.append("--chrome")
     elif browser_mode == "disabled":
