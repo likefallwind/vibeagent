@@ -467,6 +467,7 @@ python -m vibeagent --bg --approval auto --cwd ../my-project "run the tests and 
 python -m vibeagent agents --cwd ../my-project
 python -m vibeagent agents --json --cwd ../my-project
 python -m vibeagent agents --json --all --cwd ../my-project
+python -m vibeagent agents --model opus --effort high --permission-mode auto --agent reviewer --cwd ../my-project
 python -m vibeagent agents --ax-screen-reader --cwd ../my-project
 python -m vibeagent --background-agents --cwd ../my-project
 python -m vibeagent logs <agent-id> --max-chars 5000 --cwd ../my-project

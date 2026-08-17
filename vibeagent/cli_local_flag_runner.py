@@ -57,7 +57,12 @@ def run_local_flag(args: argparse.Namespace, command_namespace: dict[str, Any]) 
                 payload_extra.update(payload)
             else:
                 text = ""
-        return emit_local_result(args, text, payload_extra)
+        raw_json = (
+            payload_extra.get("backgroundAgents")
+            if getattr(args, "agent_list_json", False)
+            else None
+        )
+        return emit_local_result(args, text, payload_extra, raw_json=raw_json)
     except KeyboardInterrupt:
         return print_interrupted_result(args.json, args.output_format)
     except Exception as error:

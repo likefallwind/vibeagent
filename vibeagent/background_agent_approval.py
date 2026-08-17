@@ -14,8 +14,8 @@ from .background_agent_store import (
     background_agent_runtime_root,
     ensure_background_agent_runtime_root,
     ensure_private_directory,
-    write_private_json,
     write_private_json_atomic,
+    write_private_json_atomic_exclusive,
 )
 from .background_agent_types import BACKGROUND_AGENT_ID_PATTERN
 from .session_approval import SessionApprovalHandler
@@ -110,7 +110,7 @@ def decide_background_approval(
         if request_id is not None and approval.request_id != request_id:
             raise ValueError(f"Background approval request is stale: {agent_id}")
         try:
-            write_private_json(
+            write_private_json_atomic_exclusive(
                 background_approval_response_path(root, agent_id),
                 {
                     "schemaVersion": APPROVAL_VERSION,
@@ -120,7 +120,6 @@ def decide_background_approval(
                     "scope": scope,
                     "message": "Approved from Agent View." if approved else "Denied from Agent View.",
                 },
-                exclusive=True,
             )
         except FileExistsError as error:
             raise ValueError(f"Background approval was already decided: {agent_id}") from error

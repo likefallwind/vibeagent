@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable
 from collections.abc import Mapping
+import json
 from typing import TypeVar
 
 from .cli_exit_codes import local_result_exit_code
@@ -26,8 +27,17 @@ def local_text_or_report(
     return text_factory(), {}
 
 
-def emit_local_result(args: argparse.Namespace, text: str, payload_extra: Mapping[str, object] | None = None) -> int:
+def emit_local_result(
+    args: argparse.Namespace,
+    text: str,
+    payload_extra: Mapping[str, object] | None = None,
+    *,
+    raw_json: object | None = None,
+) -> int:
     exit_code = local_result_exit_code(args, text)
+    if args.json and raw_json is not None:
+        print(json.dumps(raw_json, ensure_ascii=False, sort_keys=True))
+        return exit_code
     stop_reason = "completed" if exit_code == 0 else "failed"
     payload: dict[str, object] = {
         "kind": "local",

@@ -80,9 +80,16 @@ class AgentViewBackend(Protocol):
 
 
 class ProjectAgentViewBackend:
-    def __init__(self, project_root: Path, invocation_root: Path) -> None:
+    def __init__(
+        self,
+        project_root: Path,
+        invocation_root: Path,
+        *,
+        dispatch_argv: tuple[str, ...] = (),
+    ) -> None:
         self.project_root = project_root.resolve()
         self.invocation_root = invocation_root.resolve()
+        self.dispatch_argv = dispatch_argv
 
     def list(self) -> tuple[BackgroundAgentView, ...]:
         return list_background_agents(self.project_root)
@@ -156,7 +163,7 @@ class ProjectAgentViewBackend:
         return f"{verb} {approval.action_type} for {agent_id}."
 
     def dispatch(self, task: str) -> BackgroundAgentView:
-        argv = ["--background"]
+        argv = ["--background", *self.dispatch_argv]
         if _supports_isolated_dispatch(self.project_root):
             argv.append("--worktree")
         argv.extend(["--", task])

@@ -27,7 +27,16 @@ class CliBackgroundAgentCommandTests(unittest.TestCase):
         active_agents = parse_args(["agents", "--json", "--cwd", "/tmp"])
         all_agents = parse_args(["--json", "agents", "--all", "--cwd", "/tmp"])
         formatted_agents = parse_args(
-            ["agents", "--all", "--output-format", "json", "--cwd", "/tmp"]
+            [
+                "agents",
+                "--all",
+                "--model",
+                "opus",
+                "--output-format",
+                "json",
+                "--cwd",
+                "/tmp",
+            ]
         )
         logs = parse_args(
             ["logs", AGENT_ID, "--max-chars", "5000", "--cwd", "/tmp", "--json"]
@@ -37,11 +46,14 @@ class CliBackgroundAgentCommandTests(unittest.TestCase):
         remove = parse_args(["rm", AGENT_ID, "--output-format", "json"])
         ordinary = parse_args(["fix", "stop", "integration"])
 
-        self.assertTrue(active_agents.active_background_agents)
+        self.assertTrue(active_agents.agent_list_json)
+        self.assertFalse(active_agents.agent_list_all)
         self.assertFalse(active_agents.background_agents)
-        self.assertTrue(all_agents.background_agents)
-        self.assertFalse(all_agents.active_background_agents)
-        self.assertTrue(formatted_agents.background_agents)
+        self.assertTrue(all_agents.agent_list_json)
+        self.assertTrue(all_agents.agent_list_all)
+        self.assertFalse(all_agents.background_agents)
+        self.assertTrue(formatted_agents.agent_list_all)
+        self.assertEqual(formatted_agents.model, "opus")
         self.assertEqual(logs.background_agent_log, AGENT_ID)
         self.assertEqual(logs.background_agent_log_max_chars, 5000)
         self.assertEqual(logs.cwd, "/tmp")
@@ -94,7 +106,7 @@ class CliBackgroundAgentCommandTests(unittest.TestCase):
             running = _view(root, AGENT_ID, "running")
             stopped = _view(root, "abcdef012345", "stopped")
 
-            outputs: list[dict[str, object]] = []
+            outputs: list[list[dict[str, object]]] = []
             with patch(
                 "vibeagent.cli_background_agent_local_flags.list_background_agents",
                 return_value=(running, stopped),
@@ -113,10 +125,10 @@ class CliBackgroundAgentCommandTests(unittest.TestCase):
                     create_chat_client.assert_not_called()
 
         self.assertEqual(
-            [agent["id"] for agent in outputs[0]["backgroundAgents"]],  # type: ignore[index]
+            [agent["id"] for agent in outputs[0]],
             [AGENT_ID],
         )
-        self.assertEqual(len(outputs[1]["backgroundAgents"]), 2)  # type: ignore[arg-type]
+        self.assertEqual(len(outputs[1]), 2)
 
     def test_respawn_all_failure_count_sets_failed_exit_code(self) -> None:
         args = parse_args(["respawn", "--all"])

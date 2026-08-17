@@ -270,6 +270,13 @@ def write_private_json_atomic(path: Path, payload: object) -> None:
     )
 
 
+def write_private_json_atomic_exclusive(path: Path, payload: object) -> None:
+    write_private_text_atomic_exclusive(
+        path,
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+    )
+
+
 def write_private_text(path: Path, text: str, *, exclusive: bool) -> None:
     flags = os.O_WRONLY | os.O_CREAT | (os.O_EXCL if exclusive else os.O_TRUNC)
     descriptor = os.open(path, flags, 0o600)
@@ -288,6 +295,23 @@ def write_private_text_atomic(path: Path, text: str) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, path)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        temporary.unlink(missing_ok=True)
+
+
+def write_private_text_atomic_exclusive(path: Path, text: str) -> None:
+    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            descriptor = None
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(temporary, path)
     finally:
         if descriptor is not None:
             os.close(descriptor)
@@ -318,6 +342,8 @@ __all__ = [
     "write_background_agent_record",
     "write_private_json",
     "write_private_json_atomic",
+    "write_private_json_atomic_exclusive",
     "write_private_text",
     "write_private_text_atomic",
+    "write_private_text_atomic_exclusive",
 ]

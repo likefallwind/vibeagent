@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import stat
 from pathlib import Path
 import tempfile
@@ -15,12 +17,34 @@ from vibeagent.background_agent_approval import (
 )
 from vibeagent.background_agent_config import create_background_agent_config
 from vibeagent.background_agent_store import background_agent_view
+from vibeagent.background_agent_store import write_private_json_atomic_exclusive
 from vibeagent.background_agent_types import BackgroundAgentRecord
 from vibeagent.session_approval import SessionApprovalHandler
 from vibeagent.types import ApprovalRequest
 
 
 class BackgroundAgentApprovalTests(unittest.TestCase):
+    def test_private_exclusive_json_is_complete_before_publication(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-background-atomic-") as base:
+            path = Path(base) / "response.json"
+            real_link = os.link
+            published: list[object] = []
+
+            def publish(source: str | Path, target: str | Path) -> None:
+                self.assertFalse(Path(target).exists())
+                published.append(json.loads(Path(source).read_text(encoding="utf-8")))
+                real_link(source, target)
+
+            with patch("vibeagent.background_agent_store.os.link", side_effect=publish):
+                write_private_json_atomic_exclusive(path, {"approved": True})
+
+            self.assertEqual(published, [{"approved": True}])
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"approved": True})
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            with self.assertRaises(FileExistsError):
+                write_private_json_atomic_exclusive(path, {"approved": False})
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"approved": True})
+
     def test_prompt_blocks_until_exact_agent_view_decision(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-background-approval-") as base:
             root = Path(base).resolve()

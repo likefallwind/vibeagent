@@ -18,7 +18,7 @@ from vibeagent.background_agent_approval import BackgroundApproval
 from vibeagent.background_agent_input import BackgroundUserInput
 from vibeagent.types import UserInputRequest
 from vibeagent.cli import main
-from vibeagent.cli_agent_view import run_agent_view_from_cli
+from vibeagent.cli_agent_view import build_agent_view_dispatch_argv, run_agent_view_from_cli
 from vibeagent.cli_args import has_local_flag, parse_args
 
 
@@ -321,6 +321,93 @@ class AgentViewTests(unittest.TestCase):
             launch.call_args.args[2],
             ["--background", "--worktree", "--", "implement parser"],
         )
+
+    def test_agent_view_dispatch_preserves_validated_cli_defaults(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-defaults-") as base:
+            root = Path(base).resolve()
+            additional = root / "shared"
+            additional.mkdir()
+            settings = root / "settings.json"
+            settings.write_text('{"model":"configured"}\n', encoding="utf-8")
+            mcp = root / "mcp.json"
+            mcp.write_text('{"mcpServers":{}}\n', encoding="utf-8")
+            plugin = root / "plugin"
+            plugin.mkdir()
+            args = parse_args(
+                [
+                    "agents",
+                    "--cwd",
+                    str(root),
+                    "--permission-mode",
+                    "auto",
+                    "--provider",
+                    "anthropic",
+                    "--model",
+                    "opus",
+                    "--effort",
+                    "high",
+                    "--agent",
+                    "reviewer",
+                    "--agents",
+                    '{"reviewer":{"description":"Review","prompt":"Review code"}}',
+                    "--settings",
+                    str(settings),
+                    "--setting-sources",
+                    "project",
+                    "--add-dir",
+                    str(additional),
+                    "--mcp-config",
+                    str(mcp),
+                    "--strict-mcp-config",
+                    "--plugin-dir",
+                    str(plugin),
+                ]
+            )
+            with patch(
+                "vibeagent.cli_agent_view.resolve_invocation_plugin_dirs",
+                return_value=(plugin,),
+            ):
+                dispatch_argv = build_agent_view_dispatch_argv(
+                    args,
+                    project_root=root,
+                    invocation_root=root,
+                )
+            backend = ProjectAgentViewBackend(
+                root,
+                root,
+                dispatch_argv=dispatch_argv,
+            )
+            launched = _view(root, "aaaaaaaaaaaa", status="running", task="task")
+            with patch(
+                "vibeagent.agent_view_backend.launch_background_agent",
+                return_value=launched,
+            ) as launch:
+                backend.dispatch("--model remains task text")
+
+        argv = launch.call_args.args[2]
+        self.assertEqual(argv[:5], ["--background", "--approval", "auto", "--provider", "anthropic"])
+        self.assertIn("--model-name", argv)
+        self.assertIn("opus", argv)
+        self.assertIn("--effort", argv)
+        self.assertIn("--agent", argv)
+        self.assertIn("--agents", argv)
+        self.assertIn("--settings", argv)
+        self.assertIn("--setting-sources", argv)
+        self.assertIn(additional.as_posix(), argv)
+        self.assertIn(mcp.as_posix(), argv)
+        self.assertIn(plugin.as_posix(), argv)
+        self.assertIn("--strict-mcp-config", argv)
+        self.assertEqual(argv[-2:], ["--", "--model remains task text"])
+
+    def test_agent_view_rejects_explicit_api_key_before_dashboard(self) -> None:
+        with (
+            patch("builtins.print"),
+            patch("vibeagent.cli.run_agent_view_from_cli") as dashboard,
+        ):
+            exit_code = main(["agents", "--api-key", "secret"])
+
+        self.assertEqual(exit_code, 2)
+        dashboard.assert_not_called()
 
     def test_agents_command_routes_to_dashboard_without_becoming_a_task(self) -> None:
         args = parse_args(["agents", "--cwd", "."])

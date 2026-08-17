@@ -13,8 +13,8 @@ from .background_agent_store import (
     background_agent_runtime_root,
     ensure_background_agent_runtime_root,
     ensure_private_directory,
-    write_private_json,
     write_private_json_atomic,
+    write_private_json_atomic_exclusive,
 )
 from .background_agent_types import BACKGROUND_AGENT_ID_PATTERN
 from .types import UserInputAnswer, UserInputRequest
@@ -100,7 +100,7 @@ def answer_background_user_input(
         if normalized is None:
             raise ValueError(error or "User response is empty.")
         try:
-            write_private_json(
+            write_private_json_atomic_exclusive(
                 background_user_input_response_path(root, agent_id),
                 {
                     "schemaVersion": INPUT_VERSION,
@@ -108,7 +108,6 @@ def answer_background_user_input(
                     "requestId": interaction.request_id,
                     "answer": answer,
                 },
-                exclusive=True,
             )
         except FileExistsError as error:
             raise ValueError(f"Background user input was already answered: {agent_id}") from error

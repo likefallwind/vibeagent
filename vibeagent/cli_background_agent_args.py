@@ -23,7 +23,7 @@ def add_background_agent_local_arguments(
         help="List project-local background coding agents and exit.",
     )
     local.add_argument(
-        "--active-background-agents",
+        "--agent-list-json",
         action="store_true",
         help=argparse.SUPPRESS,
     )
@@ -80,6 +80,11 @@ def add_background_agent_local_arguments(
 
 def add_background_agent_option_arguments(parser: argparse.ArgumentParser, *, positive_int) -> None:
     parser.add_argument(
+        "--agent-list-all",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "--remote-control-session-name-prefix",
         metavar="PREFIX",
         help="Prefix for an automatically generated Remote Control session name (default: hostname).",
@@ -134,9 +139,11 @@ def normalize_background_agent_command_arguments(argv: Sequence[str]) -> list[st
     prefix = [*values[:index], *trailing_globals]
     if command == "agents":
         if _requests_json_output(prefix):
-            if command_args == ["--all"]:
-                return [*prefix, "--background-agents"]
-            return [*prefix, "--active-background-agents", *command_args]
+            all_count = command_args.count("--all")
+            if all_count == 1:
+                command_args.remove("--all")
+                return [*prefix, "--agent-list-json", "--agent-list-all", *command_args]
+            return [*prefix, "--agent-list-json", *command_args]
         return [*prefix, "--agent-view", *command_args]
     if command == "remote-control":
         return [*prefix, "--remote-control", *command_args]

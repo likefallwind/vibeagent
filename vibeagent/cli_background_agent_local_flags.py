@@ -25,9 +25,9 @@ def run_background_agent_local_flag(
     _command_namespace: dict[str, Any],
 ) -> tuple[str, dict[str, object]] | None:
     root = project_root or Path.cwd()
-    if args.background_agents or getattr(args, "active_background_agents", False):
+    if args.background_agents or getattr(args, "agent_list_json", False):
         views = list_background_agents(root)
-        if getattr(args, "active_background_agents", False):
+        if getattr(args, "agent_list_json", False) and not getattr(args, "agent_list_all", False):
             views = tuple(view for view in views if view.status in ACTIVE_BACKGROUND_AGENT_STATUSES)
         return _format_background_agents(views), {
             "backgroundAgents": [background_agent_view_payload(view) for view in views]

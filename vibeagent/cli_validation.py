@@ -96,6 +96,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--background requires session persistence."
     if args.background and args.api_key is not None:
         return "--background does not persist --api-key; configure the provider key in the environment."
+    if args.agent_view and args.api_key is not None:
+        return "agents does not persist --api-key; configure the provider key in the environment."
     if args.permission_prompt_tool is not None and (
         (not args.print_mode and not args.background)
         or not args.task
@@ -243,7 +245,13 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--no-session-persistence cannot be combined with --worktree."
     if args.model is True and has_non_model_local_flag(args):
         return "--model cannot be combined with other local command flags unless a MODEL value is provided."
-    if isinstance(args.model, str) and not args.task and not args.save_config and not has_non_model_local_flag(args):
+    if (
+        isinstance(args.model, str)
+        and not args.task
+        and not args.save_config
+        and not args.agent_view
+        and not has_non_model_local_flag(args)
+    ):
         return "--model MODEL requires a one-shot task or --save-config."
     if args.dangerously_skip_permissions and (not args.task or has_local_flag(args) or args.chat):
         return "--dangerously-skip-permissions requires a one-shot coding task."
@@ -305,10 +313,10 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return resume_error
     if args.input_format in {"json", "stream-json"} and args.task != ["-"]:
         return f"--input-format {args.input_format} requires task '-' so input can be read from stdin."
-    if args.mcp_config and (not args.task or has_local_flag(args)):
-        return "--mcp-config requires a one-shot task."
-    if args.strict_mcp_config and (not args.task or has_local_flag(args)):
-        return "--strict-mcp-config requires a one-shot task."
+    if args.mcp_config and ((not args.task and not args.agent_view) or has_local_flag(args)):
+        return "--mcp-config requires a one-shot task or Agent View."
+    if args.strict_mcp_config and ((not args.task and not args.agent_view) or has_local_flag(args)):
+        return "--strict-mcp-config requires a one-shot task or Agent View."
     if args.system_prompt is not None and not args.system_prompt.strip():
         return "--system-prompt cannot be empty."
     if args.append_system_prompt is not None and not args.append_system_prompt.strip():

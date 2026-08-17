@@ -629,9 +629,19 @@ class CliArgsValidationTests(unittest.TestCase):
     def test_cli_rejects_mcp_config_without_one_shot_task(self) -> None:
         args = cli_module.parse_args(["--mcp-config", "extra.mcp.json", "--tools"])
         strict_args = cli_module.parse_args(["--strict-mcp-config", "--tools"])
+        agent_args = cli_module.parse_args(
+            ["agents", "--mcp-config", "extra.mcp.json", "--strict-mcp-config"]
+        )
 
-        self.assertEqual(cli_module.validate_cli_args(args), "--mcp-config requires a one-shot task.")
-        self.assertEqual(cli_module.validate_cli_args(strict_args), "--strict-mcp-config requires a one-shot task.")
+        self.assertEqual(
+            cli_module.validate_cli_args(args),
+            "--mcp-config requires a one-shot task or Agent View.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(strict_args),
+            "--strict-mcp-config requires a one-shot task or Agent View.",
+        )
+        self.assertIsNone(cli_module.validate_cli_args(agent_args))
 
     def test_parse_args_accepts_explicit_aliases_but_rejects_implicit_abbreviations(self) -> None:
         command_args = cli_module.parse_args(["--command", "python3 --version"])
