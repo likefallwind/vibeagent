@@ -4,11 +4,11 @@ from .checkpoint_query_actions import checkpoint_status_observation
 from .checkpoint_storage import (
     check_checkpoint_untracked_restore_files,
     checkpoint_untracked_paths,
+    checkpoint_file_for_read,
     count_checkpoint_status_kinds,
     filter_checkpoint_status,
     read_checkpoint_git_head,
     read_checkpoint_metadata,
-    read_checkpoint_patch,
     read_checkpoint_untracked_paths,
     restore_checkpoint_untracked_files,
     run_checkpoint_git_command,
@@ -38,8 +38,8 @@ def check_checkpoint_restore_observation(workspace: RunWorkspace, checkpoint_id:
     saved_untracked = int(metadata.get("untracked_files") or 0)
     saved_untracked_paths = read_checkpoint_untracked_paths(workspace.root, checkpoint_id)
     current_untracked_paths = set(checkpoint_untracked_paths(filter_checkpoint_status(status.stdout)))
-    staged_patch = read_checkpoint_patch(workspace.root, checkpoint_id, "staged.patch")
-    unstaged_patch = read_checkpoint_patch(workspace.root, checkpoint_id, "unstaged.patch")
+    staged_patch = checkpoint_file_for_read(workspace.root, checkpoint_id, "staged.patch")
+    unstaged_patch = checkpoint_file_for_read(workspace.root, checkpoint_id, "unstaged.patch")
     can_restore = True
     restore_message = "Checkpoint can restore tracked staged/unstaged changes and saved untracked files."
     if not isinstance(saved_head, str) or not saved_head:
@@ -48,6 +48,9 @@ def check_checkpoint_restore_observation(workspace: RunWorkspace, checkpoint_id:
     elif current_head != saved_head:
         can_restore = False
         restore_message = f"Checkpoint was created at HEAD {short_checkpoint_head(saved_head)}, but current HEAD is {short_checkpoint_head(current_head)}."
+    elif staged_patch is None or unstaged_patch is None:
+        can_restore = False
+        restore_message = "Checkpoint patch files are missing or unsafe."
     elif saved_untracked and len(saved_untracked_paths) != saved_untracked:
         can_restore = False
         restore_message = "Checkpoint contains untracked files that were not fully saved."
@@ -68,8 +71,8 @@ def check_checkpoint_restore_observation(workspace: RunWorkspace, checkpoint_id:
         current_head=current_head,
         saved_untracked_files=saved_untracked,
         current_untracked_files=current_counts["untracked_files"],
-        staged_patch_chars=len(staged_patch),
-        unstaged_patch_chars=len(unstaged_patch),
+        staged_patch_chars=int(metadata.get("staged_diff_chars") or 0),
+        unstaged_patch_chars=int(metadata.get("unstaged_diff_chars") or 0),
         message=restore_message,
     )
 
@@ -93,28 +96,43 @@ def checkpoint_restore_observation(workspace: RunWorkspace, checkpoint_id: str) 
         )
 
     restored_id = restore_check.checkpoint_id
-    staged_patch = read_checkpoint_patch(workspace.root, restored_id, "staged.patch")
-    unstaged_patch = read_checkpoint_patch(workspace.root, restored_id, "unstaged.patch")
-    steps: list[tuple[list[str], str | None]] = [(["restore", "--staged", "--worktree", "--", "."], None)]
-    if staged_patch.strip():
+    staged_patch = checkpoint_file_for_read(workspace.root, restored_id, "staged.patch")
+    unstaged_patch = checkpoint_file_for_read(workspace.root, restored_id, "unstaged.patch")
+    if staged_patch is None or unstaged_patch is None:
+        return CheckpointRestoreObservation(
+            kind="checkpoint_restore",
+            ok=False,
+            checkpoint_id=restore_check.checkpoint_id,
+            restored=False,
+            matches=False,
+            saved_head=restore_check.saved_head,
+            current_head=restore_check.current_head,
+            saved_untracked_files=restore_check.saved_untracked_files,
+            current_untracked_files=restore_check.current_untracked_files,
+            staged_patch_chars=restore_check.staged_patch_chars,
+            unstaged_patch_chars=restore_check.unstaged_patch_chars,
+            message="Checkpoint patch files are missing or unsafe.",
+        )
+    steps: list[list[str]] = [["restore", "--staged", "--worktree", "--", "."]]
+    if staged_patch.stat().st_size:
         steps.extend(
             [
-                (["apply", "--check", "--whitespace=nowarn", "-"], staged_patch),
-                (["apply", "--cached", "--check", "--whitespace=nowarn", "-"], staged_patch),
-                (["apply", "--whitespace=nowarn", "-"], staged_patch),
-                (["apply", "--cached", "--whitespace=nowarn", "-"], staged_patch),
+                ["apply", "--check", "--whitespace=nowarn", str(staged_patch)],
+                ["apply", "--cached", "--check", "--whitespace=nowarn", str(staged_patch)],
+                ["apply", "--whitespace=nowarn", str(staged_patch)],
+                ["apply", "--cached", "--whitespace=nowarn", str(staged_patch)],
             ]
         )
-    if unstaged_patch.strip():
+    if unstaged_patch.stat().st_size:
         steps.extend(
             [
-                (["apply", "--check", "--whitespace=nowarn", "-"], unstaged_patch),
-                (["apply", "--whitespace=nowarn", "-"], unstaged_patch),
+                ["apply", "--check", "--whitespace=nowarn", str(unstaged_patch)],
+                ["apply", "--whitespace=nowarn", str(unstaged_patch)],
             ]
         )
 
-    for args, stdin in steps:
-        result = run_checkpoint_git_command(workspace.root, args, stdin)
+    for args in steps:
+        result = run_checkpoint_git_command(workspace.root, args)
         if result.returncode != 0:
             return CheckpointRestoreObservation(
                 kind="checkpoint_restore",

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+import shutil
+
+from .checkpoint_patch_io import MAX_CHECKPOINT_STATUS_CHARS, capture_checkpoint_patches
 
 from .checkpoint_storage import (
     checkpoint_info_to_metadata,
@@ -21,13 +24,12 @@ from .types import (
 )
 from .workspace import (
     RunWorkspace,
-    read_git_diff,
     read_git_status,
 )
 
 
 def create_checkpoint_observation(workspace: RunWorkspace, label: str | None = None) -> CheckpointCreateObservation:
-    status = read_git_status(workspace)
+    status = read_git_status(workspace, max_output_chars=MAX_CHECKPOINT_STATUS_CHARS)
     if not status.ok:
         return CheckpointCreateObservation(
             kind="checkpoint_create",
@@ -37,16 +39,14 @@ def create_checkpoint_observation(workspace: RunWorkspace, label: str | None = N
             unstaged_patch_chars=0,
             message=status.stderr or "git status failed.",
         )
-    staged = read_git_diff(workspace, staged=True)
-    unstaged = read_git_diff(workspace, staged=False)
-    if not staged.ok or not unstaged.ok:
+    if status.stdout_truncated:
         return CheckpointCreateObservation(
             kind="checkpoint_create",
             ok=False,
             checkpoint=None,
             staged_patch_chars=0,
             unstaged_patch_chars=0,
-            message=staged.stderr or unstaged.stderr or "git diff failed.",
+            message=f"git status output exceeded {MAX_CHECKPOINT_STATUS_CHARS} characters.",
         )
     head = read_checkpoint_git_head(workspace.root)
     if not head:
@@ -117,19 +117,52 @@ def create_checkpoint_observation(workspace: RunWorkspace, label: str | None = N
             unstaged_patch_chars=0,
             message=f"Failed to create checkpoint directory: {error}",
         )
-    metadata = checkpoint_info_to_metadata(info, str(workspace.root), filtered_status, len(staged.stdout), len(unstaged.stdout))
-    metadata.update(checkpoint_session_metadata(workspace.root, workspace.run_id))
-    saved_untracked, skipped_untracked = save_checkpoint_untracked_files(workspace.root, checkpoint_dir, filtered_status)
-    metadata["untracked_saved_files"] = saved_untracked
-    metadata["untracked_skipped_files"] = skipped_untracked
-    (checkpoint_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    (checkpoint_dir / "staged.patch").write_text(staged.stdout, encoding="utf-8")
-    (checkpoint_dir / "unstaged.patch").write_text(unstaged.stdout, encoding="utf-8")
+    patches = capture_checkpoint_patches(workspace.root, checkpoint_dir)
+    if not patches.ok:
+        shutil.rmtree(checkpoint_dir, ignore_errors=True)
+        return CheckpointCreateObservation(
+            kind="checkpoint_create",
+            ok=False,
+            checkpoint=None,
+            staged_patch_chars=0,
+            unstaged_patch_chars=0,
+            message=patches.error,
+        )
+    try:
+        metadata = checkpoint_info_to_metadata(
+            info,
+            str(workspace.root),
+            filtered_status,
+            patches.staged_chars,
+            patches.unstaged_chars,
+        )
+        metadata.update(checkpoint_session_metadata(workspace.root, workspace.run_id))
+        saved_untracked, skipped_untracked = save_checkpoint_untracked_files(
+            workspace.root,
+            checkpoint_dir,
+            filtered_status,
+        )
+        metadata["untracked_saved_files"] = saved_untracked
+        metadata["untracked_skipped_files"] = skipped_untracked
+        (checkpoint_dir / "metadata.json").write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as error:
+        shutil.rmtree(checkpoint_dir, ignore_errors=True)
+        return CheckpointCreateObservation(
+            kind="checkpoint_create",
+            ok=False,
+            checkpoint=None,
+            staged_patch_chars=0,
+            unstaged_patch_chars=0,
+            message=f"Failed to save checkpoint: {error}",
+        )
     return CheckpointCreateObservation(
         kind="checkpoint_create",
         ok=True,
         checkpoint=info,
-        staged_patch_chars=len(staged.stdout),
-        unstaged_patch_chars=len(unstaged.stdout),
+        staged_patch_chars=patches.staged_chars,
+        unstaged_patch_chars=patches.unstaged_chars,
         message=f"Saved checkpoint {checkpoint_id}.",
     )

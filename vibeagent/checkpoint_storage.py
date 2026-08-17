@@ -6,6 +6,8 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .bounded_subprocess import BoundedProcessResult, run_bounded_subprocess
+from .checkpoint_patch_io import CHECKPOINT_GIT_TIMEOUT_MS, MAX_CHECKPOINT_DIAGNOSTIC_CHARS
 from .types import CheckpointInfo
 from .checkpoint_untracked_storage import (
     CHECKPOINT_UNTRACKED_SHOW_LIMIT,
@@ -22,16 +24,22 @@ from .checkpoint_untracked_storage import (
 )
 
 
-def run_checkpoint_git_command(root: Path, args: list[str], stdin: str | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args],
-        cwd=root,
-        input=stdin,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
+def run_checkpoint_git_command(
+    root: Path,
+    args: list[str],
+) -> BoundedProcessResult | subprocess.CompletedProcess[str]:
+    try:
+        return run_bounded_subprocess(
+            ["git", *args],
+            cwd=root,
+            timeout_ms=CHECKPOINT_GIT_TIMEOUT_MS,
+            max_output_chars=MAX_CHECKPOINT_DIAGNOSTIC_CHARS,
+            errors="replace",
+        )
+    except FileNotFoundError:
+        return subprocess.CompletedProcess(["git", *args], 127, "", "git executable was not found.")
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(["git", *args], 124, "", "git command timed out.")
 
 
 def checkpoint_root(root: Path) -> Path:
@@ -173,16 +181,6 @@ def checkpoint_directory_for_deletion(root: Path, checkpoint_id: str) -> tuple[P
     return checkpoint_dir, "ok"
 
 
-def read_checkpoint_patch(root: Path, checkpoint_id: str, name: str) -> str:
-    path = checkpoint_file_for_read(root, checkpoint_id, name)
-    if path is None:
-        return ""
-    try:
-        return path.read_text(encoding="utf-8")
-    except OSError:
-        return ""
-
-
 def checkpoint_file_for_read(root: Path, checkpoint_id: str, name: str) -> Path | None:
     normalized = resolve_checkpoint_id(root, checkpoint_id)
     if not normalized or Path(normalized).name != normalized or Path(name).name != name:
@@ -216,21 +214,8 @@ def resolve_checkpoint_id(root: Path, checkpoint_id: str) -> str:
     return normalized
 
 
-def clip_text_with_flag(value: str, max_chars: int) -> tuple[str, bool]:
-    if len(value) <= max_chars:
-        return value, False
-    return value[:max_chars], True
-
-
 def read_checkpoint_git_head(root: Path) -> str:
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=root,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
+    result = run_checkpoint_git_command(root, ["rev-parse", "HEAD"])
     return result.stdout.strip() if result.returncode == 0 else ""
 
 

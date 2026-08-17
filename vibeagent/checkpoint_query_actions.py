@@ -2,16 +2,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .checkpoint_patch_io import (
+    MAX_CHECKPOINT_STATUS_CHARS,
+    compare_checkpoint_patches,
+    read_checkpoint_patch_excerpt,
+)
+
 from .checkpoint_storage import (
     checkpoint_info_from_metadata,
+    checkpoint_file_for_read,
     checkpoint_untracked_files_match,
     clip_checkpoint_untracked_paths,
-    clip_text_with_flag,
     count_checkpoint_status_kinds,
     filter_checkpoint_status,
     read_checkpoint_infos,
     read_checkpoint_metadata,
-    read_checkpoint_patch,
     read_checkpoint_untracked_manifest,
 )
 from .types import (
@@ -20,7 +25,7 @@ from .types import (
     CheckpointShowObservation,
     CheckpointStatusObservation,
 )
-from .workspace import RunWorkspace, read_git_diff, read_git_status
+from .workspace import RunWorkspace, read_git_status
 
 
 def list_checkpoints_observation(root: Path, max_entries: int = 20) -> CheckpointListObservation:
@@ -106,10 +111,14 @@ def checkpoint_diff_observation(root: Path, checkpoint_id: str, max_chars: int =
             message=message,
         )
     checkpoint_id = str(metadata.get("id") or checkpoint_id)
-    staged_patch = read_checkpoint_patch(root, checkpoint_id, "staged.patch")
-    unstaged_patch = read_checkpoint_patch(root, checkpoint_id, "unstaged.patch")
-    staged_text, staged_truncated = clip_text_with_flag(staged_patch, max_chars)
-    unstaged_text, unstaged_truncated = clip_text_with_flag(unstaged_patch, max_chars)
+    staged_text, staged_chars, staged_truncated = read_checkpoint_patch_excerpt(
+        checkpoint_file_for_read(root, checkpoint_id, "staged.patch"),
+        max_chars,
+    )
+    unstaged_text, unstaged_chars, unstaged_truncated = read_checkpoint_patch_excerpt(
+        checkpoint_file_for_read(root, checkpoint_id, "unstaged.patch"),
+        max_chars,
+    )
     return CheckpointDiffObservation(
         kind="checkpoint_diff",
         ok=True,
@@ -117,10 +126,10 @@ def checkpoint_diff_observation(root: Path, checkpoint_id: str, max_chars: int =
         label=str(metadata.get("label") or ""),
         created_at=str(metadata.get("created_at") or ""),
         staged_patch=staged_text,
-        staged_patch_chars=len(staged_patch),
+        staged_patch_chars=staged_chars,
         staged_patch_truncated=staged_truncated,
         unstaged_patch=unstaged_text,
-        unstaged_patch_chars=len(unstaged_patch),
+        unstaged_patch_chars=unstaged_chars,
         unstaged_patch_truncated=unstaged_truncated,
         max_chars=max_chars,
         message=f"Read checkpoint diff {checkpoint_id}.",
@@ -132,32 +141,45 @@ def checkpoint_status_observation(workspace: RunWorkspace, checkpoint_id: str) -
     if metadata is None:
         return empty_checkpoint_status(checkpoint_id, message)
     checkpoint_id = str(metadata.get("id") or checkpoint_id)
-    status = read_git_status(workspace)
-    staged = read_git_diff(workspace, staged=True)
-    unstaged = read_git_diff(workspace, staged=False)
-    if not status.ok or not staged.ok or not unstaged.ok:
+    status = read_git_status(workspace, max_output_chars=MAX_CHECKPOINT_STATUS_CHARS)
+    if not status.ok or status.stdout_truncated:
         return empty_checkpoint_status(
             checkpoint_id,
-            status.stderr or staged.stderr or unstaged.stderr or "git status/diff failed.",
+            status.stderr
+            or (
+                f"git status output exceeded {MAX_CHECKPOINT_STATUS_CHARS} characters."
+                if status.stdout_truncated
+                else "git status failed."
+            ),
         )
     saved_status = str(metadata.get("git_status") or "")
-    saved_staged = read_checkpoint_patch(workspace.root, checkpoint_id, "staged.patch")
-    saved_unstaged = read_checkpoint_patch(workspace.root, checkpoint_id, "unstaged.patch")
-    untracked_matches = checkpoint_untracked_files_match(workspace.root, checkpoint_id, int(metadata.get("untracked_files") or 0))
+    saved_staged = checkpoint_file_for_read(workspace.root, checkpoint_id, "staged.patch")
+    saved_unstaged = checkpoint_file_for_read(workspace.root, checkpoint_id, "unstaged.patch")
+    comparison = compare_checkpoint_patches(workspace.root, saved_staged, saved_unstaged)
+    if not comparison.ok:
+        return empty_checkpoint_status(checkpoint_id, comparison.error)
+    untracked_matches = checkpoint_untracked_files_match(
+        workspace.root,
+        checkpoint_id,
+        int(metadata.get("untracked_files") or 0),
+    )
     current_status = filter_checkpoint_status(status.stdout)
     current_counts = count_checkpoint_status_kinds(current_status)
     status_matches = current_status == saved_status
-    staged_matches = staged.stdout == saved_staged
-    unstaged_matches = unstaged.stdout == saved_unstaged
-    matches = status_matches and staged_matches and unstaged_matches and untracked_matches
+    matches = (
+        status_matches
+        and comparison.staged_matches
+        and comparison.unstaged_matches
+        and untracked_matches
+    )
     return CheckpointStatusObservation(
         kind="checkpoint_status",
         ok=True,
         checkpoint_id=checkpoint_id,
         matches=matches,
         status_matches=status_matches,
-        staged_patch_matches=staged_matches,
-        unstaged_patch_matches=unstaged_matches,
+        staged_patch_matches=comparison.staged_matches,
+        unstaged_patch_matches=comparison.unstaged_matches,
         untracked_file_matches=untracked_matches,
         saved_changed_files=int(metadata.get("changed_files") or 0),
         saved_staged_files=int(metadata.get("staged_files") or 0),

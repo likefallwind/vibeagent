@@ -3,6 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .checkpoint_patch_io import (
+    MAX_CHECKPOINT_STATUS_CHARS,
+    compare_checkpoint_patches,
+    read_checkpoint_patch_excerpt,
+)
 from .local_command_workspace import local_command_workspace
 from .types import CheckpointInfo
 from .workflow_checkpoint_formatting import (
@@ -16,15 +21,13 @@ from .workflow_checkpoint_utils import (
     count_status_kinds,
     display_checkpoint_file,
     local_checkpoint_untracked_files_match,
-    read_checkpoint_patch,
     read_checkpoints,
     read_local_checkpoint_untracked_manifest,
     resolve_checkpoint_dir,
     short_head,
 )
-from .workflow_diff_utils import clip_with_flag
 from .workflow_review_formatting import filter_handoff_status
-from .workspace import read_git_diff, read_git_status
+from .workspace import read_git_status
 
 
 def serialize_checkpoint_metadata(metadata: dict[str, object]) -> dict[str, object]:
@@ -158,10 +161,14 @@ def get_checkpoint_diff_report(
             "diff": None,
             "message": error,
         }
-    staged = read_checkpoint_patch((checkpoint_dir or root) / "staged.patch")
-    unstaged = read_checkpoint_patch((checkpoint_dir or root) / "unstaged.patch")
-    staged_text, staged_truncated = clip_with_flag(staged, max_chars)
-    unstaged_text, unstaged_truncated = clip_with_flag(unstaged, max_chars)
+    staged_text, staged_chars, staged_truncated = read_checkpoint_patch_excerpt(
+        (checkpoint_dir or root) / "staged.patch",
+        max_chars,
+    )
+    unstaged_text, unstaged_chars, unstaged_truncated = read_checkpoint_patch_excerpt(
+        (checkpoint_dir or root) / "unstaged.patch",
+        max_chars,
+    )
     return {
         "projectRoot": str(root),
         "ok": True,
@@ -170,10 +177,10 @@ def get_checkpoint_diff_report(
         "diff": {
             "maxChars": max_chars,
             "stagedPatch": staged_text,
-            "stagedChars": len(staged),
+            "stagedChars": staged_chars,
             "stagedTruncated": staged_truncated,
             "unstagedPatch": unstaged_text,
-            "unstagedChars": len(unstaged),
+            "unstagedChars": unstaged_chars,
             "unstagedTruncated": unstaged_truncated,
         },
         "message": f"Read checkpoint diff {metadata.get('id') or checkpoint_id}.",
@@ -197,26 +204,35 @@ def get_checkpoint_status_report(checkpoint_id: str | None, project_root: str | 
             "message": error,
         }
     workspace = local_command_workspace(root, "local-checkpoint-status")
-    status = read_git_status(workspace)
-    if not status.ok:
-        return checkpoint_status_error_report(root, metadata, status.stderr or "git status failed.")
-    staged = read_git_diff(workspace, staged=True)
-    if not staged.ok:
-        return checkpoint_status_error_report(root, metadata, staged.stderr or "git diff --staged failed.")
-    unstaged = read_git_diff(workspace, staged=False)
-    if not unstaged.ok:
-        return checkpoint_status_error_report(root, metadata, unstaged.stderr or "git diff failed.")
+    status = read_git_status(workspace, max_output_chars=MAX_CHECKPOINT_STATUS_CHARS)
+    if not status.ok or status.stdout_truncated:
+        message = status.stderr or (
+            f"git status output exceeded {MAX_CHECKPOINT_STATUS_CHARS} characters."
+            if status.stdout_truncated
+            else "git status failed."
+        )
+        return checkpoint_status_error_report(root, metadata, message)
 
     saved_status = str(metadata.get("git_status") or "")
-    saved_staged = read_checkpoint_patch((checkpoint_dir or root) / "staged.patch")
-    saved_unstaged = read_checkpoint_patch((checkpoint_dir or root) / "unstaged.patch")
+    saved_staged = (checkpoint_dir or root) / "staged.patch"
+    saved_unstaged = (checkpoint_dir or root) / "unstaged.patch"
+    comparison = compare_checkpoint_patches(root, saved_staged, saved_unstaged)
+    if not comparison.ok:
+        return checkpoint_status_error_report(root, metadata, comparison.error)
     current_status = filter_handoff_status(status.stdout)
     current_counts = count_status_kinds(current_status)
     status_matches = current_status == saved_status
-    staged_matches = staged.stdout == saved_staged
-    unstaged_matches = unstaged.stdout == saved_unstaged
-    untracked_matches = local_checkpoint_untracked_files_match(root, checkpoint_dir or root, int(metadata.get("untracked_files") or 0))
-    matches = status_matches and staged_matches and unstaged_matches and untracked_matches
+    untracked_matches = local_checkpoint_untracked_files_match(
+        root,
+        checkpoint_dir or root,
+        int(metadata.get("untracked_files") or 0),
+    )
+    matches = (
+        status_matches
+        and comparison.staged_matches
+        and comparison.unstaged_matches
+        and untracked_matches
+    )
     return {
         "projectRoot": str(root),
         "ok": True,
@@ -225,8 +241,8 @@ def get_checkpoint_status_report(checkpoint_id: str | None, project_root: str | 
         "matches": matches,
         "checks": {
             "statusMatches": status_matches,
-            "stagedPatchMatches": staged_matches,
-            "unstagedPatchMatches": unstaged_matches,
+            "stagedPatchMatches": comparison.staged_matches,
+            "unstagedPatchMatches": comparison.unstaged_matches,
             "untrackedFileMatches": untracked_matches,
         },
         "saved": {
@@ -234,16 +250,16 @@ def get_checkpoint_status_report(checkpoint_id: str | None, project_root: str | 
             "stagedFiles": int(metadata.get("staged_files") or 0),
             "unstagedFiles": int(metadata.get("unstaged_files") or 0),
             "untrackedFiles": int(metadata.get("untracked_files") or 0),
-            "stagedPatchChars": len(saved_staged),
-            "unstagedPatchChars": len(saved_unstaged),
+            "stagedPatchChars": int(metadata.get("staged_diff_chars") or 0),
+            "unstagedPatchChars": int(metadata.get("unstaged_diff_chars") or 0),
         },
         "current": {
             "changedFiles": current_counts["changed_files"],
             "stagedFiles": current_counts["staged_files"],
             "unstagedFiles": current_counts["unstaged_files"],
             "untrackedFiles": current_counts["untracked_files"],
-            "stagedPatchChars": len(staged.stdout),
-            "unstagedPatchChars": len(unstaged.stdout),
+            "stagedPatchChars": comparison.staged_chars,
+            "unstagedPatchChars": comparison.unstaged_chars,
         },
         "message": "Current worktree matches checkpoint." if matches else "Current worktree differs from checkpoint.",
     }

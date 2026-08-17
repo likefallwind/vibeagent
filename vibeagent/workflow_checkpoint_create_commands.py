@@ -1,22 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-import json
 from pathlib import Path
 
-from .checkpoint_session import checkpoint_session_metadata
+from .checkpoint_create_actions import create_checkpoint_observation
+from .checkpoint_storage import read_checkpoint_metadata
 from .local_command_workspace import local_command_workspace
 from .workflow_checkpoint_formatting import format_checkpoint_create_report_text
 from .workflow_checkpoint_query_commands import serialize_checkpoint_metadata
-from .workflow_checkpoint_utils import (
-    checkpoint_root,
-    count_status_kinds,
-    normalize_checkpoint_label,
-    read_git_head,
-    save_local_checkpoint_untracked_files,
-)
-from .workflow_review_formatting import filter_handoff_status
-from .workspace import make_run_id, read_git_diff, read_git_status
 
 
 def get_checkpoint_report(
@@ -71,45 +61,11 @@ def create_local_checkpoint_metadata(
     label: str | None = None,
     session_run_id: str | None = None,
 ) -> tuple[dict[str, object] | None, str]:
-    workspace = local_command_workspace(root, "local-checkpoint")
-    status = read_git_status(workspace)
-    if not status.ok:
-        return None, status.stderr or "git status failed."
-
-    unstaged = read_git_diff(workspace, staged=False)
-    staged = read_git_diff(workspace, staged=True)
-    if not unstaged.ok:
-        return None, unstaged.stderr or "git diff failed."
-    if not staged.ok:
-        return None, staged.stderr or "git diff --staged failed."
-    head = read_git_head(root)
-    if not head:
-        return None, "git rev-parse HEAD failed."
-
-    checkpoint_id = make_run_id()
-    checkpoint_dir = checkpoint_root(root) / checkpoint_id
-    checkpoint_dir.mkdir(parents=True, exist_ok=False)
-    filtered_status = filter_handoff_status(status.stdout)
-    counts = count_status_kinds(filtered_status)
-    metadata = {
-        "id": checkpoint_id,
-        "label": normalize_checkpoint_label(label),
-        "created_at": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
-        "project_root": str(root),
-        "head": head,
-        "git_status": filtered_status,
-        "changed_files": counts["changed_files"],
-        "staged_files": counts["staged_files"],
-        "unstaged_files": counts["unstaged_files"],
-        "untracked_files": counts["untracked_files"],
-        "unstaged_diff_chars": len(unstaged.stdout),
-        "staged_diff_chars": len(staged.stdout),
-    }
-    metadata.update(checkpoint_session_metadata(root, session_run_id))
-    saved_untracked, skipped_untracked = save_local_checkpoint_untracked_files(root, checkpoint_dir, filtered_status)
-    metadata["untracked_saved_files"] = saved_untracked
-    metadata["untracked_skipped_files"] = skipped_untracked
-    (checkpoint_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    (checkpoint_dir / "unstaged.patch").write_text(unstaged.stdout, encoding="utf-8")
-    (checkpoint_dir / "staged.patch").write_text(staged.stdout, encoding="utf-8")
+    workspace = local_command_workspace(root, session_run_id or "local-checkpoint")
+    observation = create_checkpoint_observation(workspace, label)
+    if not observation.ok or observation.checkpoint is None:
+        return None, observation.message
+    metadata, message = read_checkpoint_metadata(root, observation.checkpoint.checkpoint_id)
+    if metadata is None:
+        return None, message
     return metadata, "Saved checkpoint metadata, patch files, and ordinary untracked files under .vibeagent/checkpoints."

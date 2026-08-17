@@ -3495,7 +3495,10 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   checkpoints, inspect metadata and saved patch text, compare current status,
   preview restore compatibility, and restore tracked staged/unstaged changes
   plus saved untracked file contents after approval when compatibility checks
-  pass. Runs also create one best-effort checkpoint automatically before the
+  pass. Staged and unstaged patches, including binary patches, stream through
+  temporary files instead of accumulating in process memory; each exact patch
+  is limited to 1 GiB, and a failed or oversized capture leaves no partial
+  checkpoint. Runs also create one best-effort checkpoint automatically before the
   first approved project-changing tool when the workspace has a git HEAD.
   Restore refuses checkpoints whose untracked files were not fully saved,
   refuses worktrees with extra current untracked files, and checkpoint

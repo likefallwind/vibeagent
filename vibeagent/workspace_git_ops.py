@@ -69,8 +69,12 @@ from .workspace_search_files import list_search_files
 from .workspace_resolve import resolve_inside_run
 
 
-def read_git_status(workspace: RunWorkspace) -> GitCommandResult:
-    return run_readonly_git(workspace.root, ["status", "--short", "--untracked-files=all"])
+def read_git_status(workspace: RunWorkspace, *, max_output_chars: int | None = None) -> GitCommandResult:
+    return run_readonly_git(
+        workspace.root,
+        ["status", "--short", "--untracked-files=all"],
+        max_output_chars=max_output_chars,
+    )
 
 
 def read_git_conflicts(
