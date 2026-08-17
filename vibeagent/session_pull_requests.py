@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from .agent_runtime_utils import append_session_event
 from .github_pr_context_runtime import select_local_github_repository
 from .session_store import list_sessions, read_session_events
+from .session_names import read_session_name
 from .workspace_core import RunWorkspace
 
 
 SESSION_PULL_REQUEST_LINKED_EVENT = "session_pull_request_linked"
 MAX_PULL_REQUEST_SELECTOR_CHARS = 2_048
+MAX_PULL_REQUEST_SESSION_SCAN = 1_000
+MAX_PULL_REQUEST_SESSION_CANDIDATES = 100
 
 
 @dataclass(frozen=True)
@@ -25,6 +29,32 @@ class PullRequestIdentity:
     @property
     def key(self) -> tuple[str, str, str, int]:
         return (self.provider, self.host.lower(), self.repository.lower(), self.number)
+
+
+@dataclass(frozen=True)
+class PullRequestSessionCandidate:
+    pull_request: PullRequestIdentity
+    run_id: str
+    session_name: str | None
+    last_event_time: datetime | None
+
+    @property
+    def search_text(self) -> str:
+        identity = self.pull_request
+        return " ".join(
+            part
+            for part in (
+                identity.provider,
+                identity.host,
+                identity.repository,
+                str(identity.number),
+                f"#{identity.number}",
+                identity.url,
+                self.run_id,
+                self.session_name,
+            )
+            if part
+        ).casefold()
 
 
 def parse_pull_request_url(value: str) -> PullRequestIdentity:
@@ -87,6 +117,45 @@ def resolve_session_from_pull_request(project_root: Path, selector: str) -> str:
         if any(link.key == identity.key for link in links):
             return session.run_id
     raise ValueError(f"No local session is linked to pull request {identity.url}.")
+
+
+def list_pull_request_session_candidates(
+    project_root: Path,
+    query: str | None = None,
+    *,
+    scan_limit: int = MAX_PULL_REQUEST_SESSION_SCAN,
+    result_limit: int = MAX_PULL_REQUEST_SESSION_CANDIDATES,
+) -> tuple[PullRequestSessionCandidate, ...]:
+    if scan_limit < 1 or result_limit < 1:
+        raise ValueError("Pull request candidate limits must be positive.")
+    needle = _validate_search_query(query)
+    root = project_root.resolve()
+    candidates: list[PullRequestSessionCandidate] = []
+    seen: set[tuple[str, str, str, int]] = set()
+    for session in list_sessions(root, limit=scan_limit):
+        try:
+            links = read_session_pull_requests(root, session.run_id)
+            if not links:
+                continue
+            session_name = read_session_name(root, session.run_id)
+        except (OSError, ValueError):
+            continue
+        for link in links:
+            if link.key in seen:
+                continue
+            candidate = PullRequestSessionCandidate(
+                pull_request=link,
+                run_id=session.run_id,
+                session_name=session_name,
+                last_event_time=session.last_event_time,
+            )
+            seen.add(link.key)
+            if needle is not None and needle not in candidate.search_text:
+                continue
+            candidates.append(candidate)
+            if len(candidates) >= result_limit:
+                return tuple(candidates)
+    return tuple(candidates)
 
 
 def read_session_pull_requests(project_root: Path, run_id: str) -> tuple[PullRequestIdentity, ...]:
@@ -162,13 +231,30 @@ def _validate_selector(value: str) -> str:
     return selector
 
 
+def _validate_search_query(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("Pull request search query must be non-empty.")
+    if len(value) > MAX_PULL_REQUEST_SELECTOR_CHARS or any(
+        ord(char) < 32 or ord(char) == 127 for char in value
+    ):
+        raise ValueError("Pull request search query is too long or contains control characters.")
+    query = value.strip()
+    if not query:
+        raise ValueError("Pull request search query must be non-empty.")
+    return query.casefold()
+
+
 def _valid_path_component(value: str) -> bool:
     return bool(value) and value not in {".", ".."} and all(char.isalnum() or char in "._-" for char in value)
 
 
 __all__ = [
     "PullRequestIdentity",
+    "PullRequestSessionCandidate",
     "inherit_session_pull_requests",
+    "list_pull_request_session_candidates",
     "parse_pull_request_url",
     "read_session_pull_requests",
     "resolve_session_from_pull_request",

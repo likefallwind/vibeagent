@@ -8,7 +8,8 @@ from unittest.mock import Mock, patch
 from vibeagent.agent import AgentResult
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
-from vibeagent.cli_pull_request_resume import prepare_pull_request_resume
+from vibeagent.cli_pull_request_resume import prepare_pull_request_resume, prompt_pull_request_session
+from vibeagent.session_pull_requests import PullRequestIdentity, PullRequestSessionCandidate
 
 
 class CliResumeContextTests(unittest.TestCase):
@@ -27,6 +28,103 @@ class CliResumeContextTests(unittest.TestCase):
         args = parse_args(["--from-pr", "42", "--resume", "other-run"])
         with self.assertRaisesRegex(ValueError, "cannot be combined"):
             prepare_pull_request_resume(args)
+
+    def test_from_pr_without_value_uses_local_interactive_picker(self) -> None:
+        args = parse_args(["--cwd", "/tmp", "--from-pr"])
+        candidate = PullRequestSessionCandidate(
+            pull_request=PullRequestIdentity(
+                "github",
+                "github.com",
+                "acme/widgets",
+                42,
+                "https://github.com/acme/widgets/pull/42",
+            ),
+            run_id="linked-run",
+            session_name="review-fix",
+            last_event_time=None,
+        )
+        output: list[str] = []
+        with patch(
+            "vibeagent.cli_pull_request_resume.list_pull_request_session_candidates",
+            return_value=(candidate,),
+        ) as candidates:
+            prepare_pull_request_resume(
+                args,
+                input_func=lambda _prompt: "1",
+                print_func=output.append,
+                terminal_available=True,
+            )
+
+        self.assertEqual(args.from_pr, "")
+        self.assertEqual(args.resume, "linked-run")
+        candidates.assert_called_once_with(Path("/tmp").resolve(), None)
+        self.assertIn("acme/widgets #42", "\n".join(output))
+
+    def test_from_pr_search_filters_picker_candidates(self) -> None:
+        args = parse_args(["--from-pr", "widgets"])
+        candidate = PullRequestSessionCandidate(
+            PullRequestIdentity(
+                "github",
+                "github.com",
+                "acme/widgets",
+                42,
+                "https://github.com/acme/widgets/pull/42",
+            ),
+            "linked-run",
+            None,
+            None,
+        )
+        with patch(
+            "vibeagent.cli_pull_request_resume.list_pull_request_session_candidates",
+            return_value=(candidate,),
+        ) as candidates:
+            prepare_pull_request_resume(
+                args,
+                input_func=lambda _prompt: "1",
+                print_func=lambda _text: None,
+                terminal_available=True,
+            )
+
+        self.assertEqual(args.resume, "linked-run")
+        candidates.assert_called_once_with(Path.cwd().resolve(), "widgets")
+
+    def test_from_pr_picker_requires_interactive_text_terminal(self) -> None:
+        for argv in (["--from-pr"], ["--from-pr", "search", "--json"]):
+            with self.subTest(argv=argv):
+                args = parse_args(argv)
+                with self.assertRaisesRegex(ValueError, "interactive text terminal"):
+                    prepare_pull_request_resume(args, terminal_available=False)
+
+    def test_pull_request_picker_retries_and_supports_cancellation(self) -> None:
+        candidate = PullRequestSessionCandidate(
+            PullRequestIdentity(
+                "github",
+                "github.com",
+                "acme/widgets",
+                42,
+                "https://github.com/acme/widgets/pull/42",
+            ),
+            "linked-run",
+            None,
+            None,
+        )
+        answers = iter(["bad", "2", "1"])
+        output: list[str] = []
+
+        selected = prompt_pull_request_session(
+            (candidate,),
+            input_func=lambda _prompt: next(answers),
+            print_func=output.append,
+        )
+
+        self.assertEqual(selected, "linked-run")
+        self.assertEqual(sum("Enter a number" in line for line in output), 2)
+        with self.assertRaisesRegex(ValueError, "cancelled"):
+            prompt_pull_request_session(
+                (candidate,),
+                input_func=lambda _prompt: "",
+                print_func=lambda _text: None,
+            )
 
     def test_main_status_command_reports_local_state_without_creating_client(self) -> None:
         stdout = io.StringIO()

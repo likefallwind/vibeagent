@@ -429,6 +429,8 @@ python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-command
 python -m vibeagent --resume <run-id> --fork-session "try a different implementation"
 python -m vibeagent --from-pr 42 "continue work associated with pull request 42"
 python -m vibeagent --from-pr https://github.com/example/project/pull/42 --fork-session "try a different fix"
+python -m vibeagent --from-pr
+python -m vibeagent --from-pr auth
 python -m vibeagent --ide "fix the diagnostics in the active VS Code file"
 python -m vibeagent --name auth-refactor "implement the authentication refactor"
 python -m vibeagent --session-id 123e4567-e89b-12d3-a456-426614174000 "start with this session UUID"
@@ -2189,12 +2191,15 @@ opened since this feature was installed must be visited once before their older
 sessions become discoverable from elsewhere. Duplicate exact IDs across roots
 are rejected as ambiguous, and stale, malformed, oversized, non-owned,
 symbolic-link, or identity-mismatched records are ignored. Ephemeral
-`--no-session-persistence` runs never enter the index. `--from-pr PR` resolves a
-positive PR number against the current local GitHub repository, or accepts a
+`--no-session-persistence` runs never enter the index. `--from-pr [PR]` resolves
+a positive PR number against the current local GitHub repository, or accepts a
 strict GitHub/GitLab/Bitbucket HTTPS PR URL, then resumes the newest local
-session whose successful `github_pr_create` result recorded that identity. It
-does not contact the hosting service, and `--fork-session` preserves the link
-on the new branch. `--compact [run-id]` and `/compact [run-id]` load the same compact handoff
+session whose successful `github_pr_create` result recorded that identity.
+Omitting the value opens a bounded terminal picker; a non-exact value filters
+that picker by provider, host, repository, number, URL, session ID, or session
+name. The picker requires an interactive text terminal and never appears in
+JSON or redirected execution. It does not contact the hosting service, and
+`--fork-session` preserves the link on the new branch. `--compact [run-id]` and `/compact [run-id]` load the same compact handoff
 context explicitly. Both one-shot forms accept `--resume-max-failures`,
 `--resume-max-files`, `--resume-max-commands`, `--resume-max-checks`,
 `--resume-max-output-chars`, `--resume-max-text` and the matching

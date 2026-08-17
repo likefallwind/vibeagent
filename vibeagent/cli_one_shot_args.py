@@ -55,8 +55,10 @@ def add_one_shot_arguments(
     )
     parser.add_argument(
         "--from-pr",
+        nargs="?",
+        const="",
         metavar="PR",
-        help="Resume the newest local session linked to a PR number or GitHub, GitLab, or Bitbucket PR URL.",
+        help="Resume a local session linked to a PR number/URL, or open a local picker with an optional search term.",
     )
     parser.add_argument("--resume-max-failures", type=positive_int, metavar="N", help="Maximum failure entries in --resume context.")
     parser.add_argument("--resume-max-files", type=positive_int, metavar="N", help="Maximum file references in --resume context.")

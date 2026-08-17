@@ -8,6 +8,7 @@ from pathlib import Path
 
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.session_pull_requests import (
+    list_pull_request_session_candidates,
     parse_pull_request_url,
     read_session_pull_requests,
     resolve_session_from_pull_request,
@@ -101,6 +102,49 @@ class SessionPullRequestTests(unittest.TestCase):
             self.assertEqual(read_session_pull_requests(root, workspace.run_id), ())
             with self.assertRaisesRegex(ValueError, "No local session"):
                 resolve_session_from_pull_request(root, "https://github.com/acme/widgets/pull/1")
+
+    def test_lists_latest_local_session_per_pull_request_with_search(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-pr-session-") as base:
+            root = Path(base)
+            older = create_run_workspace(root, "older-run")
+            newer = create_run_workspace(root, "newer-run")
+            other = create_run_workspace(root, "other-run")
+            _record_created_pr(older, "tool_result", "https://github.com/acme/widgets/pull/42")
+            _record_created_pr(newer, "tool_result", "https://github.com/acme/widgets/pull/42")
+            _record_created_pr(other, "tool_result", "https://gitlab.com/acme/api/-/merge_requests/7")
+            append_session_event(newer.session_dir, "session_named", {"name": "修复登录"})
+            os.utime(older.session_dir / "events.jsonl", (1, 1))
+            os.utime(newer.session_dir / "events.jsonl", (2, 2))
+            os.utime(other.session_dir / "events.jsonl", (3, 3))
+
+            candidates = list_pull_request_session_candidates(root)
+            filtered = list_pull_request_session_candidates(root, "#42")
+            named = list_pull_request_session_candidates(root, "修复")
+
+        self.assertEqual([candidate.run_id for candidate in candidates], ["other-run", "newer-run"])
+        self.assertEqual([candidate.run_id for candidate in filtered], ["newer-run"])
+        self.assertEqual([candidate.run_id for candidate in named], ["newer-run"])
+        self.assertEqual(filtered[0].pull_request.repository, "acme/widgets")
+
+    def test_pull_request_candidate_search_is_bounded_and_validated(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-pr-session-") as base:
+            root = Path(base)
+            for number in range(1, 4):
+                workspace = create_run_workspace(root, f"run-{number}")
+                _record_created_pr(
+                    workspace,
+                    "tool_result",
+                    f"https://github.com/acme/widgets/pull/{number}",
+                )
+                os.utime(workspace.session_dir / "events.jsonl", (number, number))
+
+            candidates = list_pull_request_session_candidates(root, result_limit=2)
+
+            self.assertEqual(len(candidates), 2)
+            with self.assertRaisesRegex(ValueError, "positive"):
+                list_pull_request_session_candidates(root, scan_limit=0)
+            with self.assertRaisesRegex(ValueError, "control"):
+                list_pull_request_session_candidates(root, "bad\nquery")
 
 
 def _record_created_pr(workspace, event_type: str, url: str) -> None:
