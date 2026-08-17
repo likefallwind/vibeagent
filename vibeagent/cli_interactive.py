@@ -27,7 +27,10 @@ from .cli_output import (
     prompt_project_permission_trust,
     prompt_user_input,
 )
-from .cli_model_stream import terminal_model_stream_scope
+from .cli_interactive_chat_turn import (
+    InteractiveChatTurnRequest,
+    run_interactive_chat_turn,
+)
 from .cli_project_command_expansion import (
     expand_code_task_project_command,
     project_command_task_metadata,
@@ -35,17 +38,10 @@ from .cli_project_command_expansion import (
 from .cli_idle_input import input_with_idle_callback
 from .cli_idle_notification import IdleNotificationTimer
 from .cli_interactive_idle import InteractiveIdleContext, run_interactive_idle_tasks
-from .cli_system_prompt_state import update_system_prompt_state
-from .cli_interactive_directories import (
-    InteractiveAddDirectoryRequest,
-    InteractiveDirectorySwitchRequest,
-    apply_interactive_add_directory,
-    switch_interactive_directory,
-)
-from .cli_interactive_session_navigation import (
-    InteractiveSessionNavigationRequest,
-    InteractiveSessionNavigationState,
-    navigate_interactive_session,
+from .cli_interactive_control_dispatch import (
+    InteractiveControlRequest,
+    InteractiveControlState,
+    dispatch_interactive_control_command,
 )
 from .cli_interactive_project_runtime import InteractiveProjectRuntime
 from .cli_interactive_model import interactive_provider_env
@@ -65,7 +61,11 @@ from .cli_interactive_code_turn import (
 )
 from .context_compaction import format_autocompact_setting
 from .cli_interactive_provider_commands import run_interactive_provider_command
-from .cli_interactive_session_management import interactive_session_prompt
+from .cli_interactive_prompt_runtime import (
+    InteractivePromptRequest,
+    InteractivePromptServices,
+    read_interactive_prompt,
+)
 from .commands import get_resume_context as default_get_resume_context, parse_local_command
 from .config import resolve_execution_config
 from .cli_goal import evaluate_and_store_goal
@@ -79,28 +79,24 @@ from .goal_state import (
     reset_restored_goal,
     write_goal,
 )
-from .interactive_shell import SHELL_MODE_USAGE, parse_shell_mode_input, run_interactive_shell
-from .workspace_shell_response import resolve_respond_to_bash_commands
-from .interactive_background import create_interactive_background_request
-from .interactive_permission_mode import (
-    initial_interactive_permission_state,
-    update_interactive_permission_state,
+from .cli_interactive_shell_turn import (
+    InteractiveShellTurnRequest,
+    run_interactive_shell_turn,
 )
+from .interactive_background import create_interactive_background_request
+from .interactive_permission_mode import initial_interactive_permission_state
 from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatClient, ChatMessage
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .scheduled_task_store import scheduled_tasks_enabled
 from .session_usage import summarize_run_usage
-from .peer_commands import get_peer_sessions_text
-from .peer_inbox_commands import handle_peer_inbox_command
-from .plugin_commands import handle_plugin_command, reload_plugins_text
-from .mcp_commands import handle_mcp_command
-from .dynamic_workflow_agent import background_workflow_approval_handler, execute_workflow_agent_request
-from .dynamic_workflow_commands import handle_workflows_command
 from .dynamic_workflow_runtime import DynamicWorkflowManager
-from .workspace_core import BrowserMode, create_local_workspace, create_run_workspace
-from .workspace_hooks import read_project_hooks
-from .workspace_permissions import ProjectPermissions, read_project_permissions
+from .cli_interactive_workflow_runtime import (
+    InteractiveWorkflowRequest,
+    get_or_create_interactive_workflow_manager,
+)
+from .workspace_core import BrowserMode, create_local_workspace
+from .workspace_permissions import ProjectPermissions
 from .workspace_agents import format_project_agent_catalog
 from .workspace_prompt_commands import format_project_prompt_commands
 from .workspace_skills import format_project_skill_catalog
@@ -222,14 +218,11 @@ def run_interactive_loop(
     pending_branch_source_run_id = initial_branch_source_run_id
     goal_state: GoalState | None = None
     workflow_client_lock = Lock()
-    idle_notification = IdleNotificationTimer()
     recap_enabled = automatic_session_recaps_enabled()
     recap_states = {
         "code": SessionRecapState(automatic_enabled=recap_enabled),
         "chat": SessionRecapState(automatic_enabled=recap_enabled),
     }
-    file_changed_runtime = None
-    config_change_runtime = None
     if initial_resume_run_id is not None:
         restored_goal = read_session_goal(Path.cwd(), initial_resume_run_id)
         goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
@@ -362,7 +355,11 @@ def run_interactive_loop(
         if recap is not None:
             print(f"\nSession recap: {recap}")
 
-    def run_due_tasks_while_idle() -> None:
+    def run_due_tasks_while_idle(
+        idle_notification: IdleNotificationTimer,
+        file_changed_runtime,
+        config_change_runtime,
+    ) -> None:
         run_interactive_idle_tasks(
             InteractiveIdleContext(
                 project_root=Path.cwd(),
@@ -393,60 +390,32 @@ def run_interactive_loop(
 
     def get_workflow_manager() -> DynamicWorkflowManager:
         nonlocal client, resume_run_id
-        if project_runtime.workflow is not None:
-            return project_runtime.workflow
-        workspace = pending_workspace or (
-            create_local_workspace(
-                Path.cwd(),
-                resume_run_id,
-                additional_roots=additional_directories,
-                safe_mode=safe_mode,
-                bare_mode=bare_mode,
-                setting_sources=setting_sources,
-                settings_override_json=settings_override_json,
-                invocation_plugin_dirs=invocation_plugin_dirs,
-            )
-            if resume_run_id is not None
-            else create_run_workspace(
-                Path.cwd(),
-                additional_roots=additional_directories,
-                safe_mode=safe_mode,
-                bare_mode=bare_mode,
-                setting_sources=setting_sources,
-                settings_override_json=settings_override_json,
-                invocation_plugin_dirs=invocation_plugin_dirs,
-            )
-        )
-        if initial_dynamic_agent_profiles:
-            workspace = replace(
-                workspace,
-                dynamic_agent_profiles=initial_dynamic_agent_profiles,
-            )
-        resume_run_id = workspace.run_id
-        hooks = read_project_hooks(workspace)
-        permissions = read_project_permissions(workspace)
-        if workspace.project_config_trusted and permissions.enabled:
-            permissions = replace(permissions, allow_rules_trusted=True)
-
-        def execute_agent(request, cancel_requested):
+        def ensure_client() -> ChatClient:
             nonlocal client
             with workflow_client_lock:
                 client = client or create_interactive_client(current_provider_env())
-            return execute_workflow_agent_request(
-                workspace,
-                request,
-                client,
-                execution_config=resolve_execution_config(Path.cwd()),
-                approval_handler=background_workflow_approval_handler(approval_policy, approval_handler),
-                approval_policy=approval_policy,
-                hooks=hooks,
-                permissions=permissions,
-                cancel_requested=cancel_requested,
-            )
+                return client
 
-        return project_runtime.set_workflow(
-            DynamicWorkflowManager(workspace, execute_agent)
+        manager = get_or_create_interactive_workflow_manager(
+            InteractiveWorkflowRequest(
+                project_root=Path.cwd(),
+                project_runtime=project_runtime,
+                pending_workspace=pending_workspace,
+                resume_run_id=resume_run_id,
+                additional_directories=additional_directories,
+                dynamic_agent_profiles=initial_dynamic_agent_profiles,
+                approval_policy=approval_policy,
+                approval_handler=approval_handler,
+                safe_mode=safe_mode,
+                bare_mode=bare_mode,
+                setting_sources=setting_sources,
+                settings_override_json=settings_override_json,
+                invocation_plugin_dirs=invocation_plugin_dirs,
+            ),
+            ensure_client=ensure_client,
         )
+        resume_run_id = manager.workspace.run_id
+        return manager
 
     def run_active_session_hook(
         event: Literal["session_end", "pre_compact", "post_compact"],
@@ -476,38 +445,25 @@ def run_interactive_loop(
 
     while True:
         try:
-            idle_notification = IdleNotificationTimer()
-            file_changed_runtime = None
-            config_change_runtime = None
-            if resume_run_id is not None and not safe_mode:
-                try:
-                    execution_config = resolve_execution_config(Path.cwd())
-                    file_changed_runtime = create_interactive_file_changed_runtime(
-                        Path.cwd(),
-                        resume_run_id,
-                        pending_workspace,
-                        additional_directories,
-                        command_timeout_ms=execution_config.command_timeout_ms,
-                        approval_handler=approval_handler,
-                        approval_policy=approval_policy,
-                    )
-                    config_change_runtime = create_interactive_config_change_runtime(
-                        Path.cwd(),
-                        resume_run_id,
-                        pending_workspace,
-                        additional_directories,
-                        command_timeout_ms=execution_config.command_timeout_ms,
-                        approval_handler=approval_handler,
-                        approval_policy=approval_policy,
-                    )
-                except Exception as error:
-                    print(f"Runtime change hook warning: {format_error(error)}")
-            with interactive_prompt_completion(Path.cwd(), additional_directories):
-                task = input_with_idle_callback(
-                    interactive_session_prompt(Path.cwd(), resume_run_id, pending_workspace),
-                    run_due_tasks_while_idle,
-                    input_func=input,
-                ).strip()
+            task = read_interactive_prompt(
+                InteractivePromptRequest(
+                    project_root=Path.cwd(),
+                    resume_run_id=resume_run_id,
+                    pending_workspace=pending_workspace,
+                    additional_directories=additional_directories,
+                    safe_mode=safe_mode,
+                    approval_handler=approval_handler,
+                    approval_policy=approval_policy,
+                ),
+                InteractivePromptServices(
+                    idle_notification_factory=IdleNotificationTimer,
+                    create_file_changed_runtime=create_interactive_file_changed_runtime,
+                    create_config_change_runtime=create_interactive_config_change_runtime,
+                    completion_scope=interactive_prompt_completion,
+                    input_with_idle_callback=input_with_idle_callback,
+                ),
+                run_idle_tasks=run_due_tasks_while_idle,
+            )
         except (EOFError, KeyboardInterrupt):
             print()
             run_active_session_hook("session_end", "prompt_input_exit")
@@ -518,53 +474,37 @@ def run_interactive_loop(
             continue
 
         shell_task_metadata: dict[str, object] | None = None
-        shell_command = parse_shell_mode_input(task)
-        if shell_command is not None:
-            if not shell_command:
-                print(SHELL_MODE_USAGE)
-                continue
-            try:
-                shell_settings_workspace = pending_workspace or create_local_workspace(
-                    Path.cwd(),
-                    resume_run_id or "interactive-shell-settings",
-                    additional_roots=additional_directories,
+        try:
+            shell_turn = run_interactive_shell_turn(
+                InteractiveShellTurnRequest(
+                    project_root=Path.cwd(),
+                    task=task,
+                    resume_run_id=resume_run_id,
+                    resume_context=resume_context,
+                    pending_workspace=pending_workspace,
+                    additional_directories=additional_directories,
                     safe_mode=safe_mode,
                     bare_mode=bare_mode,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
                     invocation_plugin_dirs=invocation_plugin_dirs,
-                )
-                respond_to_shell = resolve_respond_to_bash_commands(
-                    shell_settings_workspace
-                )
-                execution_config = resolve_execution_config(Path.cwd())
-                shell_result = run_interactive_shell(
-                    Path.cwd(),
-                    shell_command,
-                    run_id=resume_run_id,
-                    timeout_ms=execution_config.command_timeout_ms,
-                )
-                print(shell_result.text)
-                resume_run_id = shell_result.run_id
-                selected, next_context, _ = get_resume_context_func(shell_result.run_id)
-                if selected is not None:
-                    resume_run_id = selected
-                if next_context:
-                    resume_context = next_context
-            except KeyboardInterrupt:
-                print("\nInterrupted.")
-                continue
-            except Exception as error:
-                print(f"Shell error: {format_error(error)}")
-                continue
-            if not respond_to_shell:
-                continue
-            task = (
-                "Review the interactive shell command and its recorded output in "
-                "the prior session context. Respond with the appropriate next "
-                "coding action or explanation. Do not rerun the command unless needed."
+                ),
+                get_resume_context=get_resume_context_func,
             )
-            shell_task_metadata = {"source": "interactive_shell"}
+        except KeyboardInterrupt:
+            print("\nInterrupted.")
+            continue
+        except Exception as error:
+            print(f"Shell error: {format_error(error)}")
+            continue
+        if shell_turn is not None:
+            print(shell_turn.output)
+            resume_run_id = shell_turn.resume_run_id
+            resume_context = shell_turn.resume_context
+            if shell_turn.continue_loop:
+                continue
+            task = shell_turn.task
+            shell_task_metadata = shell_turn.task_metadata
 
         if disable_slash_commands and task.strip().startswith("/"):
             print("Slash commands and skills are disabled by --disable-slash-commands.")
@@ -778,160 +718,30 @@ def run_interactive_loop(
             except Exception as error:
                 print(f"\nGoal error: {format_error(error)}")
             continue
-        if command and command.type == "workflows":
-            if safe_mode:
-                print("Custom workflows are disabled by safe mode.")
-                continue
-            print(handle_workflows_command(get_workflow_manager(), command.argument))
-            continue
-        if command and command.type == "plugin":
-            if safe_mode:
-                print("Plugins are disabled by safe mode.")
-                continue
-            plugin_result = handle_plugin_command(Path.cwd(), command.argument)
-            if plugin_result.changed:
-                project_runtime.close_workflow()
-            if plugin_result.changed:
-                from .lsp_runtime import close_project_lsp
-
-                close_project_lsp(Path.cwd())
-                project_runtime.start_plugin_updates()
-            print(plugin_result.text)
-            continue
-        if command and command.type == "mcp":
-            if safe_mode:
-                print("MCP servers are disabled by safe mode.")
-                continue
-            print(handle_mcp_command(Path.cwd(), command.argument).text)
-            continue
-        if command and command.type == "reload_plugins":
-            if safe_mode:
-                print("Plugins are disabled by safe mode.")
-                continue
-            project_runtime.close_workflow()
-            from .lsp_runtime import close_project_lsp
-
-            close_project_lsp(Path.cwd())
-            plugin_workspace = pending_workspace or create_local_workspace(
-                Path.cwd(),
-                resume_run_id or "plugin-reload",
-                additional_roots=additional_directories,
-                safe_mode=safe_mode,
-                bare_mode=bare_mode,
-                setting_sources=setting_sources,
-                settings_override_json=settings_override_json,
-                invocation_plugin_dirs=invocation_plugin_dirs,
-            )
-            print(reload_plugins_text(Path.cwd(), workspace=plugin_workspace))
-            continue
-        if command and command.type == "list_agents_local":
-            print(get_peer_sessions_text())
-            continue
-        if command and command.type == "peer_inbox":
-            print(handle_peer_inbox_command(project_runtime.peer, command.argument))
-            continue
-        if command and command.type == "system_prompt":
-            system_prompt, text = update_system_prompt_state(system_prompt, command.argument, label="System prompt")
-            print(text)
-            continue
-        if command and command.type == "append_system_prompt":
-            append_system_prompt, text = update_system_prompt_state(
-                append_system_prompt,
-                command.argument,
-                label="Appended system prompt",
-            )
-            print(text)
-            continue
-        if command and command.type == "add_dir":
-            directory_update = apply_interactive_add_directory(
-                InteractiveAddDirectoryRequest(
-                    project_root=Path.cwd(),
-                    argument=command.argument,
-                    additional_directories=additional_directories,
-                    pending_workspace=pending_workspace,
-                    resume_run_id=resume_run_id,
-                    project_runtime=project_runtime,
-                    approval_policy=approval_policy,
-                    approval_handler=approval_handler,
-                    safe_mode=safe_mode,
-                    bare_mode=bare_mode,
-                    setting_sources=setting_sources,
-                    settings_override_json=settings_override_json,
-                    invocation_plugin_dirs=invocation_plugin_dirs,
-                )
-            )
-            additional_directories = directory_update.additional_directories
-            pending_workspace = directory_update.pending_workspace
-            for message in directory_update.messages:
-                print(message)
-            continue
-        if command and command.type == "cd":
-            directory_switch = switch_interactive_directory(
-                InteractiveDirectorySwitchRequest(
-                    project_root=Path.cwd(),
-                    argument=command.argument,
-                    additional_directories=additional_directories,
-                    pending_workspace=pending_workspace,
-                    pending_branch_source_run_id=pending_branch_source_run_id,
-                    resume_run_id=resume_run_id,
-                    project_permissions_trusted=project_permissions_trusted,
-                    project_runtime=project_runtime,
-                    goal_state=goal_state,
-                    approval_policy=approval_policy,
-                    safe_mode=safe_mode,
-                    bare_mode=bare_mode,
-                    setting_sources=setting_sources,
-                    settings_override_json=settings_override_json,
-                    invocation_plugin_dirs=invocation_plugin_dirs,
-                ),
-                run_session_end_hook=lambda: run_active_session_hook(
-                    "session_end",
-                    "other",
-                ),
-                prompt_project_permission_trust=prompt_project_permission_trust,
-            )
-            project_runtime = directory_switch.project_runtime
-            project_permissions_trusted = directory_switch.project_permissions_trusted
-            additional_directories = directory_switch.additional_directories
-            pending_workspace = directory_switch.pending_workspace
-            pending_branch_source_run_id = directory_switch.pending_branch_source_run_id
-            resume_run_id = directory_switch.resume_run_id
-            if directory_switch.changed:
-                client = None
-                file_changed_runtime = None
-                config_change_runtime = None
-            for message in directory_switch.messages:
-                print(message)
-            continue
-        if command and command.type == "approval":
-            previous_state = permission_state
-            permission_state, text = update_interactive_permission_state(
-                permission_state,
-                command.argument,
-            )
-            approval_policy = permission_state.approval_policy
-            permission_overrides = permission_state.permission_overrides
-            if approval_policy != previous_state.approval_policy:
-                approval_handler = build_approval_handler(approval_policy)
-                project_runtime.update_approval_policy(approval_policy)
-            print(text)
-            continue
         if command:
-            navigation = navigate_interactive_session(
-                InteractiveSessionNavigationRequest(
+            control = dispatch_interactive_control_command(
+                InteractiveControlRequest(
                     project_root=Path.cwd(),
                     command=command,
                     command_namespace=command_namespace,
-                    state=InteractiveSessionNavigationState(
-                        resume_run_id=resume_run_id,
-                        resume_context=resume_context,
+                    state=InteractiveControlState(
+                        client=client,
+                        project_runtime=project_runtime,
+                        project_permissions_trusted=project_permissions_trusted,
+                        additional_directories=additional_directories,
                         pending_workspace=pending_workspace,
                         pending_branch_source_run_id=pending_branch_source_run_id,
-                        additional_directories=additional_directories,
+                        resume_run_id=resume_run_id,
+                        resume_context=resume_context,
                         conversation_messages=tuple(conversation_messages),
                         goal_state=goal_state,
+                        permission_state=permission_state,
+                        approval_policy=approval_policy,
+                        approval_handler=approval_handler,
+                        permission_overrides=permission_overrides,
+                        system_prompt=system_prompt,
+                        append_system_prompt=append_system_prompt,
                     ),
-                    project_runtime=project_runtime,
                     safe_mode=safe_mode,
                     bare_mode=bare_mode,
                     disable_slash_commands=disable_slash_commands,
@@ -939,26 +749,32 @@ def run_interactive_loop(
                     settings_override_json=settings_override_json,
                     invocation_plugin_dirs=invocation_plugin_dirs,
                 ),
+                get_workflow_manager=get_workflow_manager,
                 get_resume_context=get_resume_context_func,
-                run_lifecycle_hook=lambda event, value, summary: run_active_session_hook(
-                    event,
-                    value,
-                    summary,
-                ),
+                run_lifecycle_hook=run_active_session_hook,
+                prompt_project_permission_trust=prompt_project_permission_trust,
+                build_approval_handler=build_approval_handler,
             )
-            if navigation.handled:
-                resume_run_id = navigation.state.resume_run_id
-                resume_context = navigation.state.resume_context
-                pending_workspace = navigation.state.pending_workspace
-                pending_branch_source_run_id = (
-                    navigation.state.pending_branch_source_run_id
-                )
-                additional_directories = navigation.state.additional_directories
-                conversation_messages = list(navigation.state.conversation_messages)
-                goal_state = navigation.state.goal_state
-                if navigation.reset_code_recap:
+            if control is not None:
+                client = control.state.client
+                project_runtime = control.state.project_runtime
+                project_permissions_trusted = control.state.project_permissions_trusted
+                additional_directories = control.state.additional_directories
+                pending_workspace = control.state.pending_workspace
+                pending_branch_source_run_id = control.state.pending_branch_source_run_id
+                resume_run_id = control.state.resume_run_id
+                resume_context = control.state.resume_context
+                conversation_messages = list(control.state.conversation_messages)
+                goal_state = control.state.goal_state
+                permission_state = control.state.permission_state
+                approval_policy = control.state.approval_policy
+                approval_handler = control.state.approval_handler
+                permission_overrides = control.state.permission_overrides
+                system_prompt = control.state.system_prompt
+                append_system_prompt = control.state.append_system_prompt
+                if control.reset_code_recap:
                     reset_recap_state("code")
-                for message in navigation.messages:
+                for message in control.messages:
                     print(message)
                 continue
         try:
@@ -995,42 +811,27 @@ def run_interactive_loop(
             execution_config = resolve_execution_config(Path.cwd())
             client = client or create_interactive_client(current_provider_env())
             if request_mode == "chat":
-                debug_runtime.emit("api", "chat_request", {"inputChars": len(task)})
-                with terminal_model_stream_scope(client) as stream_renderer:
-                    try:
-                        response = run_chat_func(
-                            task,
-                            client=client,
-                            history=chat_history,
-                            max_output_tokens=execution_config.max_output_tokens,
-                            model_retries=execution_config.model_retries,
-                            model_retry_delay_ms=execution_config.model_retry_delay_ms,
-                            model_timeout_ms=execution_config.model_timeout_ms,
-                            system_prompt=system_prompt,
-                            append_system_prompt=append_system_prompt,
-                            **(
-                                {"model_stream_handler": stream_renderer.chat_event}
-                                if stream_renderer is not None
-                                else {}
-                            ),
-                        )
-                    except Exception as error:
-                        debug_runtime.emit(
-                            "api",
-                            "chat_error",
-                            {"type": type(error).__name__, "message": format_error(error)},
-                        )
-                        raise
-                debug_runtime.emit("api", "chat_response", {"outputChars": len(response)})
+                chat_turn = run_interactive_chat_turn(
+                    InteractiveChatTurnRequest(
+                        task=task,
+                        client=client,
+                        history=tuple(chat_history),
+                        execution_config=execution_config,
+                        system_prompt=system_prompt,
+                        append_system_prompt=append_system_prompt,
+                        debug_runtime=debug_runtime,
+                    ),
+                    run_chat=run_chat_func,
+                )
                 chat_history.extend(
                     [
                         ChatMessage(role="user", content=task),
-                        ChatMessage(role="assistant", content=response),
+                        ChatMessage(role="assistant", content=chat_turn.response),
                     ]
                 )
                 recap_states["chat"].record_turn()
-                if stream_renderer is None or not stream_renderer.matches_final_message(response):
-                    print(f"\n{response}")
+                if chat_turn.print_response:
+                    print(f"\n{chat_turn.response}")
                 continue
 
             if goal_state is not None and goal_state.status == "active":
