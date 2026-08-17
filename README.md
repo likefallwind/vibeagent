@@ -3066,6 +3066,10 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
 - `vibeagent/session_recap.py`: owns bounded manual and idle conversation
   summaries, per-mode turn and cooldown state, and isolated automatic provider
   calls that never mutate or persist the main conversation.
+- `vibeagent/cli_interactive_idle.py`: coordinates idle file/config changes,
+  notification and asynchronous Hooks, plugin updates, peer and monitor events,
+  scheduled tasks, and automatic recaps while reading mutable session state
+  through explicit callbacks.
 - `vibeagent/cli_interactive_model.py`,
   `vibeagent/cli_interactive_effort.py`, and
   `vibeagent/cli_interactive_provider_commands.py`: validate session-only model

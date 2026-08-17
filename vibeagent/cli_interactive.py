@@ -11,11 +11,6 @@ from typing import Any, Literal, cast
 
 from . import __version__
 from .agent import run_agent as default_run_agent
-from .agent_runtime_utils import append_session_event
-from .async_hook_runtime import (
-    async_hook_notifications_prompt,
-    collect_async_hook_notifications,
-)
 from .btw import run_btw as default_run_btw
 from .builtin_model_workflows import resolve_builtin_model_workflow
 from .chat import run_chat as default_run_chat
@@ -45,6 +40,7 @@ from .cli_project_command_expansion import (
 )
 from .cli_idle_input import input_with_idle_callback
 from .cli_idle_notification import IdleNotificationTimer
+from .cli_interactive_idle import InteractiveIdleContext, run_interactive_idle_tasks
 from .cli_session_local_flags import CompactBlocked, run_interactive_resume_command, run_interactive_session_command
 from .cli_system_prompt_state import update_system_prompt_state
 from .cli_additional_directory_state import update_additional_directory_state
@@ -85,25 +81,17 @@ from .interactive_permission_mode import (
 from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatClient, ChatMessage
 from .dynamic_agent_profiles import DynamicAgentProfile
-from .scheduled_task_store import collect_due_scheduled_tasks, scheduled_tasks_enabled
+from .scheduled_task_store import scheduled_tasks_enabled
 from .session_usage import summarize_run_usage
 from .session_names import transfer_session_name
-from .agent_peer_notifications import peer_messages_as_task
 from .peer_commands import get_peer_sessions_text
 from .peer_inbox_commands import handle_peer_inbox_command
 from .plugin_commands import handle_plugin_command, reload_plugins_text
 from .mcp_commands import handle_mcp_command
-from .plugin_auto_update import (
-    format_plugin_auto_update_notification,
-)
 from .dynamic_workflow_agent import background_workflow_approval_handler, execute_workflow_agent_request
 from .dynamic_workflow_commands import handle_workflows_command
 from .dynamic_workflow_runtime import DynamicWorkflowManager
 from .workspace_core import BrowserMode, create_local_workspace, create_run_workspace, normalize_additional_roots
-from .monitor_runtime import (
-    collect_monitor_notifications,
-    monitor_notifications_prompt,
-)
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import ProjectPermissions, read_project_permissions
 from .workspace_view_mode import resolve_verbose_mode
@@ -505,122 +493,33 @@ def run_interactive_loop(
             print(f"\nSession recap: {recap}")
 
     def run_due_tasks_while_idle() -> None:
-        try:
-            if file_changed_runtime is not None:
-                changed = file_changed_runtime.poll(iteration=0)
-                for message in changed.system_messages:
-                    print(f"\n{message}")
-            if config_change_runtime is not None:
-                changed = config_change_runtime.poll(iteration=0)
-                for message in changed.system_messages:
-                    print(f"\n{message}")
-            if not safe_mode and idle_notification.due() and resume_run_id is not None:
-                notification = run_interactive_notification_hooks(
-                    Path.cwd(),
-                    resume_run_id,
-                    pending_workspace,
-                    additional_directories,
-                    "idle_prompt",
-                    "VibeAgent is waiting for your input.",
-                    title="VibeAgent is waiting",
-                    command_timeout_ms=resolve_execution_config(
-                        Path.cwd()
-                    ).command_timeout_ms,
-                    approval_handler=approval_handler,
-                    approval_policy=approval_policy,
-                )
-                for message in notification.system_messages:
-                    print(f"\n{message}")
-            for notification in (() if safe_mode else project_runtime.collect_plugin_notifications()):
-                print(f"\n{format_plugin_auto_update_notification(notification)}")
-            if project_runtime.peer is not None:
-                peer_task = peer_messages_as_task(project_runtime.peer)
-                if peer_task is not None:
-                    task, metadata = peer_task
-                    print("\nPeer session message received.")
-                    run_code_task(task, metadata)
-            if resume_run_id is None:
-                maybe_generate_automatic_recap()
-                return
-            workspace = create_local_workspace(
-                Path.cwd(),
-                resume_run_id,
-                additional_roots=additional_directories,
+        run_interactive_idle_tasks(
+            InteractiveIdleContext(
+                project_root=Path.cwd(),
+                project_runtime=project_runtime,
+                file_changed_runtime=file_changed_runtime,
+                config_change_runtime=config_change_runtime,
+                idle_notification=idle_notification,
+                current_resume_run_id=lambda: resume_run_id,
+                current_pending_workspace=lambda: pending_workspace,
+                additional_directories=additional_directories,
                 safe_mode=safe_mode,
                 bare_mode=bare_mode,
                 disable_slash_commands=disable_slash_commands,
                 setting_sources=setting_sources,
                 settings_override_json=settings_override_json,
                 invocation_plugin_dirs=invocation_plugin_dirs,
+                current_approval_handler=lambda: approval_handler,
+                current_approval_policy=lambda: approval_policy,
+                command_timeout_ms=lambda: resolve_execution_config(
+                    Path.cwd()
+                ).command_timeout_ms,
+                scheduled_tasks_enabled=scheduled_tasks_enabled,
+                run_notification_hooks=run_interactive_notification_hooks,
+                run_code_task=run_code_task,
+                maybe_generate_automatic_recap=maybe_generate_automatic_recap,
             )
-            async_hook_notifications = (
-                []
-                if safe_mode
-                else collect_async_hook_notifications(workspace, rewake_only=True)
-            )
-            if async_hook_notifications:
-                print("\nAsynchronous hook requested attention.")
-                run_code_task(
-                    async_hook_notifications_prompt(async_hook_notifications),
-                    {
-                        "source": "async_hook_rewake",
-                        "asyncHookProcessIds": [
-                            item.process_id for item in async_hook_notifications
-                        ],
-                    },
-                )
-            monitor_notifications = [] if safe_mode else collect_monitor_notifications(workspace)
-            if monitor_notifications:
-                print("\nMonitor event received.")
-                run_code_task(
-                    monitor_notifications_prompt(monitor_notifications),
-                    {
-                        "source": "monitor",
-                        "monitorTaskIds": sorted(
-                            {item.task_id for item in monitor_notifications}
-                        ),
-                    },
-                )
-            if not scheduled_tasks_enabled():
-                maybe_generate_automatic_recap()
-                return
-            workspace = create_local_workspace(
-                Path.cwd(),
-                resume_run_id,
-                additional_roots=additional_directories,
-                safe_mode=safe_mode,
-                bare_mode=bare_mode,
-                setting_sources=setting_sources,
-                settings_override_json=settings_override_json,
-                invocation_plugin_dirs=invocation_plugin_dirs,
-            )
-            due = collect_due_scheduled_tasks(workspace)
-            if due:
-                append_session_event(
-                    workspace.session_dir,
-                    "scheduled_tasks_delivered",
-                    {
-                        "iteration": 0,
-                        "count": len(due),
-                        "task_ids": [scheduled.id for scheduled in due],
-                        "idle": True,
-                    },
-                )
-            for scheduled in due:
-                print(f"\nScheduled task {scheduled.id}: {scheduled.prompt}")
-                run_code_task(
-                    scheduled.prompt,
-                    {
-                        "source": "scheduled_task",
-                        "scheduledTaskId": scheduled.id,
-                        "scheduledFor": scheduled.scheduled_for,
-                    },
-                )
-            maybe_generate_automatic_recap()
-        except KeyboardInterrupt:
-            raise
-        except Exception as error:
-            print(f"\nIdle task error: {format_error(error)}")
+        )
 
     def get_workflow_manager() -> DynamicWorkflowManager:
         nonlocal client, resume_run_id
