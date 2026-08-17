@@ -1540,7 +1540,9 @@ pyproject metadata, `/instructions [--max-files N] [--max-bytes N]` to inspect A
 `/command [--cwd PATH] -- <cmd>` to preflight
 one shell command without running it, `/run [opts] -- <cmd>` to run one finite shell command
 with optional output diagnostics and bounded contexts, `! <cmd>` to run a shell command directly from the
-interactive prompt, `/check-run-commands [--cwd PATH] -- <cmd> ;; <cmd>` to preview a short ordered
+interactive prompt and let the coding agent respond to its recorded output by default;
+set `respondToBashCommands` to `false` in Claude-compatible settings to keep
+shell execution provider-free, `/check-run-commands [--cwd PATH] -- <cmd> ;; <cmd>` to preview a short ordered
 command sequence without running it, `/run-commands [opts] -- <cmd> ;; <cmd>` to run a short
 ordered command sequence with optional output diagnostics (`/check-run-seq` and `/run-seq` remain aliases), `/check-start [--cwd PATH] -- <cmd>` to preview starting one long-running
 shell command, `/start [--cwd PATH] -- <cmd>` to start one long-running shell command in
@@ -2923,9 +2925,11 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   catalog without exposing template bodies. `/agents` and `/skills` list
   personal, project, and plugin metadata; profile prompts and skill bodies are
   loaded only when selected or invoked.
-- `vibeagent/interactive_shell.py`: runs provider-free `!` commands through the
-  standard bounded command executor, records redacted `Bash` tool events in the
-  active session, and formats direct terminal output.
+- `vibeagent/interactive_shell.py`: runs `!` commands through the standard
+  bounded command executor, records redacted `Bash` tool events in the active
+  session, and formats direct terminal output before the optional model response.
+- `vibeagent/workspace_shell_response.py`: resolves the layered
+  `respondToBashCommands` setting and validates that overrides are boolean.
 - `vibeagent/cli_interactive_project_runtime.py`: owns project-scoped peer,
   plugin-update, workflow, monitor, async-hook, and optional LSP cleanup for the
   interactive loop. It provides one idempotent shutdown boundary for exit and

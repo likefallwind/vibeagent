@@ -76,6 +76,7 @@ from .goal_state import (
     write_goal,
 )
 from .interactive_shell import SHELL_MODE_USAGE, parse_shell_mode_input, run_interactive_shell
+from .workspace_shell_response import resolve_respond_to_bash_commands
 from .interactive_background import create_interactive_background_request
 from .interactive_permission_mode import (
     initial_interactive_permission_state,
@@ -744,12 +745,26 @@ def run_interactive_loop(
         if not task:
             continue
 
+        shell_task_metadata: dict[str, object] | None = None
         shell_command = parse_shell_mode_input(task)
         if shell_command is not None:
             if not shell_command:
                 print(SHELL_MODE_USAGE)
                 continue
             try:
+                shell_settings_workspace = pending_workspace or create_local_workspace(
+                    Path.cwd(),
+                    resume_run_id or "interactive-shell-settings",
+                    additional_roots=additional_directories,
+                    safe_mode=safe_mode,
+                    bare_mode=bare_mode,
+                    setting_sources=setting_sources,
+                    settings_override_json=settings_override_json,
+                    invocation_plugin_dirs=invocation_plugin_dirs,
+                )
+                respond_to_shell = resolve_respond_to_bash_commands(
+                    shell_settings_workspace
+                )
                 execution_config = resolve_execution_config(Path.cwd())
                 shell_result = run_interactive_shell(
                     Path.cwd(),
@@ -766,9 +781,18 @@ def run_interactive_loop(
                     resume_context = next_context
             except KeyboardInterrupt:
                 print("\nInterrupted.")
+                continue
             except Exception as error:
                 print(f"Shell error: {format_error(error)}")
-            continue
+                continue
+            if not respond_to_shell:
+                continue
+            task = (
+                "Review the interactive shell command and its recorded output in "
+                "the prior session context. Respond with the appropriate next "
+                "coding action or explanation. Do not rerun the command unless needed."
+            )
+            shell_task_metadata = {"source": "interactive_shell"}
 
         if disable_slash_commands and task.strip().startswith("/"):
             print("Slash commands and skills are disabled by --disable-slash-commands.")
@@ -1328,7 +1352,13 @@ def run_interactive_loop(
             continue
         if builtin_workflow is not None:
             task = builtin_workflow.task
-        request_mode = "code" if custom_command is not None or builtin_workflow is not None else mode
+        request_mode = (
+            "code"
+            if shell_task_metadata is not None
+            or custom_command is not None
+            or builtin_workflow is not None
+            else mode
+        )
         if command and command.type == "chat":
             if not command.argument:
                 mode = "chat"
@@ -1393,7 +1423,9 @@ def run_interactive_loop(
                 run_code_task(
                     task,
                     (
-                        project_command_task_metadata(custom_command)
+                        shell_task_metadata
+                        if shell_task_metadata is not None
+                        else project_command_task_metadata(custom_command)
                         if custom_command is not None
                         else builtin_workflow.metadata if builtin_workflow is not None else None
                     ),
