@@ -234,7 +234,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     exit_code=2,
                     output_format=args.output_format,
                 )
-        if args.remote_control:
+        if args.remote_control is not None:
             try:
                 return run_remote_control_from_cli(args)
             except KeyboardInterrupt:

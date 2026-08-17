@@ -23,6 +23,7 @@ from .remote_control_assets import (
     REMOTE_CONTROL_HTML,
     REMOTE_CONTROL_JS,
 )
+from .session_names import normalize_session_name
 
 
 MAX_REMOTE_CONTROL_BODY_BYTES = 64 * 1024
@@ -34,6 +35,7 @@ class RemoteControlServer:
     httpd: ThreadingHTTPServer
     token: str
     url: str
+    name: str | None = None
 
     def serve_forever(self) -> None:
         self.httpd.serve_forever(poll_interval=0.2)
@@ -47,6 +49,7 @@ def create_remote_control_server(
     *,
     host: str = "127.0.0.1",
     port: int = 0,
+    name: str | None = None,
     cert_path: Path | None = None,
     key_path: Path | None = None,
     backend: AgentViewBackend | None = None,
@@ -62,8 +65,9 @@ def create_remote_control_server(
     access_token = token or token_urlsafe(32)
     if len(access_token) < 32 or len(access_token) > 256:
         raise ValueError("Remote Control token must contain 32 to 256 characters.")
+    normalized_name = normalize_session_name(name) if name is not None else None
     active_backend = backend or ProjectAgentViewBackend(root, root)
-    handler = _handler_factory(root, active_backend, access_token)
+    handler = _handler_factory(root, active_backend, access_token, normalized_name)
     httpd = ThreadingHTTPServer((address, port), handler)
     httpd.daemon_threads = True
     if tls is not None:
@@ -75,6 +79,7 @@ def create_remote_control_server(
         httpd=httpd,
         token=access_token,
         url=f"{scheme}://{display_host}:{bound_port}/#token={access_token}",
+        name=normalized_name,
     )
 
 
@@ -82,6 +87,7 @@ def _handler_factory(
     project_root: Path,
     backend: AgentViewBackend,
     token: str,
+    name: str | None,
 ) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         server_version = "VibeAgentRemoteControl/1.0"
@@ -103,7 +109,7 @@ def _handler_factory(
                 return
             try:
                 if path == "/api/state":
-                    self._json(HTTPStatus.OK, _state_payload(project_root, backend))
+                    self._json(HTTPStatus.OK, _state_payload(project_root, backend, name))
                     return
                 parts = _agent_route(path, suffix="logs")
                 if parts is not None:
@@ -271,8 +277,13 @@ def _handler_factory(
     return Handler
 
 
-def _state_payload(project_root: Path, backend: AgentViewBackend) -> dict[str, object]:
+def _state_payload(
+    project_root: Path,
+    backend: AgentViewBackend,
+    name: str | None,
+) -> dict[str, object]:
     return {
+        "remoteControlName": name,
         "projectRoot": project_root.as_posix(),
         "agents": [_agent_payload(backend, view) for view in backend.list()],
     }

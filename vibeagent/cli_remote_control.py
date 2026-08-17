@@ -4,19 +4,26 @@ import argparse
 from pathlib import Path
 
 from .cli_config import resolve_project_root
+from .remote_control_names import resolve_remote_control_name
 from .remote_control_server import create_remote_control_server
 
 
 def run_remote_control_from_cli(args: argparse.Namespace) -> int:
     project_root = resolve_project_root(args.cwd) or Path.cwd()
+    name = resolve_remote_control_name(
+        args.remote_control,
+        args.remote_control_session_name_prefix,
+    )
     server = create_remote_control_server(
         project_root,
+        name=name,
         host=args.remote_control_host,
         port=args.remote_control_port,
         cert_path=Path(args.remote_control_cert) if args.remote_control_cert else None,
         key_path=Path(args.remote_control_key) if args.remote_control_key else None,
     )
     print("VibeAgent Remote Control")
+    print(f"  name: {name}")
     print(f"  project: {project_root.resolve()}")
     print(f"  open: {server.url}")
     print("  access: bearer token is stored in the URL fragment and is not sent in request logs")

@@ -19,8 +19,11 @@ def add_background_agent_local_arguments(
     )
     local.add_argument(
         "--remote-control",
-        action="store_true",
-        help="Serve an authenticated browser control plane for project background agents.",
+        nargs="?",
+        const=True,
+        default=None,
+        metavar="NAME",
+        help="Serve an authenticated browser control plane, optionally with a session name.",
     )
     local.add_argument(
         "--background-agent-log",
@@ -56,6 +59,11 @@ def add_background_agent_local_arguments(
 
 
 def add_background_agent_option_arguments(parser: argparse.ArgumentParser, *, positive_int) -> None:
+    parser.add_argument(
+        "--remote-control-session-name-prefix",
+        metavar="PREFIX",
+        help="Prefix for an automatically generated Remote Control session name (default: hostname).",
+    )
     parser.add_argument(
         "--remote-control-host",
         default="127.0.0.1",

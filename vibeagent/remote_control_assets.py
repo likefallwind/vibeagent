@@ -216,7 +216,8 @@ const text = (tag, className, value) => {
 const current = () => state.agents.find((agent) => agent.id === selectedId) || null;
 
 function renderRoster() {
-  byId('project').textContent = state.projectRoot || 'Unknown project';
+  const project = state.projectRoot || 'Unknown project';
+  byId('project').textContent = state.remoteControlName ? `${state.remoteControlName} · ${project}` : project;
   byId('summary').textContent = `${state.agents.length} agent${state.agents.length === 1 ? '' : 's'}`;
   const list = byId('agents');
   list.replaceChildren();

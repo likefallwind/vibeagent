@@ -595,12 +595,16 @@ original terminal on normal exit, interruption, prompts, and attach. It is
 project-scoped; machine-global aggregation across unrelated repositories is not
 part of the 1.0 dashboard.
 
-`remote-control` (also `--remote-control`) serves a responsive browser control
-plane for the same project-local background agents. It can dispatch tasks,
+`remote-control [name]` (also `--remote-control [name]`) serves a responsive
+browser control plane for the same project-local background agents. It can
+dispatch tasks,
 refresh status and bounded logs, queue follow-ups, approve or deny side effects,
 answer structured questions, and stop, respawn, or remove workers. Each launch
-generates a 256-bit bearer token and prints it only in the URL fragment, while
-the API rejects unauthenticated requests, disables caching and framing, and
+has a display name in its startup output and authenticated state API. Omit the
+name to generate one from the hostname and a random suffix, or set
+`--remote-control-session-name-prefix PREFIX` to replace the hostname prefix.
+Each launch generates a 256-bit bearer token and prints it only in the URL
+fragment, while the API rejects unauthenticated requests, disables caching and framing, and
 applies a restrictive content security policy. The default listener is
 `127.0.0.1` on an available port. A non-loopback IPv4 listener is rejected
 unless `--remote-control-cert` and `--remote-control-key` provide TLS, so tokens

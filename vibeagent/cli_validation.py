@@ -9,12 +9,15 @@ from .cli_permission_overrides import permission_override_validation_error
 from .cli_resume_args import validate_resume_arguments
 from .cli_tool_restrictions import parse_cli_tool_names
 from .model_fallback import normalize_fallback_models
+from .remote_control_names import validate_remote_control_name_options
 from .session_id import normalize_requested_session_id
 from .session_names import normalize_session_name
 
 
 def validate_cli_args(args: argparse.Namespace) -> str | None:
-    remote_control = getattr(args, "remote_control", False)
+    remote_control = getattr(args, "remote_control", None)
+    remote_control_selected = remote_control is not None
+    remote_name_prefix = getattr(args, "remote_control_session_name_prefix", None)
     remote_host = getattr(args, "remote_control_host", "127.0.0.1")
     remote_port = getattr(args, "remote_control_port", 0)
     remote_cert = getattr(args, "remote_control_cert", None)
@@ -36,7 +39,7 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
     if args.file and (
         has_local_flag(args)
         or args.agent_view
-        or remote_control
+        or remote_control_selected
         or args.attach_background_agent is not None
     ):
         return "--file requires an interactive or one-shot model session."
@@ -57,7 +60,7 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
             has_local_flag(args)
             or args.chat
             or args.agent_view
-            or remote_control
+            or remote_control_selected
             or args.attach_background_agent is not None
         ):
             return "--session-id requires an interactive or one-shot coding session."
@@ -109,14 +112,20 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
             return "agents/--agent-view cannot be combined with a task."
         if args.json or args.output_format != "text":
             return "agents/--agent-view requires interactive text output."
-    if remote_control:
+    if remote_control_selected:
         if args.task:
             return "remote-control/--remote-control cannot be combined with a task."
         if args.json or args.output_format != "text":
             return "remote-control/--remote-control requires text output."
+        remote_name_error = validate_remote_control_name_options(
+            remote_control,
+            remote_name_prefix,
+        )
+        if remote_name_error is not None:
+            return remote_name_error
     elif any(
         value is not None
-        for value in (remote_cert, remote_key)
+        for value in (remote_cert, remote_key, remote_name_prefix)
     ) or remote_host != "127.0.0.1" or remote_port != 0:
         return "Remote Control host, port, and TLS options require --remote-control."
     if not 0 <= remote_port <= 65_535:
@@ -248,7 +257,7 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         has_local_flag(args)
         or args.chat
         or args.agent_view
-        or args.remote_control
+        or args.remote_control is not None
         or args.attach_background_agent is not None
     ):
         return "--ide requires an interactive or one-shot coding session."

@@ -145,6 +145,7 @@ class RemoteControlServerTests(unittest.TestCase):
             self.root,
             backend=self.backend,
             token="t" * 43,
+            name="devbox-a1b2c3",
         )
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -189,6 +190,7 @@ class RemoteControlServerTests(unittest.TestCase):
         payload = json.loads(body)
 
         self.assertEqual(status, 200)
+        self.assertEqual(payload["remoteControlName"], "devbox-a1b2c3")
         self.assertEqual(payload["projectRoot"], self.root.as_posix())
         self.assertEqual(payload["agents"][0]["id"], AGENT_ID)
         self.assertEqual(payload["agents"][0]["pending"], 2)
@@ -335,6 +337,8 @@ class RemoteControlServerTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "requires a TLS"):
             create_remote_control_server(self.root, host="0.0.0.0")
+        with self.assertRaisesRegex(ValueError, "control characters"):
+            create_remote_control_server(self.root, name="bad\nname")
 
     def test_rejects_oversized_request_body_before_reading_it(self) -> None:
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
@@ -364,6 +368,25 @@ class RemoteControlServerTests(unittest.TestCase):
         with patch("vibeagent.cli.run_remote_control_from_cli", return_value=0) as run:
             self.assertEqual(main(["remote-control"]), 0)
         run.assert_called_once()
+
+    def test_cli_accepts_explicit_and_auto_remote_control_names(self) -> None:
+        explicit = parse_args(["--remote-control", "release console"])
+        automatic = parse_args(
+            ["remote-control", "--remote-control-session-name-prefix", "devbox"]
+        )
+
+        self.assertEqual(explicit.remote_control, "release console")
+        self.assertIs(explicit.remote_control_session_name_prefix, None)
+        self.assertIs(automatic.remote_control, True)
+        self.assertEqual(automatic.remote_control_session_name_prefix, "devbox")
+        self.assertIsNone(validate_cli_args(explicit))
+        self.assertIsNone(validate_cli_args(automatic))
+
+        missing_mode = parse_args(["--remote-control-session-name-prefix", "devbox"])
+        self.assertIn("require --remote-control", validate_cli_args(missing_mode) or "")
+
+        invalid = parse_args(["--remote-control", "bad\nname"])
+        self.assertIn("control characters", validate_cli_args(invalid) or "")
 
 
 if __name__ == "__main__":
