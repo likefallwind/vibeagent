@@ -696,6 +696,10 @@ The automated suite currently covers these 1.0 surfaces:
   head/tail text in memory, and preserve truncation plus total-character
   metadata; checkpoint and safety paths that require complete patches keep
   their existing full-output contract.
+- Structured `git_diff_hunks` and `git_diff_contexts` parse Git stdout while it
+  is drained instead of materializing the patch. They retain exact total-hunk
+  counts while bounding shown hunks, lines per hunk, individual line length,
+  and aggregate retained line text; timeout and Git errors remain explicit.
 - Opt-in command memory cgroups: `CLAUDE_CODE_TOOL_MEMORY_LIMIT` accepts bounded
   byte or binary-unit values on Linux and WSL and places finite, batch,
   PowerShell, interactive, and persistent background command trees into a

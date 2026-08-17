@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import os
 from pathlib import Path
 import re
@@ -149,11 +150,31 @@ def run_readonly_git(
     )
 
 
+def run_streaming_readonly_git(
+    root: str | Path,
+    args: list[str],
+    stdout_consumer: Callable[[str], None],
+    *,
+    max_capture_chars: int = 4_000,
+) -> GitCommandResult:
+    def observe(stdout: str, _stderr: str) -> None:
+        if stdout:
+            stdout_consumer(stdout)
+
+    return _run_bounded_readonly_git(
+        root,
+        args,
+        max_output_chars=max_capture_chars,
+        observer=observe,
+    )
+
+
 def _run_bounded_readonly_git(
     root: str | Path,
     args: list[str],
     *,
     max_output_chars: int,
+    observer: Callable[[str, str], None] | None = None,
 ) -> GitCommandResult:
     if max_output_chars < 1:
         raise ValueError("Git output character limit must be positive.")
@@ -174,7 +195,7 @@ def _run_bounded_readonly_git(
         process,
         timeout_ms=READONLY_GIT_TIMEOUT_MS,
         max_output_chars=max_output_chars,
-        observer=None,
+        observer=observer,
         preserve_complete=False,
         terminate=lambda: terminate_process(process),
     )
