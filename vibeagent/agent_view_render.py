@@ -6,6 +6,7 @@ from typing import Iterable
 from .background_agent_types import BackgroundAgentView
 from .background_agent_approval import BackgroundApproval
 from .background_agent_input import BackgroundUserInput
+from .terminal_text import terminal_safe_text
 
 
 STATUS_GROUPS = (
@@ -175,11 +176,11 @@ def _render_peek(stdout: str, stderr: str, width: int) -> list[str]:
 
 
 def _render_approval(approval: BackgroundApproval, width: int) -> list[str]:
-    lines = ["", f"Approval required: {approval.action_type}"]
-    lines.append(f"  Target: {_fit(approval.target, max(1, width - 10))}")
-    lines.append(f"  Risk: {_fit(approval.risk, max(1, width - 8))}")
+    lines = ["", f"Approval required: {terminal_safe_text(approval.action_type)}"]
+    lines.append(f"  Target: {_fit(terminal_safe_text(approval.target), max(1, width - 10))}")
+    lines.append(f"  Risk: {_fit(terminal_safe_text(approval.risk), max(1, width - 8))}")
     if approval.preview:
-        lines.append(f"  Preview: {_fit(approval.preview, max(1, width - 11))}")
+        lines.append(f"  Preview: {_fit(terminal_safe_text(approval.preview), max(1, width - 11))}")
     lines.append("  Press y to approve once, A for this session, or N to deny.")
     return lines
 

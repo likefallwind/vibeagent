@@ -142,6 +142,55 @@ class ProjectPermissionConfigTests(unittest.TestCase):
         self.assertEqual(match_project_permission(config, "run_command", exact_test_action).effect, "ask")
         self.assertEqual(match_project_permission(config, "run_command", publish_action).effect, "deny")
 
+    def test_shell_deny_rule_matches_tab_padded_command_before_broad_allow(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(
+                root,
+                {
+                    "deny": ["Bash(git push *)"],
+                    "allow": ["Bash"],
+                },
+            )
+            config = read_project_permissions(create_run_workspace(root))
+            action = parse_tool_action(
+                "run_command",
+                {"command": "git\tpush origin main"},
+            )
+
+        match = match_project_permission(config, "run_command", action)
+
+        self.assertIsNotNone(match)
+        self.assertEqual(match.effect, "deny")
+        self.assertEqual(match.rule.raw, "Bash(git push *)")
+
+    def test_shell_allow_rule_does_not_expand_whitespace_matching(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(root, {"allow": ["Bash(git status)"]})
+            config = read_project_permissions(create_run_workspace(root))
+            action = parse_tool_action("run_command", {"command": "git\tstatus"})
+
+        self.assertIsNone(match_project_permission(config, "run_command", action))
+
+    def test_shell_ask_rule_matches_tab_padded_command_before_broad_allow(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(
+                root,
+                {
+                    "ask": ["Bash(git status)"],
+                    "allow": ["Bash"],
+                },
+            )
+            config = read_project_permissions(create_run_workspace(root))
+            action = parse_tool_action("run_command", {"command": "git\tstatus"})
+
+        match = match_project_permission(config, "run_command", action)
+
+        self.assertIsNotNone(match)
+        self.assertEqual(match.effect, "ask")
+
     def test_matches_claude_path_aliases_and_requires_all_allow_subjects(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
             root = Path(base)

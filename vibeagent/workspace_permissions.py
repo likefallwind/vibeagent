@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Literal, cast
 from urllib.parse import urlsplit
 
+from .terminal_text import normalized_shell_permission_subject, terminal_safe_text
+
 from .action_tool_aliases import tool_name_candidates
 from .redaction import redact_sensitive_text
 from .tool_catalog_core import tool_category
@@ -305,7 +307,7 @@ def format_permissions_for_prompt(config: ProjectPermissions) -> str:
 
 
 def safe_permission_rule_text(rule: ProjectPermissionRule) -> str:
-    return redact_sensitive_text(rule.raw)
+    return terminal_safe_text(redact_sensitive_text(rule.raw))
 
 
 def match_project_permission(
@@ -494,8 +496,34 @@ def _specifier_matches(
     if not subjects:
         return False
     path_mode = _specifier_uses_path_matching(rule.tool, tool_name, action)
-    matches = [wildcard_matches(specifier, subject, path_mode=path_mode) for subject in subjects]
+    matches = [
+        _permission_subject_matches(
+            specifier,
+            subject,
+            path_mode=path_mode,
+            normalize_shell_whitespace=(
+                rule.effect != "allow"
+                and "Bash" in tool_name_candidates(tool_name, action)
+            ),
+        )
+        for subject in subjects
+    ]
     return all(matches) if rule.effect == "allow" else any(matches)
+
+
+def _permission_subject_matches(
+    specifier: str,
+    subject: str,
+    *,
+    path_mode: bool,
+    normalize_shell_whitespace: bool,
+) -> bool:
+    if wildcard_matches(specifier, subject, path_mode=path_mode):
+        return True
+    if not normalize_shell_whitespace:
+        return False
+    normalized = normalized_shell_permission_subject(subject)
+    return normalized != subject and wildcard_matches(specifier, normalized, path_mode=False)
 
 
 def _specifier_is_sandbox_escape(

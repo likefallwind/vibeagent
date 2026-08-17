@@ -18,6 +18,7 @@ from .types import (
 )
 from .user_input_runtime import normalize_user_input_answer, parse_user_input_text
 from .workspace_permissions import read_project_permissions_from_root, safe_permission_rule_text
+from .terminal_text import terminal_safe_text
 
 
 MAX_SHOWN_PERMISSION_TRUST_RULES = 20
@@ -104,11 +105,11 @@ def print_item_section(title: str, items: list[str]) -> None:
 
 
 def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
-    print(f"Action: {request.action_type}")
-    print(f"Target: {request.target}")
-    print(f"Risk: {request.risk}")
+    print(f"Action: {terminal_safe_text(request.action_type)}")
+    print(f"Target: {terminal_safe_text(request.target)}")
+    print(f"Risk: {terminal_safe_text(request.risk)}")
     if request.preview:
-        print(f"Preview: {request.preview}")
+        print(f"Preview: {terminal_safe_text(request.preview)}")
     try:
         answer = input("Approve? [y]es/[a]lways for this session/[N]o ").strip().lower()
     except (EOFError, KeyboardInterrupt):
@@ -252,8 +253,8 @@ class PlanSessionApprovalHandler:
 
 
 def prompt_plan_approval(request: ApprovalRequest) -> ApprovalDecision:
-    print(f"Plan: {request.target}")
-    print(f"Risk: {request.risk}")
+    print(f"Plan: {terminal_safe_text(request.target)}")
+    print(f"Risk: {terminal_safe_text(request.risk)}")
     try:
         answer = input(
             "Proceed? [y]es, review each action/[a]llow actions/"

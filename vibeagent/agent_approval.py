@@ -14,6 +14,7 @@ from .agent_observation_utils import summarize
 from .redaction import redact_jsonable_payload, redact_sensitive_text
 from .github_issue_comment_runtime import github_issue_comment_target
 from .github_pr_comment_runtime import github_pr_comment_target
+from .terminal_text import terminal_safe_text
 from . import types as t
 
 
@@ -385,9 +386,16 @@ def request_approval(handler: t.ApprovalHandler | None, request: t.ApprovalReque
 
 def summarize_approval_request(request: t.ApprovalRequest) -> str:
     suffix = " (previewed)" if request.preview else ""
-    return f"{request.action_type} {summarize(request.target, 120)}{suffix}"
+    action_type = terminal_safe_text(request.action_type)
+    target = terminal_safe_text(request.target)
+    return f"{action_type} {summarize(target, 120)}{suffix}"
 
 
 def summarize_approval_decision(request: t.ApprovalRequest, decision: t.ApprovalDecision) -> str:
     message = decision.message or ("approved" if decision.approved else "denied")
-    return f"{request.action_type} {summarize(request.target, 80)}: {summarize(message, 120)}"
+    action_type = terminal_safe_text(request.action_type)
+    target = terminal_safe_text(request.target)
+    return (
+        f"{action_type} {summarize(target, 80)}: "
+        f"{summarize(terminal_safe_text(message), 120)}"
+    )

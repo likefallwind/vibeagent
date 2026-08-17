@@ -2,6 +2,7 @@ import io
 import unittest
 from unittest.mock import patch
 
+from vibeagent.agent_approval import summarize_approval_request
 from vibeagent.cli import build_approval_handler, handle_approval_command, prompt_approval
 from vibeagent.cli_system_prompt_state import update_system_prompt_state
 from vibeagent.types import ApprovalRequest
@@ -91,6 +92,29 @@ class CliApprovalHelpersTests(unittest.TestCase):
 
         output = stdout.getvalue()
         self.assertIn("Preview: Preview passed; diffChars=42", output)
+
+    def test_prompt_approval_escapes_terminal_controls_and_unicode_formatting(self) -> None:
+        request = ApprovalRequest(
+            action_type="run_command",
+            target="git\tpush origin main\x1b[2K\u202ereversed",
+            risk="Runs\rthe command.",
+        )
+
+        with patch("builtins.input", return_value="n"), patch(
+            "sys.stdout", new_callable=io.StringIO
+        ) as stdout:
+            prompt_approval(request)
+
+        output = stdout.getvalue()
+        self.assertNotIn("\t", output)
+        self.assertNotIn("\x1b", output)
+        self.assertNotIn("\u202e", output)
+        self.assertNotIn("\r", output)
+        self.assertIn(r"Target: [escaped] git\tpush origin main\x1b[2K\u202ereversed", output)
+        self.assertIn(r"Risk: [escaped] Runs\rthe command.", output)
+        summary = summarize_approval_request(request)
+        self.assertNotIn("\x1b", summary)
+        self.assertIn(r"[escaped] git\tpush origin main\x1b[2K\u202ereversed", summary)
 
     def test_handle_approval_command_shows_and_updates_policy(self) -> None:
         self.assertEqual(handle_approval_command(None, "ask"), ("ask", "Approval policy: ask"))
