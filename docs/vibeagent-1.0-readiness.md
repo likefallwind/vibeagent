@@ -223,8 +223,11 @@ resources in one process.
 The automated suite currently covers these 1.0 surfaces:
 
 - Install smoke: `scripts/install_smoke.py` creates a fresh virtual environment
-  from outside the checkout, installs the package editable, and verifies both
-  `python -m vibeagent --version` and `vibeagent --version`.
+  and private source snapshot outside the checkout, builds exactly one wheel
+  without dependency downloads or build isolation, force-installs that wheel
+  non-editably, proves `vibeagent.__file__` resolves inside the fresh venv rather
+  than the checkout, and verifies both `python -m vibeagent --version` and
+  `vibeagent --version`.
 - Provider-free diagnostics: Claude-compatible `doctor` and the existing
   `--doctor` spelling inspect the same bounded local report without creating a
   provider or session; global project and JSON output options remain available.

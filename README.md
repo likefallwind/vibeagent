@@ -422,8 +422,9 @@ and reuses the same authenticated live-context validation without launching a
 GUI or contacting a remote service. Crashed descriptors expire after two
 minutes and extension startup prunes entries older than one day.
 
-Before cutting a release, verify an editable install from outside the source
-tree:
+Before cutting a release, build a wheel from a clean private source snapshot,
+install it non-editably into a fresh virtual environment, and verify both CLI
+entrypoints from outside the source tree:
 
 ```sh
 npm run test:install
