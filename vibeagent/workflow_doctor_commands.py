@@ -7,6 +7,7 @@ import sys
 from . import __version__
 from .command_hard_blocks import get_command_hard_block_report
 from .config import resolve_cost_rates, resolve_provider_config
+from .doctor_memory_limits import get_memory_limits_doctor_report
 
 
 def get_doctor_report(project_root: str | Path = ".", env: dict[str, str | None] | None = None) -> dict[str, object]:
@@ -53,6 +54,7 @@ def get_doctor_report(project_root: str | Path = ".", env: dict[str, str | None]
         name: shutil.which(name) is not None
         for name in ("python3", "git", "npm")
     }
+    report["memoryLimits"] = get_memory_limits_doctor_report(env)
     report["commandHardBlocks"] = get_command_hard_block_report()
     return report
 
@@ -94,6 +96,39 @@ def format_doctor_report_text(report: dict[str, object]) -> str:
         lines.extend(f"    - {error}" for error in cost_rates.get("errors", []))
     elif isinstance(cost_rates, dict):
         lines.append(f"  costRates: {cost_rates.get('configured')}/{cost_rates.get('total')} configured")
+
+    memory_limits = report.get("memoryLimits")
+    if isinstance(memory_limits, dict):
+        lines.append(f"  memoryLimits: {memory_limits.get('status') or 'unknown'}")
+        support = memory_limits.get("support")
+        if isinstance(support, dict):
+            support_status = "ready" if bool(support.get("ready")) else "unavailable"
+            lines.append(f"    support: {support_status}")
+            lines.append(f"      - platform: {support.get('platform') or 'unknown'}")
+            lines.append(
+                f"      - systemd-run: {'available' if bool(support.get('systemdRun')) else 'missing'}"
+            )
+            lines.append(
+                f"      - systemctl: {'available' if bool(support.get('systemctl')) else 'missing'}"
+            )
+            lines.append(
+                f"      - userManager: {'reachable' if bool(support.get('userManager')) else 'unavailable'}"
+            )
+            if support.get("error"):
+                lines.append(f"      - error: {support.get('error')}")
+        for key, label in (("toolCommands", "toolCommands"), ("backgroundAgents", "backgroundAgents")):
+            limit = memory_limits.get(key)
+            if not isinstance(limit, dict):
+                continue
+            if not bool(limit.get("configured")):
+                value = "not configured"
+            elif not bool(limit.get("valid")):
+                value = f"invalid: {limit.get('error') or 'invalid value'}"
+            elif not bool(limit.get("enabled")):
+                value = "disabled"
+            else:
+                value = str(limit.get("limit") or limit.get("limitBytes") or "configured")
+            lines.append(f"    {label}: {value} ({limit.get('environment')})")
 
     lines.append("  executables:")
     executables = report.get("executables")

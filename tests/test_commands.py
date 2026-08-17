@@ -10680,6 +10680,12 @@ class CommandTests(unittest.TestCase):
         self.assertIn("agentsMd: yes", text)
         self.assertIn("claudeMd: yes", text)
         self.assertIn("costRates: 2/4 configured", text)
+        self.assertIn("memoryLimits: not configured", text)
+        self.assertIn("toolCommands: not configured (CLAUDE_CODE_TOOL_MEMORY_LIMIT)", text)
+        self.assertIn(
+            "backgroundAgents: not configured (VIBEAGENT_BACKGROUND_AGENT_MEMORY_LIMIT)",
+            text,
+        )
         self.assertIn("executables:", text)
         self.assertIn("commandHardBlocks:", text)
         self.assertIn(" active", text)
@@ -10762,6 +10768,10 @@ class CommandTests(unittest.TestCase):
         self.assertIsInstance(cost_rates, dict)
         self.assertTrue(cost_rates["ok"])
         self.assertEqual(cost_rates["configured"], 1)
+        memory_limits = report["memoryLimits"]
+        self.assertIsInstance(memory_limits, dict)
+        self.assertTrue(memory_limits["ok"])
+        self.assertEqual(memory_limits["status"], "not configured")
         hard_blocks = report["commandHardBlocks"]
         self.assertIsInstance(hard_blocks, dict)
         self.assertEqual(hard_blocks["active"], hard_blocks["total"])

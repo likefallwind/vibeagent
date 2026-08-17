@@ -588,6 +588,24 @@ class CliLocalFlagTests(unittest.TestCase):
         get_doctor_text.assert_not_called()
         create_chat_client.assert_not_called()
 
+    def test_main_doctor_json_exits_nonzero_for_unavailable_memory_limit(self) -> None:
+        report = {"memoryLimits": {"ok": False, "status": "unavailable"}}
+        stdout = io.StringIO()
+
+        with (
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_doctor_report", return_value=report),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "--doctor"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["doctor"], report)
+        self.assertIn("memoryLimits: unavailable", payload["text"])
+        create_chat_client.assert_not_called()
+
     def test_main_runs_tools_local_flag_without_creating_client(self) -> None:
         stdout = io.StringIO()
 

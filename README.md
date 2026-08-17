@@ -1132,8 +1132,15 @@ prompts; disallowed CLI rules take precedence through the normal deny/ask/allow
 ordering. These flags accept rules such as `Read`, `Edit(src/**)`,
 `Bash(git diff:*)`, or `WebFetch(domain:docs.python.org)`, and can be repeated.
 `--json --doctor` keeps the human-readable `text` field and also includes a
-structured `doctor` object with provider metadata, executable availability, cost
-rate status, and command hard-block self-checks without exposing API key values.
+structured `doctor` object with provider metadata, executable availability,
+cost-rate status, command hard-block self-checks, and memory-limit readiness
+without exposing API key values. The memory-limit section validates
+`CLAUDE_CODE_TOOL_MEMORY_LIMIT` and
+`VIBEAGENT_BACKGROUND_AGENT_MEMORY_LIMIT`, checks for `systemd-run` and
+`systemctl`, and performs a bounded read-only user-manager probe without starting
+an agent or transient service. An enabled limit that is invalid or cannot be
+enforced makes `doctor` exit nonzero; unavailable support remains informational
+when no limit is enabled.
 `--model` without a value shows the active model provider configuration.
 `--json --model` and `--json --config` include structured provider and
 execution-configuration payloads with model/base URL, API-key configured/source

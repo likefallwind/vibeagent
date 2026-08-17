@@ -73,6 +73,8 @@ def has_local_diagnostic_error(text: str) -> bool:
         line.startswith("  provider: Unsupported VIBEAGENT_PROVIDER:")
         or line.startswith("  projectConfigError: ")
         or line == "  costRates: invalid"
+        or line == "  memoryLimits: invalid"
+        or line == "  memoryLimits: unavailable"
         for line in text.splitlines()
     )
 
