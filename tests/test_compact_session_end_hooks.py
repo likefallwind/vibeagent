@@ -382,7 +382,7 @@ class CompactSessionEndHookRuntimeTests(unittest.TestCase):
                             side_effect=inputs,
                         ),
                         patch(
-                            "vibeagent.cli_interactive.run_interactive_resume_command",
+                            "vibeagent.cli_interactive_session_navigation.run_interactive_resume_command",
                             return_value=resume_result,
                         ),
                         patch(

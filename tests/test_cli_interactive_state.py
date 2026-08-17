@@ -505,7 +505,9 @@ class CliInteractiveStateTests(unittest.TestCase):
                         "/exit",
                     ],
                 ),
-                patch("vibeagent.cli_interactive.schedule_directory_added_hooks") as schedule,
+                patch(
+                    "vibeagent.cli_interactive_directories.schedule_directory_added_hooks"
+                ) as schedule,
                 redirect_stdout(io.StringIO()),
             ):
                 exit_code = main(["--cwd", str(project)])

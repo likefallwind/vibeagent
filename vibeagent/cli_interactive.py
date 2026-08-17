@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
-import os
 from pathlib import Path
 from threading import Lock
 from typing import Any, Literal, cast
@@ -19,11 +18,7 @@ from .session_recap import (
     automatic_session_recaps_enabled,
     run_session_recap as default_run_session_recap,
 )
-from .directory_added_hooks import (
-    collect_directory_added_turn_context,
-    schedule_directory_added_hooks,
-)
-from .cli_checkpoint_local_flags import run_interactive_checkpoint_command
+from .directory_added_hooks import collect_directory_added_turn_context
 from .cli_completion import interactive_prompt_completion
 from .cli_output import (
     build_approval_handler,
@@ -40,12 +35,19 @@ from .cli_project_command_expansion import (
 from .cli_idle_input import input_with_idle_callback
 from .cli_idle_notification import IdleNotificationTimer
 from .cli_interactive_idle import InteractiveIdleContext, run_interactive_idle_tasks
-from .cli_session_local_flags import CompactBlocked, run_interactive_resume_command, run_interactive_session_command
 from .cli_system_prompt_state import update_system_prompt_state
-from .cli_additional_directory_state import update_additional_directory_state
-from .cli_interactive_cd import resolve_interactive_directory_change
+from .cli_interactive_directories import (
+    InteractiveAddDirectoryRequest,
+    InteractiveDirectorySwitchRequest,
+    apply_interactive_add_directory,
+    switch_interactive_directory,
+)
+from .cli_interactive_session_navigation import (
+    InteractiveSessionNavigationRequest,
+    InteractiveSessionNavigationState,
+    navigate_interactive_session,
+)
 from .cli_interactive_project_runtime import InteractiveProjectRuntime
-from .cli_interactive_branch import prepare_interactive_branch_switch
 from .cli_interactive_model import interactive_provider_env
 from .cli_interactive_effort import configure_interactive_effort
 from .autocompact_settings import (
@@ -63,8 +65,7 @@ from .cli_interactive_code_turn import (
 )
 from .context_compaction import format_autocompact_setting
 from .cli_interactive_provider_commands import run_interactive_provider_command
-from .cli_interactive_rewind import run_interactive_rewind_command
-from .cli_interactive_session_management import interactive_session_prompt, run_interactive_session_management
+from .cli_interactive_session_management import interactive_session_prompt
 from .commands import get_resume_context as default_get_resume_context, parse_local_command
 from .config import resolve_execution_config
 from .cli_goal import evaluate_and_store_goal
@@ -97,18 +98,12 @@ from .mcp_commands import handle_mcp_command
 from .dynamic_workflow_agent import background_workflow_approval_handler, execute_workflow_agent_request
 from .dynamic_workflow_commands import handle_workflows_command
 from .dynamic_workflow_runtime import DynamicWorkflowManager
-from .workspace_core import BrowserMode, create_local_workspace, create_run_workspace, normalize_additional_roots
+from .workspace_core import BrowserMode, create_local_workspace, create_run_workspace
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import ProjectPermissions, read_project_permissions
 from .workspace_agents import format_project_agent_catalog
 from .workspace_prompt_commands import format_project_prompt_commands
 from .workspace_skills import format_project_skill_catalog
-from .session_additional_directories import (
-    merge_additional_directories,
-    record_session_additional_directories,
-    restore_session_additional_directories,
-)
-from .session_conversation import load_session_conversation
 from .session_lifecycle_hooks import (
     create_interactive_config_change_runtime,
     create_interactive_file_changed_runtime,
@@ -848,149 +843,65 @@ def run_interactive_loop(
             print(text)
             continue
         if command and command.type == "add_dir":
-            previous_directories = additional_directories
-            update = update_additional_directory_state(
-                additional_directories,
-                command.argument,
-                project_root=Path.cwd(),
-            )
-            if update.changed:
-                additional_directories = update.directories
-                if pending_workspace is not None:
-                    pending_workspace = replace(
-                        pending_workspace,
-                        additional_roots=additional_directories,
-                    )
-                elif resume_run_id is not None:
-                    pending_workspace = create_local_workspace(
-                        Path.cwd(),
-                        resume_run_id,
-                        additional_roots=additional_directories,
-                        safe_mode=safe_mode,
-                        bare_mode=bare_mode,
-                        setting_sources=setting_sources,
-                        settings_override_json=settings_override_json,
-                        invocation_plugin_dirs=invocation_plugin_dirs,
-                    )
-                project_runtime.close_workflow()
-                try:
-                    record_session_additional_directories(
-                        Path.cwd(),
-                        resume_run_id,
-                        additional_directories,
-                    )
-                except (OSError, ValueError) as error:
-                    print(f"Additional directory persistence warning: {format_error(error)}")
-                added = tuple(
-                    directory
-                    for directory in additional_directories
-                    if directory not in previous_directories
+            directory_update = apply_interactive_add_directory(
+                InteractiveAddDirectoryRequest(
+                    project_root=Path.cwd(),
+                    argument=command.argument,
+                    additional_directories=additional_directories,
+                    pending_workspace=pending_workspace,
+                    resume_run_id=resume_run_id,
+                    project_runtime=project_runtime,
+                    approval_policy=approval_policy,
+                    approval_handler=approval_handler,
+                    safe_mode=safe_mode,
+                    bare_mode=bare_mode,
+                    setting_sources=setting_sources,
+                    settings_override_json=settings_override_json,
+                    invocation_plugin_dirs=invocation_plugin_dirs,
                 )
-                if added and not safe_mode:
-                    try:
-                        if pending_workspace is None:
-                            pending_workspace = create_run_workspace(
-                                Path.cwd(),
-                                additional_roots=additional_directories,
-                                safe_mode=safe_mode,
-                                bare_mode=bare_mode,
-                                setting_sources=setting_sources,
-                                settings_override_json=settings_override_json,
-                                invocation_plugin_dirs=invocation_plugin_dirs,
-                            )
-                        hooks = read_project_hooks(pending_workspace)
-                        permissions = read_project_permissions(pending_workspace)
-                        if pending_workspace.project_config_trusted and permissions.enabled:
-                            permissions = replace(permissions, allow_rules_trusted=True)
-                        for directory in added:
-                            schedule_directory_added_hooks(
-                                pending_workspace,
-                                directory,
-                                "slash_command",
-                                hooks=hooks,
-                                permissions=permissions,
-                                approval_policy=approval_policy,
-                                approval_handler=approval_handler,
-                            )
-                    except (OSError, RuntimeError, ValueError) as error:
-                        print(f"DirectoryAdded hook warning: {format_error(error)}")
-            print(update.text)
+            )
+            additional_directories = directory_update.additional_directories
+            pending_workspace = directory_update.pending_workspace
+            for message in directory_update.messages:
+                print(message)
             continue
         if command and command.type == "cd":
-            change = resolve_interactive_directory_change(Path.cwd(), command.argument)
-            if not change.changed or change.target is None:
-                print(change.text)
-                continue
-
-            target = change.target
-            try:
-                target_additional_directories = normalize_additional_roots(
-                    target,
-                    additional_directories,
-                )
-                target_permissions_trusted = prompt_project_permission_trust(target)
-                target_workspace = create_run_workspace(
-                    target,
-                    additional_roots=target_additional_directories,
+            directory_switch = switch_interactive_directory(
+                InteractiveDirectorySwitchRequest(
+                    project_root=Path.cwd(),
+                    argument=command.argument,
+                    additional_directories=additional_directories,
+                    pending_workspace=pending_workspace,
+                    pending_branch_source_run_id=pending_branch_source_run_id,
+                    resume_run_id=resume_run_id,
+                    project_permissions_trusted=project_permissions_trusted,
+                    project_runtime=project_runtime,
+                    goal_state=goal_state,
+                    approval_policy=approval_policy,
                     safe_mode=safe_mode,
                     bare_mode=bare_mode,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
                     invocation_plugin_dirs=invocation_plugin_dirs,
-                )
-            except (OSError, ValueError) as error:
-                print(f"Cannot change project directory: {format_error(error)}")
-                continue
-
-            source_run_id = resume_run_id
-            run_active_session_hook("session_end", "other")
-            project_runtime.close(additional_directories, close_lsp=True)
-            try:
-                os.chdir(target)
-            except OSError as error:
-                print(f"Cannot change project directory: {format_error(error)}")
-                project_runtime = InteractiveProjectRuntime(
-                    Path.cwd(),
-                    approval_policy,
-                    initial_session_id=source_run_id,
-                    safe_mode=safe_mode,
-                    bare_mode=bare_mode,
-                    setting_sources=setting_sources,
-                    settings_override_json=settings_override_json,
-                    invocation_plugin_dirs=invocation_plugin_dirs,
-                )
-                continue
-
-            project_permissions_trusted = target_permissions_trusted
-            additional_directories = target_additional_directories
-            pending_workspace = target_workspace
-            pending_branch_source_run_id = source_run_id
-            resume_run_id = target_workspace.run_id
-            client = None
-            project_runtime = InteractiveProjectRuntime(
-                target,
-                approval_policy,
-                initial_session_id=target_workspace.run_id,
-                safe_mode=safe_mode,
-                bare_mode=bare_mode,
-                setting_sources=setting_sources,
-                settings_override_json=settings_override_json,
-                invocation_plugin_dirs=invocation_plugin_dirs,
+                ),
+                run_session_end_hook=lambda: run_active_session_hook(
+                    "session_end",
+                    "other",
+                ),
+                prompt_project_permission_trust=prompt_project_permission_trust,
             )
-            file_changed_runtime = None
-            config_change_runtime = None
-            try:
-                record_session_additional_directories(
-                    target,
-                    resume_run_id,
-                    additional_directories,
-                )
-                if goal_state is not None:
-                    write_goal(target_workspace, goal_state)
-            except (OSError, ValueError) as error:
-                print(f"Session persistence warning: {format_error(error)}")
-            print(change.text)
-            print(f"Conversation preserved in new session: {resume_run_id}")
+            project_runtime = directory_switch.project_runtime
+            project_permissions_trusted = directory_switch.project_permissions_trusted
+            additional_directories = directory_switch.additional_directories
+            pending_workspace = directory_switch.pending_workspace
+            pending_branch_source_run_id = directory_switch.pending_branch_source_run_id
+            resume_run_id = directory_switch.resume_run_id
+            if directory_switch.changed:
+                client = None
+                file_changed_runtime = None
+                config_change_runtime = None
+            for message in directory_switch.messages:
+                print(message)
             continue
         if command and command.type == "approval":
             previous_state = permission_state
@@ -1005,146 +916,51 @@ def run_interactive_loop(
                 project_runtime.update_approval_policy(approval_policy)
             print(text)
             continue
-        if command and (
-            session_update := run_interactive_session_management(
-                command,
-                project_root=Path.cwd(),
-                run_id=resume_run_id,
-                pending_workspace=pending_workspace,
-            )
-        ) is not None:
-            resume_run_id = session_update.run_id
-            pending_workspace = session_update.pending_workspace
-            print(session_update.text)
-            continue
-        if command and (session_text := run_interactive_session_command(command, command_namespace)) is not None:
-            print(session_text)
-            continue
-        if command and (
-            rewind := run_interactive_rewind_command(
-                command,
-                project_root=Path.cwd(),
-                run_id=resume_run_id,
-                get_resume_context=get_resume_context_func,
-            )
-        ) is not None:
-            if rewind.workspace is not None and rewind.context is not None:
-                project_runtime.close_workflow()
-                pending_workspace = rewind.workspace
-                pending_branch_source_run_id = None
-                resume_run_id = rewind.workspace.run_id
-                resume_context = rewind.context
-                additional_directories = rewind.workspace.additional_roots
-                goal_state = None
-                conversation_messages.clear()
-                reset_recap_state("code")
-            print(rewind.text)
-            continue
-        if command and (
-            checkpoint_text := run_interactive_checkpoint_command(command, command_namespace, resume_run_id)
-        ) is not None:
-            print(checkpoint_text)
-            continue
-        if command and (
-            resume_result := run_interactive_resume_command(
-                command,
-                command_namespace,
-                before_compact=lambda: run_active_session_hook(
-                    "pre_compact", "manual"
-                ),
-                after_compact=lambda summary: run_active_session_hook(
-                    "post_compact", "manual", summary
-                ),
-            )
-        ) is not None:
-            if isinstance(resume_result, CompactBlocked):
-                print(f"Compaction blocked by PreCompact hook: {resume_result.message}")
-                continue
-            selected, context, text = resume_result
-            restored_directories = restore_session_additional_directories(Path.cwd(), selected)
-            try:
-                next_additional_directories = merge_additional_directories(
-                    Path.cwd(),
-                    additional_directories,
-                    restored_directories.directories,
-                )
-            except ValueError as error:
-                print(f"Resume error: {format_error(error)}")
-                continue
-            project_runtime.close_workflow()
-            if command.type == "resume" and selected != resume_run_id:
-                run_active_session_hook("session_end", "resume")
-            resume_run_id = selected
-            resume_context = context
-            restored_conversation = (
-                load_session_conversation(Path.cwd(), selected)
-                if command.type == "resume"
-                else None
-            )
-            conversation_messages = (
-                list(restored_conversation.messages)
-                if restored_conversation is not None
-                else []
-            )
-            reset_recap_state("code")
-            pending_workspace = (
-                create_local_workspace(
-                    Path.cwd(),
-                    selected,
-                    additional_roots=next_additional_directories,
+        if command:
+            navigation = navigate_interactive_session(
+                InteractiveSessionNavigationRequest(
+                    project_root=Path.cwd(),
+                    command=command,
+                    command_namespace=command_namespace,
+                    state=InteractiveSessionNavigationState(
+                        resume_run_id=resume_run_id,
+                        resume_context=resume_context,
+                        pending_workspace=pending_workspace,
+                        pending_branch_source_run_id=pending_branch_source_run_id,
+                        additional_directories=additional_directories,
+                        conversation_messages=tuple(conversation_messages),
+                        goal_state=goal_state,
+                    ),
+                    project_runtime=project_runtime,
                     safe_mode=safe_mode,
                     bare_mode=bare_mode,
+                    disable_slash_commands=disable_slash_commands,
                     setting_sources=setting_sources,
                     settings_override_json=settings_override_json,
                     invocation_plugin_dirs=invocation_plugin_dirs,
-                )
-                if command.type == "resume" and selected is not None
-                else None
-            )
-            pending_branch_source_run_id = None
-            additional_directories = next_additional_directories
-            restored_goal = read_session_goal(Path.cwd(), selected) if selected is not None else None
-            goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
-            print(text)
-            if restored_conversation is not None and restored_conversation.warning:
-                print(restored_conversation.warning)
-            if restored_directories.message:
-                print(restored_directories.message)
-            continue
-        if command and command.type == "branch":
-            branch = prepare_interactive_branch_switch(
-                Path.cwd(),
-                resume_run_id,
-                command.argument,
-                additional_directories,
+                ),
                 get_resume_context=get_resume_context_func,
+                run_lifecycle_hook=lambda event, value, summary: run_active_session_hook(
+                    event,
+                    value,
+                    summary,
+                ),
             )
-            if branch.error is not None or branch.workspace is None or branch.source_run_id is None:
-                print(f"Branch error: {branch.error or 'branch state is incomplete.'}")
+            if navigation.handled:
+                resume_run_id = navigation.state.resume_run_id
+                resume_context = navigation.state.resume_context
+                pending_workspace = navigation.state.pending_workspace
+                pending_branch_source_run_id = (
+                    navigation.state.pending_branch_source_run_id
+                )
+                additional_directories = navigation.state.additional_directories
+                conversation_messages = list(navigation.state.conversation_messages)
+                goal_state = navigation.state.goal_state
+                if navigation.reset_code_recap:
+                    reset_recap_state("code")
+                for message in navigation.messages:
+                    print(message)
                 continue
-            project_runtime.close_workflow()
-            run_active_session_hook("session_end", "resume")
-            pending_workspace = replace(
-                branch.workspace,
-                safe_mode=safe_mode,
-                bare_mode=bare_mode,
-                disable_slash_commands=disable_slash_commands,
-                setting_sources=setting_sources,
-                settings_override_json=settings_override_json,
-                invocation_plugin_dirs=invocation_plugin_dirs,
-            )
-            pending_branch_source_run_id = branch.source_run_id
-            resume_run_id = branch.workspace.run_id
-            resume_context = branch.context
-            restored_conversation = load_session_conversation(Path.cwd(), branch.source_run_id)
-            conversation_messages = list(restored_conversation.messages)
-            reset_recap_state("code")
-            restored_goal = read_session_goal(Path.cwd(), resume_run_id)
-            goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
-            print(branch.text)
-            if restored_conversation.warning:
-                print(restored_conversation.warning)
-            continue
         try:
             builtin_workflow = resolve_builtin_model_workflow(command)
         except ValueError as error:

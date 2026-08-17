@@ -294,7 +294,9 @@ class SafeModeTests(unittest.TestCase):
             shared.mkdir()
             with (
                 patch("builtins.input", side_effect=["/add-dir ../shared", "/exit"]),
-                patch("vibeagent.cli_interactive.schedule_directory_added_hooks") as schedule,
+                patch(
+                    "vibeagent.cli_interactive_directories.schedule_directory_added_hooks"
+                ) as schedule,
                 redirect_stdout(io.StringIO()),
             ):
                 exit_code = cli_module.main(["--safe-mode", "--cwd", str(project)])
